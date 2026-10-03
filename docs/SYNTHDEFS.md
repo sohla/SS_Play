@@ -105,9 +105,9 @@ Two rules the build enforces:
   at authoring time. In the browser it would instead surface as `maxNodes` exhaustion partway
   through a performance, with new notes silently failing to start.
 
-Add the control list to `sidecar/tests/contracts.scd`. Pages address controls by name and the e2e
-suite sends them positionally, so pinning the exact ordered list turns a rename or reorder into a
-visible diff instead of a silent break.
+Then classify every argument in the `metadata` block above. The build refuses a def with an
+argument in no category, so a control cannot be added to the graph and silently reach neither the
+UI nor the pattern.
 
 ## The live rig
 
@@ -126,7 +126,7 @@ what it should sound like.
 | | |
 |---|---|
 | **play / stop** | starts and stops the pattern |
-| **sliders** | one per control, generated from the compiled descriptor |
+| **sliders** | one per `specs` control, over its declared range |
 | **reset sliders** | back to the def's declared defaults |
 | **status line** | confirms each reload, so you know the save landed |
 
@@ -139,9 +139,9 @@ Three details that matter in use:
 - **Sliders survive a reload.** Rebuilding them on every save would throw away the tuning you were
   in the middle of. They are only rebuilt when the control surface actually changes — add or remove
   a control and the window updates.
-- **Ranges are inferred.** A SynthDef declares a default, not a range. Standard names (`freq`,
-  `amp`, `pan`) use SuperCollider's published specs; anything else gets a range derived from its
-  default. A guess, but a usefully-shaped one — widen it by naming the control conventionally.
+- **Ranges come from the contract, never from a guess.** Only `specs` controls get sliders:
+  `frozen` is pinned and `supplied` belongs to the pattern, so a fader for either would look
+  broken. Both are listed in the window as text, so it is obvious why they have none.
 - **It uses the same hermetic class path as the build.** A def that works in the rig is a def that
   will compile in CI. Inheriting your global config instead would let you author something against
   a quark and discover the problem much later.
