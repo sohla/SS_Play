@@ -9,6 +9,8 @@
     "packages/*/test/**/*.ts",
     "apps/*/src/**/*.ts",
     "apps/*/src/**/*.tsx",
-    "tools/**/*.ts"
+    "apps/*/vite.config.ts",
+    "tools/**/*.ts",
+    "vitest.config.ts"
   ]
 }

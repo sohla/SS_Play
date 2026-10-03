@@ -17,9 +17,16 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "dev": "npm run dev -w @ss/playground",
+    "build": "npm run build --workspaces --if-present",
+    "preview": "npm run preview -w @ss/playground",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "infra:gen": "node infra/gen.mjs",
+    "infra:check": "node infra/gen.mjs --check",
+    "e2e": "playwright test",
+    "verify": "npm run infra:check && npm run typecheck && npm test && npm run build && npm run e2e",
     "clean": "rm -rf apps/*/dist packages/*/dist node_modules/.vite sidecar/out"
   },
   "overrides": {
@@ -27,6 +34,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "22.19.0",
     "typescript": "5.9.3",
     "vitest": "5.0.3"

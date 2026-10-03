@@ -1,0 +1,14 @@
+{
+  "document": {
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Embedder-Policy": "require-corp"
+  },
+  "immutable": {
+    "Cache-Control": "public, max-age=31536000, immutable"
+  },
+  "revalidate": {
+    "Cache-Control": "no-cache"
+  },
+  "immutablePaths": ["/assets/*", "/engine/*", "/synthdefs/*", "/samples/*"],
+  "revalidatePaths": ["/", "/index.html", "/synthdefs/manifest.json", "/samples/manifest.json"]
+}

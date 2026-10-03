@@ -1,0 +1,10 @@
+{
+  "domain": "DOMAIN.invalid",
+  "releaseRoot": "/srv/ssplay",
+  "sites": [
+    {
+      "page": "playground",
+      "subdomain": "playground"
+    }
+  ]
+}

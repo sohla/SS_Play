@@ -1,15 +1,12 @@
-node_modules/
-dist/
-*.tsbuildinfo
-
-sidecar/out/
-sidecar/.sclang-runtime/
-
-infra/certs/
-
-test-results/
-playwright-report/
-blob-report/
 
 .DS_Store
 *.log
+*.tsbuildinfo
+blob-report/
+dist/
+infra/certs/
+node_modules/
+playwright-report/
+sidecar/.sclang-runtime/
+sidecar/out/
+test-results/
