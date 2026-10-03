@@ -13,6 +13,7 @@
 
 var defName, srcPath, patternPath;
 var here = PathName(thisProcess.nowExecutingPath).pathOnly;
+var contract;
 var params, specs, controlNames;
 var window, sliderBox, statusView;
 var buildGui, loadDef, loadPattern, rebuild, specFor, watcher;
@@ -34,21 +35,11 @@ if (File.exists(srcPath).not) {
 params = IdentityDictionary.new;
 specs = IdentityDictionary.new;
 
-// A slider needs a range, and a SynthDef only declares a default. Standard
-// names have published specs; anything else gets a range inferred from its
-// default, which is a guess but a usefully-shaped one.
-specFor = { |name, default|
-    var spec = name.asSpec;
-
-    if (spec.isNil) {
-        spec = case
-        { name == \out } { ControlSpec(0, 16, \lin, 1, default) }
-        { (default >= 0) and: { default <= 1 } } { ControlSpec(0, 1, \lin, 0, default) }
-        { default == 0 } { ControlSpec(0, 1, \lin, 0, 0) }
-        { ControlSpec(0, (default.abs * 4).max(1), \lin, 0, default) };
-    };
-
-    spec;
+// Ranges come from the def's own metadata, never from a guess. A control the
+// contract does not put in `specs` gets no slider: `frozen` is pinned and
+// `supplied` belongs to the pattern, and a slider for either would look broken.
+specFor = { |desc, name|
+    ~sspResolveSpec.(~sspCategory.(desc, \specs)[name]);
 };
 
 loadDef = {
@@ -91,23 +82,48 @@ rebuild = {
 };
 
 buildGui = {
-    var controls = SynthDescLib.global[currentDef.name].controls;
+    var desc = SynthDescLib.global[currentDef.name];
+    var defaults = IdentityDictionary.new;
+    var specNames, frozen, supplied;
 
-    controlNames = controls.collect { |c| c.name.asSymbol };
+    desc.controls.do { |c| defaults[c.name.asSymbol] = c.defaultValue };
+
+    specNames = ~sspCategory.(desc, \specs).keys.asArray.sort;
+    frozen = ~sspCategory.(desc, \frozen);
+    supplied = ~sspCategory.(desc, \supplied);
+
+    controlNames = desc.controlNames.collect(_.asSymbol);
 
     sliderBox.children.copy.do { |child| child.remove };
 
-    controls.do { |control|
-        var name = control.name.asSymbol;
-        var spec = specFor.(name, control.defaultValue);
+    specNames.do { |name|
+        var spec = specFor.(desc, name);
 
         specs[name] = spec;
-        params[name] = params[name] ? control.defaultValue;
+        params[name] = params[name] ? defaults[name] ? spec.default;
 
         EZSlider(sliderBox, Rect(0, 0, 420, 24), name, spec, { |ez|
             params[name] = ez.value;
             rebuild.value;
         }, params[name], labelWidth: 110, numberWidth: 70);
+    };
+
+    // Frozen values are still sent — they are pinned, not absent — but shown as
+    // text so it is obvious why there is no slider for them.
+    frozen.keysValuesDo { |name, value|
+        params[name] = value;
+        StaticText(sliderBox, Rect(0, 0, 420, 18))
+            .string_(" " ++ name ++ "  " ++ value ++ "   (frozen)")
+            .stringColor_(Color.gray(0.55));
+    };
+
+    supplied.keysDo { |name|
+        // Dropped from params entirely: the pattern supplies it per event, and
+        // a GUI value here would be overridden on every note anyway.
+        params.removeAt(name);
+        StaticText(sliderBox, Rect(0, 0, 420, 18))
+            .string_(" " ++ name ++ "   (supplied by the pattern)")
+            .stringColor_(Color.gray(0.55));
     };
 
     window.refresh;
@@ -161,6 +177,8 @@ watcher = Routine({
         0.25.wait;
     };
 });
+
+thisProcess.interpreter.executeFile(here +/+ "lib/ssp_contract.scd");
 
 Server.default.waitForBoot({
     currentDef = loadDef.value;

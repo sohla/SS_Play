@@ -100,6 +100,21 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
     kind: 'SynthDef',
   })
 
+  // The sidecar's own defs ship alongside the vendored library, with their
+  // parameter contracts. Those contracts are what let a page build its control
+  // surface without anyone writing a range in TypeScript.
+  const sidecarDist = join(appDir, '..', '..', 'sidecar', 'dist')
+  const authored: string[] = []
+
+  if (existsSync(sidecarDist)) {
+    mkdirSync(join(target, 'synthdefs'), { recursive: true })
+    for (const file of readdirSync(sidecarDist)) {
+      if (!file.endsWith('.scsyndef') && !file.endsWith('.contract.json')) continue
+      cpSync(join(sidecarDist, file), join(target, 'synthdefs', file))
+      if (file.endsWith('.scsyndef')) authored.push(file.replace(/\.scsyndef$/, ''))
+    }
+  }
+
   const stagedSamples =
     samples.length === 0
       ? []
@@ -112,10 +127,18 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
 
   writeFileSync(
     join(target, 'manifest.json'),
-    `${JSON.stringify({ synthdefs, samples }, null, 2)}\n`,
+    `${JSON.stringify(
+      { synthdefs: [...stagedSynthdefs, ...authored].sort(), authored: authored.sort(), samples },
+      null,
+      2,
+    )}\n`,
   )
 
-  return { dir: target, synthdefs: stagedSynthdefs, samples: stagedSamples }
+  return {
+    dir: target,
+    synthdefs: [...stagedSynthdefs, ...authored],
+    samples: stagedSamples,
+  }
 }
 
 function copyNamed(options: { from: string; to: string; names: string[]; kind: string }): string[] {

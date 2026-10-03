@@ -32,6 +32,18 @@ export {
 export { BufAllocator } from './buffers.ts'
 
 export {
+  initialValues,
+  isDiscrete,
+  mapSpec,
+  unmapSpec,
+  type ControlSpec,
+  type FrozenControl,
+  type SuppliedControl,
+  type SynthDefContract,
+  type Warp,
+} from './contract.ts'
+
+export {
   createMetricsPoller,
   createMetricsReader,
   type MetricDefinition,

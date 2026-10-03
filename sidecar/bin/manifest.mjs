@@ -41,6 +41,26 @@ function describe(dir, filename) {
   }
 
   const def = file.defs[0]
+
+  // The parameter contract, emitted beside the binary by build.scd because
+  // writeDefFile hides metadata in a SuperCollider-only .txarcmeta sidecar.
+  // Carrying it here is what lets a page build its own controls.
+  const contractPath = join(dir, filename.replace(/\.scsyndef$/, '.contract.json'))
+  if (!existsSync(contractPath)) {
+    throw new Error(`${filename}: no .contract.json beside it — re-run \`npm run sc:build\``)
+  }
+  const contract = JSON.parse(readFileSync(contractPath, 'utf8'))
+
+  const classified = new Set([
+    ...contract.specs.map((s) => s.name),
+    ...contract.frozen.map((f) => f.name),
+    ...contract.supplied.map((s) => s.name),
+  ])
+  const unclassified = def.params.map((p) => p.name).filter((name) => !classified.has(name))
+  if (unclassified.length > 0) {
+    throw new Error(`${filename}: not in any contract category: ${unclassified.join(', ')}`)
+  }
+
   return {
     name: def.name,
     file: filename,
@@ -49,6 +69,7 @@ function describe(dir, filename) {
     formatVersion: file.version,
     params: def.params.map(({ name, index, default: value }) => ({ name, index, default: value })),
     ugens: [...new Set(def.ugens.map((u) => u.className))].sort(),
+    contract,
   }
 }
 
@@ -80,7 +101,11 @@ const distManifest = join(distDir, 'manifest.json')
 
 if (promote) {
   mkdirSync(distDir, { recursive: true })
-  for (const entry of entries) copyFileSync(join(outDir, entry.file), join(distDir, entry.file))
+  for (const entry of entries) {
+    copyFileSync(join(outDir, entry.file), join(distDir, entry.file))
+    const contract = entry.file.replace(/\.scsyndef$/, '.contract.json')
+    copyFileSync(join(outDir, contract), join(distDir, contract))
+  }
   writeFileSync(distManifest, manifestJson)
   console.log(`promoted ${entries.length} def(s) into sidecar/dist/`)
   process.exit(0)
@@ -101,9 +126,14 @@ if (readFileSync(distManifest, 'utf8') !== manifestJson) {
   }
   for (const entry of entries) {
     const previous = byName.get(entry.name)
-    if (!previous) console.error(`  + ${entry.name}`)
-    else if (previous.sha256 !== entry.sha256) {
+    if (!previous) {
+      console.error(`  + ${entry.name}`)
+    } else if (previous.sha256 !== entry.sha256) {
       console.error(`  ~ ${entry.name}  ${previous.sha256.slice(0, 12)} -> ${entry.sha256.slice(0, 12)}`)
+    } else if (JSON.stringify(previous.contract) !== JSON.stringify(entry.contract)) {
+      // The binary can be identical while the contract moved: a changed range
+      // or category is a real change to what a UI will draw.
+      console.error(`  ~ ${entry.name}  contract changed (binary unchanged)`)
     }
     byName.delete(entry.name)
   }

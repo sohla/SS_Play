@@ -6,10 +6,10 @@
 
 var outDir = thisProcess.argv[0];
 var here = PathName(thisProcess.nowExecutingPath).pathOnly;
-var sources, contracts;
+var sources;
 
 thisProcess.interpreter.executeFile(here +/+ "lib/ssp_assert.scd");
-contracts = thisProcess.interpreter.executeFile(here +/+ "tests/contracts.scd");
+thisProcess.interpreter.executeFile(here +/+ "lib/ssp_contract.scd");
 
 sources = PathName(here +/+ "synthdefs").files.select { |p| p.extension == "scd" }.sort { |a, b|
     a.fileName < b.fileName
@@ -34,15 +34,23 @@ sources.do { |path|
 
         // controlNames is an Array of Symbols, not Strings.
         ~sspCheck.(name ++ "/has-out", desc.controlNames.includes(\out), "no out control");
-        ~sspCheck.(name ++ "/has-amp", desc.controlNames.includes(\amp), "no amp control");
 
-        // The full ordered contract, so a reorder cannot pass unnoticed.
-        if (contracts[def.name].notNil) {
-            ~sspEquals.(name ++ "/controls", desc.controlNames, contracts[def.name]);
-        } {
-            ~sspCheck.(name ++ "/contract", false,
-                "no entry in tests/contracts.scd for" + def.name);
-        };
+        // The parameter contract: every argument in exactly one category, and
+        // every spec resolvable to a real range. Without this a control can be
+        // added to the graph and silently reach no UI and no pattern.
+        {
+            var problems = ~sspContractProblems.(desc);
+            ~sspCheck.(name ++ "/contract-complete", problems[\unlisted].isEmpty,
+                "arguments in no category:" + problems[\unlisted]);
+            ~sspCheck.(name ++ "/contract-known", problems[\unknown].isEmpty,
+                "metadata names arguments the def does not declare:" + problems[\unknown]);
+            ~sspCheck.(name ++ "/contract-exclusive", problems[\overlapping].isEmpty,
+                "arguments in more than one category:" + problems[\overlapping]);
+            ~sspCheck.(name ++ "/contract-resolvable", problems[\unresolvable].isEmpty,
+                "specs that resolve to no range:" + problems[\unresolvable]);
+            ~sspCheck.(name ++ "/contract-encodable", problems[\unencodable].isEmpty,
+                "specs with bounds that cannot be written to JSON:" + problems[\unencodable]);
+        }.value;
 
         ~sspCheck.(name ++ "/stereo", desc.outputs.sum { |o| o.numberOfChannels } == 2,
             "expected 2 output channels, got" + desc.outputs.sum { |o| o.numberOfChannels });
@@ -103,6 +111,29 @@ sources.do { |path|
             // amp is not in the pattern, so the GUI value must survive.
             ~sspEquals.("live/gui-value-survives", event[\amp], 0.9);
         };
+    };
+}.value;
+
+// Negative fixtures: prove each contract check can actually fail. Without
+// these a green run could mean the validator never fires.
+{
+    var fixtures = [
+        [\unlisted, "bad_unlisted.scd", "an argument in no category"],
+        [\overlapping, "bad_overlap.scd", "an argument in two categories"],
+        [\unknown, "bad_unknown.scd", "metadata naming an argument that does not exist"],
+        [\unresolvable, "bad_unresolvable.scd", "a spec that resolves to no range"],
+        [\unencodable, "bad_unencodable.scd", "a spec whose bounds cannot be encoded"]
+    ];
+
+    fixtures.do { |entry|
+        var key = entry[0], file = entry[1], description = entry[2];
+        var def = thisProcess.interpreter.executeFile(here +/+ "tests/fixtures" +/+ file);
+        var problems;
+        def.add;
+        problems = ~sspContractProblems.(SynthDescLib.global[def.name]);
+
+        ~sspCheck.("fixture/detects-" ++ key, problems[key].notEmpty,
+            description + "was not detected");
     };
 }.value;
 
