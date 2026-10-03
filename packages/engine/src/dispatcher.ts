@@ -187,3 +187,28 @@ export class Dispatcher {
     for (const handler of [...handlers]) handler(message)
   }
 }
+
+export interface NotifySender {
+  send(address: '/notify', flag: 0 | 1): void
+}
+
+/**
+ * Register this client for node lifecycle replies.
+ *
+ * scsynth sends `/n_go`, `/n_end`, `/n_on`, `/n_off` and `/n_move` only to
+ * clients that asked for them, and **SuperSonic does not ask**. Without this,
+ * `waitForNodeEnd` never resolves — synths play correctly and nothing reports
+ * that they finished, which pushes anything waiting on a node back onto sleeps.
+ *
+ * Call it once after boot, before anything waits on a node.
+ */
+export async function enableNodeNotifications(
+  sender: NotifySender,
+  dispatcher: Dispatcher,
+  options: WaitOptions = {},
+): Promise<void> {
+  // Register the waiter before sending, or a fast reply arrives unheard.
+  const acknowledged = dispatcher.waitForDone('/notify', options)
+  sender.send('/notify', 1)
+  await acknowledged
+}

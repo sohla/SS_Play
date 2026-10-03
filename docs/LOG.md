@@ -188,3 +188,75 @@ browser build only has the UGens it was compiled with, and the authoritative lis
 - CI workflow.
 - Whether `sonic-pi-mixout` and `sonic-pi-mixer` can load in the browser at all — Phase 3 answers
   it by loading all 131 and recording the failures.
+
+---
+
+## 2026-10-03 — Phase 3: scsynth running in the browser
+
+### Done
+
+- `packages/vite-preset/src/vendor.ts` — stages the 0.88 runtime into the app's `public/`:
+  `wasm/` and `clockwork_audio_worklet.js` from the core package, the two SAB workers from the
+  client package, declared synthdefs and samples, and both LICENSE files.
+- `apps/playground/src/engine.ts` — boot, node-notification registration, synthdef load, metrics
+  poller, and a beep that waits on `/n_end`.
+- Boot button, live engine info, and a metrics panel in the playground.
+- `tests/e2e/boot.spec.ts` — eight assertions covering the Phase 3 gate.
+
+### Verified
+
+`npm run verify` green: **852 unit + type tests**, no type errors, build, **13 e2e**.
+
+In a real browser: transport `sab`, 48000 Hz, boot ~800 ms, `sonic-pi-beep` loaded,
+`engineProcessCount` climbing, `engineMessagesDropped` 0, `audioHealthPct` 100, and a beep that
+plays and frees its own node.
+
+### Four findings
+
+**1. Browser code must never import from `@ss/vite-preset`.** `engine.ts` imported `ENGINE_BASE`
+from it, which pulled `fs`, `path`, `node:module`, Tailwind and rolldown into the *client* bundle
+and failed as `stream did not contain valid UTF-8`. The path is now injected as a `define`d
+constant, `__SS_ENGINE_BASE__`, which is what the plan called for.
+
+**2. `loadSynthDefs` returns an array, not a record.** The shipped typings declare
+`Promise<Record<string, { success, error? }>>`, but 0.88 implements
+`Promise.all(names.map(loadSynthDef))` — so it returns `{ name, size }[]` and **rejects** on
+failure rather than reporting per-item results. Reading an array as a record reports every name as
+missing, which is exactly what blocked the first boot: the synthdef had loaded fine.
+`loadSynthDefsChecked` now accepts either shape. The 0.66 hazard it was written for no longer
+exists; its remaining value is surviving a version that flips back.
+
+**3. scsynth sends no node notifications unless you ask, and SuperSonic never asks.** `/n_go`,
+`/n_end`, `/n_on`, `/n_off` and `/n_move` go only to clients registered via `/notify 1`. Without
+it `waitForNodeEnd` never resolves — synths play correctly and nothing reports that they finished,
+which would have quietly pushed every audio test back onto sleeps. `enableNodeNotifications()` now
+does it once after boot, registering the waiter before sending so a fast reply is not missed.
+
+**4. The core package's licence metadata and LICENSE file disagree.**
+`supersonic-scsynth-core@0.88.0` declares `AGPL-3.0-or-later` in `package.json` but ships GPL-3.0
+text with no mention of Affero. The client package — the one bundled into page JS, and the reason
+SS_Play is AGPL — is consistently AGPL in both. No change to our licence: GPL-3.0 code is
+compatible with an AGPL-3.0 whole. The e2e spec asserts each file as shipped, so an upstream
+correction surfaces.
+
+### Smaller things
+
+- `ERR_ABORTED` on every asset is normal: the library races a HEAD size-probe against the GET and
+  cancels the loser. It is not a failure, and it looks exactly like one in devtools.
+- The Vite config is loaded by Node, not bundled, so the preset's internal imports need a real
+  `.ts` extension — hence `allowImportingTsExtensions`, which is only appropriate because nothing
+  in `packages/` is emitted.
+- `getInfo().version` is `string | null` and this build reports `null`. Displayed as informational
+  rather than as a fault, and deliberately not asserted in the e2e.
+- The page now reports an **expected** transport from the probe before boot, as well as the
+  **achieved** one after. Showing degradation on load is what `probe()` exists for.
+- A stale `vite preview` from an earlier phase was reused via `reuseExistingServer` and served a
+  `dist` predating the vendor plugin, which produced convincing 404s. Kill preview servers between
+  phases.
+
+### Open
+
+- Domain name, needed at Phase 7.
+- CI workflow.
+- Loading all 131 defs in the browser to derive the real UGen whitelist — still outstanding, now
+  Phase 4 work alongside the sidecar.

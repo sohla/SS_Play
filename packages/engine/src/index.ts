@@ -20,6 +20,8 @@ export { ctl, f, i, type ControlValue, type OscFloat, type OscInt } from './ctl'
 
 export {
   Dispatcher,
+  enableNodeNotifications,
+  type NotifySender,
   type OscMessage,
   type ReplyHandler,
   type ReplySource,

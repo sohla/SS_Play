@@ -42,12 +42,14 @@ test('the browser actually grants cross-origin isolation', async ({ page }) => {
 test('the page reports the fast transport', async ({ page }) => {
   await page.goto('/')
 
-  // Fails the build when isolation is lost. Visitors get a graceful fallback to
-  // the slower transport; we get a hard failure, because a silent downgrade
-  // would turn the audio assertions into assertions about nothing.
-  await expect(page.getByText('transport mode')).toBeVisible()
+  // Reported before any gesture, from the capability probe, so a degraded page
+  // says so on load rather than after someone clicks. Fails the build when
+  // isolation is lost: visitors get a graceful fallback to the slower
+  // transport, we get a hard failure, because a silent downgrade would turn
+  // the audio assertions into assertions about nothing.
+  await expect(page.getByText('expected transport')).toBeVisible()
   await expect(page.getByText('sab', { exact: true })).toBeVisible()
-  await expect(page.getByText('degraded')).toHaveCount(0)
+  await expect(page.getByText(/degraded/)).toHaveCount(0)
 })
 
 test('nothing cross-origin is requested', async ({ page, baseURL }) => {

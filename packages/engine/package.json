@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "supersonic-scsynth": "0.88.0",
+    "supersonic-scsynth-core": "0.88.0",
     "supersonic-scsynth-synthdefs": "0.88.0"
   }
 }

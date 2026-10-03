@@ -17,6 +17,10 @@
 
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // packages/vite-preset is loaded by Node when Vite reads a config file, not
+    // bundled, so its internal imports need a real extension. Nothing here is
+    // emitted, which is exactly when this flag is appropriate.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true,
 

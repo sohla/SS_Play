@@ -2,6 +2,7 @@
 .DS_Store
 *.log
 *.tsbuildinfo
+apps/*/public/vendor/
 blob-report/
 dist/
 infra/certs/

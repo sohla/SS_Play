@@ -1,8 +1,15 @@
 import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import tailwind from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type UserConfig } from 'vite'
 import headers from '../../../infra/headers.json' with { type: 'json' }
+import { VENDOR_DIR, vendorPlugin } from './vendor.ts'
+
+export { VENDOR_DIR, stageVendor, vendorPlugin } from './vendor.ts'
+
+/** Where the engine is served from, for resolveEngineUrls({ base }). */
+export const ENGINE_BASE = `/${VENDOR_DIR}/`
 
 export const DOCUMENT_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   ...headers.document,
@@ -22,12 +29,15 @@ export interface SSAppOptions {
   samples?: string[]
   /** Dev server port. Defaults to 3000. */
   port?: number
+  /** The app's own directory. Defaults to the directory of its vite config. */
+  appDir?: string
 }
 
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
 export function defineSSApp(options: SSAppOptions): UserConfig {
-  const { name, samples = [], port = 3000 } = options
+  const { name, synthdefs = [], samples = [], port = 3000 } = options
+  const appDir = options.appDir ?? join(repoRoot, 'apps', name)
 
   if (samples.length > MAX_SAMPLES_PER_APP) {
     throw new Error(
@@ -38,11 +48,19 @@ export function defineSSApp(options: SSAppOptions): UserConfig {
   }
 
   return defineConfig({
-    plugins: [react(), tailwind()],
+    plugins: [vendorPlugin({ appDir, synthdefs, samples }), react(), tailwind()],
 
     build: {
       target: 'es2022',
       sourcemap: true,
+    },
+
+    // Injected rather than imported. Browser code must never import from this
+    // package: doing so pulls fs, path and the whole bundler into the client
+    // bundle, which fails as "stream did not contain valid UTF-8".
+    define: {
+      __SS_ENGINE_BASE__: JSON.stringify(ENGINE_BASE),
+      __SS_APP_NAME__: JSON.stringify(name),
     },
 
     // Identical header sets on both servers, from infra/headers.json, so that

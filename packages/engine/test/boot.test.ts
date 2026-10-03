@@ -200,7 +200,50 @@ describe('a browser that cannot run the engine', () => {
   })
 })
 
-describe('loadSynthDefsChecked', () => {
+describe('loadSynthDefsChecked: the array shape 0.88 actually returns', () => {
+  it('returns the names the engine extracted from each binary', async () => {
+    const loader = {
+      loadSynthDefs: async () => [
+        { name: 'sonic-pi-beep', size: 2249 },
+        { name: 'sonic-pi-prophet', size: 5000 },
+      ],
+    }
+    await expect(
+      loadSynthDefsChecked(loader, ['sonic-pi-beep', 'sonic-pi-prophet']),
+    ).resolves.toEqual(['sonic-pi-beep', 'sonic-pi-prophet'])
+  })
+
+  it('does not read an array as a record, which reports every name as missing', async () => {
+    // Object.keys of an array gives "0", "1", ... so the record path finds no
+    // entry for any requested name and invents a total failure. This is the
+    // bug that stopped the first real boot.
+    const loader = { loadSynthDefs: async () => [{ name: 'a', size: 1 }] }
+    await expect(loadSynthDefsChecked(loader, ['a'])).resolves.toEqual(['a'])
+  })
+
+  it('surfaces a name that disagrees with the file it came from', async () => {
+    const loader = { loadSynthDefs: async () => [{ name: 'sonic-pi-mixou', size: 2800 }] }
+    await expect(loadSynthDefsChecked(loader, ['sonic-pi-mixout'])).resolves.toEqual([
+      'sonic-pi-mixou',
+    ])
+  })
+
+  it('reports a short array rather than silently dropping names', async () => {
+    const loader = { loadSynthDefs: async () => [{ name: 'a', size: 1 }] }
+    await expect(loadSynthDefsChecked(loader, ['a', 'b'])).rejects.toThrow(/no entry at its index/)
+  })
+
+  it('lets a rejection through, since Promise.all already rejects on failure', async () => {
+    const loader = {
+      loadSynthDefs: async () => {
+        throw new Error('HTTP 404 fetching sonic-pi-nope.scsyndef')
+      },
+    }
+    await expect(loadSynthDefsChecked(loader, ['sonic-pi-nope'])).rejects.toThrow(/404/)
+  })
+})
+
+describe('loadSynthDefsChecked: the record shape the typings describe', () => {
   it('returns the loaded names when everything succeeds', async () => {
     const loader = {
       loadSynthDefs: async () => ({ a: { success: true }, b: { success: true } }),

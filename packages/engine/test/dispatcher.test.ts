@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Dispatcher, type OscMessage, type ReplySource } from '../src/dispatcher'
+import {
+  Dispatcher,
+  enableNodeNotifications,
+  type OscMessage,
+  type ReplySource,
+} from '../src/dispatcher'
 
 /** Stands in for SuperSonic, and counts listeners so leaks are visible. */
 function fakeSource() {
@@ -274,5 +279,49 @@ describe('disposal', () => {
     expect(fake.listenerCount).toBe(0)
     expect(dispatcher.handlerCount).toBe(0)
     expect(() => dispatcher.on('/done', () => {})).toThrow(/disposed/)
+  })
+})
+
+describe('node notifications', () => {
+  it('registers before waiting, so a fast reply is not missed', async () => {
+    // scsynth sends /n_go and /n_end only to clients that registered, and
+    // SuperSonic never registers. Sending before the waiter is attached would
+    // lose the acknowledgement and hang.
+    const fake = fakeSource()
+    const dispatcher = new Dispatcher(fake.source)
+
+    const sender = {
+      send(_address: '/notify', flag: 0 | 1) {
+        expect(flag).toBe(1)
+        // Reply synchronously, the worst case for ordering.
+        fake.emit(['/done', '/notify', 0, 4])
+      },
+    }
+
+    await expect(enableNodeNotifications(sender, dispatcher)).resolves.toBeUndefined()
+    expect(dispatcher.handlerCount).toBe(0)
+  })
+
+  it('rejects if the server never acknowledges', async () => {
+    const fake = fakeSource()
+    const dispatcher = new Dispatcher(fake.source)
+    const sender = { send() {} }
+
+    await expect(enableNodeNotifications(sender, dispatcher, { timeoutMs: 10 })).rejects.toThrow(
+      /Timed out/,
+    )
+    expect(dispatcher.handlerCount).toBe(0)
+  })
+
+  it('rejects when the server refuses', async () => {
+    const fake = fakeSource()
+    const dispatcher = new Dispatcher(fake.source)
+    const sender = {
+      send() {
+        fake.emit(['/fail', '/notify', 'too many clients'])
+      },
+    }
+
+    await expect(enableNodeNotifications(sender, dispatcher)).rejects.toThrow(/too many clients/)
   })
 })
