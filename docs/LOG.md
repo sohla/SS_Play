@@ -128,3 +128,63 @@ contents and does not depend on git state. Verified: exit 1 on drift, exit 0 in 
 - Domain name, needed at Phase 7.
 - CI workflow not written yet. `npm run verify` is the local gate; CI should run everything in it
   except `e2e`, which needs a Chrome channel the runner does not have.
+
+---
+
+## 2026-10-03 — Phase 2: packages/engine and Tier 1 tests
+
+### Done
+
+All pure logic, testable without a browser:
+
+- `scsyndef/` — the v1/v2/v3 parser, reporting bytes consumed and throwing a typed error carrying
+  a byte offset.
+- `urls.ts` — `resolveEngineUrls`, every URL explicit.
+- `boot.ts` — `bootEngine`, never passing `mode`, reporting the achieved transport, with exactly
+  one bounded fallback retry.
+- `ctl.ts` — `ctl()` with float-by-default and `i()` for integers.
+- `dispatcher.ts` — one `on('in')` subscription, address routing, `wait`, `waitForDone`,
+  `waitForNodeEnd`, `onTrigger`.
+- `buffers.ts` — `BufAllocator` with contiguous runs and reservations.
+- `metrics.ts` — `createMetricsPoller`, offsets resolved from the runtime schema, one shared
+  interval, reused snapshot object plus a version counter.
+- `assets.ts` — `loadSynthDefsChecked`.
+
+### Verified
+
+- `npm run verify` green: **844 unit + type tests**, no type errors, build, 5 e2e.
+- The parser runs against the real corpus from `supersonic-scsynth-synthdefs@0.88.0` — 131 files
+  spanning all three format versions — asserting byte-exact consumption, name-matches-filename,
+  dense parameter indices, and no duplicate names, plus a truncation sweep that cuts every file at
+  37-byte intervals and requires a typed error with an offset each time.
+
+### Three real findings, all from the corpus
+
+**1. My own parser bug, caught on the first run.** A UGen input source of `-1` is *legitimate* — it
+means the input is a constant, with the paired value indexing the constants array. Validating those
+as non-negative counts rejected most real files. Counts and indices are now read separately.
+
+**2. `sonic-pi-mixout.scsyndef` is shipped corrupt in `supersonic-scsynth-synthdefs@0.88.0.`**
+The def name `sonic-pi-mixout` (15 chars) was written into a field whose length byte says 14, so
+its final `t` (`0x74`) landed on the high byte of the int16 constant count — turning 11 constants
+into 29707. The rest of the file is laid out correctly for a 14-char name: restoring byte 25 to
+`0x00` parses to exactly 2800/2800 with 11 constants, 24 params and 85 ugens, which is what proves
+the cause. **sclang cannot read it either**, so this is upstream. It is excluded from the
+must-parse set and pinned by four assertions that will fail when upstream fixes it.
+
+**3. Format 3 grew a trailing section between 0.66 and 0.88.** The two format-3 files are 16 bytes
+larger than their 0.66 counterparts, inside the declared per-def length. Rather than special-case
+it, the parser now uses the length prefix for what it is for — stepping over sections it does not
+model — and surfaces the count as `trailingBytes` so a future format change is visible rather than
+silent.
+
+Separately, `sonic-pi-mixer.scsyndef` fails to load in local sclang because `SPLimiter2` is not
+installed. That is an environment gap, not a file problem, but it is a preview of Phase 3: the
+browser build only has the UGens it was compiled with, and the authoritative list is empirical.
+
+### Open
+
+- Domain name, needed at Phase 7.
+- CI workflow.
+- Whether `sonic-pi-mixout` and `sonic-pi-mixer` can load in the browser at all — Phase 3 answers
+  it by loading all 131 and recording the failures.

@@ -9,6 +9,7 @@
     "./scsyndef": "./src/scsyndef/index.ts"
   },
   "dependencies": {
-    "supersonic-scsynth": "0.88.0"
+    "supersonic-scsynth": "0.88.0",
+    "supersonic-scsynth-synthdefs": "0.88.0"
   }
 }
