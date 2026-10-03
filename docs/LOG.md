@@ -260,3 +260,40 @@ correction surfaces.
 - CI workflow.
 - Loading all 131 defs in the browser to derive the real UGen whitelist — still outstanding, now
   Phase 4 work alongside the sidecar.
+
+---
+
+## 2026-10-03 — Phase 3 confirmed by hand, including on iOS
+
+### Audible output, verified by a person
+
+Every automated test runs Chrome with `--mute-audio`, so until now nothing had confirmed the
+engine actually reaches an output device. The e2e proves scsynth renders blocks, accepts `/s_new`
+and reports `/n_end` — all of which would pass just as well if the graph never reached the
+speakers. **Confirmed by ear on desktop Chrome and on a physical iPhone.**
+
+This stays a manual check. Phase 6 narrows it with `startCapture`/`stopCapture`, which taps the
+worklet ring directly — that proves the engine produced samples, still not that a device played
+them. The last link in that chain is always a person.
+
+### iOS Safari works
+
+First contact with WebKit rather than Chromium, over `npm run dev:lan` and mkcert TLS on the LAN.
+The page loads, the engine boots, and a beep is audible on the device.
+
+Worth knowing for anything that follows: iOS routes Web Audio through the **ringer switch**, so a
+silenced phone gives a visually perfect run with no sound — a convincing false negative.
+
+### LAN setup notes
+
+- `SS_LAN=1` is opt-in and changes nothing about the default loop. `http://localhost` is already a
+  secure context; only a phone reaching the Mac by IP needs TLS.
+- The certificate names the LAN IP explicitly, so it needs regenerating when the DHCP lease moves.
+- Getting the CA onto the phone: **AirDrop is unreliable** — a `.pem` lands in Files, where tapping
+  it does nothing. Serving the certificate over plain HTTP and opening it in Safari triggers the
+  configuration-profile flow properly. Serve `rootCA.pem` only; `rootCA-key.pem` sits in the same
+  directory and must never leave the machine.
+- iOS needs **two** separate actions, and installing alone does nothing: install the profile
+  (Settings → Profile Downloaded, or General → VPN & Device Management), **then** trust it
+  (General → About → Certificate Trust Settings). Missing the second produces a generic privacy
+  warning that reads like a broken certificate rather than an untrusted one.
