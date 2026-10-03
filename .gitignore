@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+sidecar/out/
+sidecar/.sclang-runtime/
+
+infra/certs/
+
+test-results/
+playwright-report/
+blob-report/
+
+.DS_Store
+*.log

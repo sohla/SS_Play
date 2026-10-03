@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    // supersonic-scsynth@0.88.0 declares "types" but its "exports" map has no
+    // "types" condition, and under bundler resolution "exports" wins — so the
+    // shipped declarations are unreachable and the import degrades to `any`.
+    // Point at the file directly until upstream adds the condition.
+    // This is not the internal-package pattern: @ss/* resolve via workspace
+    // symlinks and deliberately have no paths entry.
+    "paths": {
+      "supersonic-scsynth": ["./node_modules/supersonic-scsynth/supersonic.d.ts"]
+    }
+  }
+}

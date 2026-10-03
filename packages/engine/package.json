@@ -1,0 +1,14 @@
+{
+  "name": "@ss/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "exports": {
+    ".": "./src/index.ts",
+    "./scsyndef": "./src/scsyndef/index.ts"
+  },
+  "dependencies": {
+    "supersonic-scsynth": "0.88.0"
+  }
+}
