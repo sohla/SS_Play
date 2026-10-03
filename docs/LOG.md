@@ -276,10 +276,19 @@ This stays a manual check. Phase 6 narrows it with `startCapture`/`stopCapture`,
 worklet ring directly — that proves the engine produced samples, still not that a device played
 them. The last link in that chain is always a person.
 
-### iOS Safari works
+### iOS Safari works, and gets the fast transport
 
 First contact with WebKit rather than Chromium, over `npm run dev:lan` and mkcert TLS on the LAN.
 The page loads, the engine boots, and a beep is audible on the device.
+
+**iOS reported `sab`.** Cross-origin isolation and `SharedArrayBuffer` survive the whole chain on
+WebKit, which settles three things that were open:
+
+- No iOS-specific degradation to design around. One transport everywhere.
+- `startCapture`/`stopCapture` is SAB-only, so the Phase 6 audio assertions **can** run on iOS
+  rather than iOS being "works, untestable".
+- `require-corp` was the right call over `credentialless`, which Safari does not support. Had we
+  taken the looser option for convenience, this device would have been locked out.
 
 Worth knowing for anything that follows: iOS routes Web Audio through the **ringer switch**, so a
 silenced phone gives a visually perfect run with no sound — a convincing false negative.
