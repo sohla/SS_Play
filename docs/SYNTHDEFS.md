@@ -49,6 +49,46 @@ Add the control list to `sidecar/tests/contracts.scd`. Pages address controls by
 suite sends them positionally, so pinning the exact ordered list turns a rename or reorder into a
 visible diff instead of a silent break.
 
+## The live rig
+
+```sh
+npm run sc:live ssp_sine
+```
+
+Boots a real scsynth, plays the def under a pattern, and opens a window with a slider for every
+control. **Saving the `.scd` reloads it without stopping the pattern** — the next event uses the new
+sound while the note already sounding finishes on the old one, which is what makes it usable for
+tuning by ear.
+
+This is the counterpart to the browser: the browser proves a def ships, the rig is where you decide
+what it should sound like.
+
+| | |
+|---|---|
+| **play / stop** | starts and stops the pattern |
+| **sliders** | one per control, generated from the compiled descriptor |
+| **reset sliders** | back to the def's declared defaults |
+| **status line** | confirms each reload, so you know the save landed |
+
+`sidecar/live_pattern.scd` drives it and is **also** reloaded on save, so the sequence can be
+edited while it plays. Keys in the pattern override their sliders; anything the pattern doesn't
+mention keeps its slider value. Sequence what should move, leave the rest to the sliders.
+
+Three details that matter in use:
+
+- **Sliders survive a reload.** Rebuilding them on every save would throw away the tuning you were
+  in the middle of. They are only rebuilt when the control surface actually changes — add or remove
+  a control and the window updates.
+- **Ranges are inferred.** A SynthDef declares a default, not a range. Standard names (`freq`,
+  `amp`, `pan`) use SuperCollider's published specs; anything else gets a range derived from its
+  default. A guess, but a usefully-shaped one — widen it by naming the control conventionally.
+- **It uses the same hermetic class path as the build.** A def that works in the rig is a def that
+  will compile in CI. Inheriting your global config instead would let you author something against
+  a quark and discover the problem much later.
+
+Closing the window stops the pattern and frees the server's nodes. Ctrl-C in the terminal ends the
+process.
+
 ## The hermetic class path
 
 The build generates its own `sclang_conf.yaml` into `out/` rather than inheriting yours, which

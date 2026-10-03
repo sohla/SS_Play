@@ -382,3 +382,50 @@ the sidecar reuse the real parser instead of duplicating it.
   (Settings → Profile Downloaded, or General → VPN & Device Management), **then** trust it
   (General → About → Certificate Trust Settings). Missing the second produces a generic privacy
   warning that reads like a broken certificate rather than an untrusted one.
+
+---
+
+## 2026-10-04 — The live authoring rig
+
+### Done
+
+`npm run sc:live <def>` — boots a real scsynth, plays the def under a pattern, and opens a Qt
+window with a slider per control, generated from the compiled descriptor. Saving the `.scd`
+reloads it **without stopping the pattern**.
+
+- `sidecar/live.scd` — the rig.
+- `sidecar/live_pattern.scd` — the driving pattern, reloaded on save as well.
+- `sidecar/bin/live.mjs` — launcher. Deliberately has no timeout, unlike `sc.mjs`: staying open is
+  the point.
+- Five assertions added to `sc:test` covering the rig's pattern contract.
+
+This is the counterpart to the browser side. The browser proves a def ships; the rig is where you
+decide what it should sound like.
+
+### Verified
+
+- `npm run sc:verify`: **22 assertions pass**.
+- Hot reload fires for both files: touching `ssp_sine.scd` logs `SSP_LIVE reloaded`, touching
+  `live_pattern.scd` logs `SSP_LIVE pattern reloaded`.
+- Merge precedence is right — pulled six events from the merged stream: `instrument` from the def,
+  `dur`/`freq` sequenced by the pattern, `amp` held by the GUI.
+- An unknown def name lists what does exist rather than failing blankly.
+
+### Design decisions worth keeping
+
+- **The rig uses the same hermetic class path as the build.** Inheriting the global config would be
+  friendlier in the moment and would let you author against a quark, then discover in CI that it
+  cannot compile. What works in the rig compiles.
+- **Sliders are not rebuilt on every save**, only when the control surface changes. Rebuilding
+  always would discard the tuning you were in the middle of, which is the one thing this tool
+  exists to protect.
+- **Pattern keys override sliders.** Sequence what should move; leave the rest to the sliders. A
+  slider for a key the pattern also sets would otherwise look broken.
+- **Ranges are inferred** from the control default, since a SynthDef declares no range. Standard
+  names use SuperCollider's published specs.
+
+### Not verified by machine
+
+The rig makes sound through the speakers and opens a window, so the audible behaviour and the GUI
+feel are a person's job. What is verified automatically is that it boots, reloads, and builds the
+right event stream.

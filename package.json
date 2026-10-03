@@ -36,7 +36,8 @@
     "sc:manifest": "npm run manifest -w @ss/sidecar",
     "sc:promote": "npm run promote -w @ss/sidecar",
     "survey": "node tools/ugen-survey.mjs",
-    "sc:verify": "npm run sc:build && npm run sc:test && npm run sc:manifest"
+    "sc:verify": "npm run sc:build && npm run sc:test && npm run sc:manifest",
+    "sc:live": "npm run live -w @ss/sidecar --"
   },
   "overrides": {
     "react": "19.3.0",

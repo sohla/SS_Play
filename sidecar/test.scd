@@ -72,4 +72,38 @@ sources.do { |path|
         "a def with no doneAction was reported as self-freeing");
 }.value;
 
+// The live authoring rig depends on live_pattern.scd being a usable event
+// pattern, and on GUI values being overridable by sequenced keys. Both break
+// silently — the rig just plays the wrong thing — so assert them here.
+{
+    var pattern = thisProcess.interpreter.executeFile(here +/+ "live_pattern.scd");
+    var def = thisProcess.interpreter.executeFile(here +/+ "synthdefs/ssp_sine.scd");
+    var merged, event;
+
+    ~sspCheck.("live/pattern-is-a-pbind", pattern.isKindOf(Pbind),
+        "live_pattern.scd must evaluate to a Pbind");
+
+    if (pattern.isKindOf(Pbind)) {
+        def.add;
+
+        // Same construction the rig uses: GUI values first, pattern keys last.
+        merged = Pbind(*([\instrument, def.name, \amp, 0.9, \dur, 99]
+            ++ pattern.patternpairs));
+        event = merged.asStream.next(Event.default);
+
+        ~sspCheck.("live/yields-events", event.notNil, "pattern produced no event");
+
+        if (event.notNil) {
+            ~sspEquals.("live/instrument", event[\instrument], def.name);
+
+            // dur is sequenced by the pattern, so it must win over the 99 above.
+            ~sspCheck.("live/pattern-overrides-gui", event[\dur] != 99,
+                "a sequenced key did not override its GUI value");
+
+            // amp is not in the pattern, so the GUI value must survive.
+            ~sspEquals.("live/gui-value-survives", event[\amp], 0.9);
+        };
+    };
+}.value;
+
 ~sspFinish.();
