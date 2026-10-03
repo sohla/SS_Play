@@ -96,9 +96,51 @@ disk** and hardlinked into each release, so every page serves it from its own or
 **Plain `http://localhost` is already a secure context**, and `crossOriginIsolated` becomes true as
 soon as the headers are present. No TLS needed for the normal loop — `npm run dev` stays HTTP.
 
-mkcert (already installed) earns its place for exactly one job: testing on a physical phone over
-the LAN, where a secure context needs real TLS and iOS additionally wants a trusted chain. That is
-an opt-in path, not the default.
+## Testing on a phone over the LAN
+
+A phone reaching the Mac by IP is **not** localhost, so it gets no secure context — which means no
+AudioWorklet, no `SharedArrayBuffer`, and no DeviceMotion. That needs real TLS, and iOS wants a
+chain it trusts rather than merely a certificate, so a self-signed pair is not enough. Hence
+mkcert.
+
+This is opt-in: `SS_LAN=1` makes the Vite servers bind to all interfaces and serve HTTPS from
+`infra/certs/`. Without it nothing changes.
+
+**One-time, on the Mac:**
+
+```sh
+mkcert -install                       # trust the local CA (already done here)
+mkdir -p infra/certs && cd infra/certs
+mkcert -key-file lan-key.pem -cert-file lan.pem localhost 127.0.0.1 ::1 <your-lan-ip>
+```
+
+Find the address with `ipconfig getifaddr en0`. The certificate names it explicitly, so it has to
+be regenerated when the Mac's DHCP lease changes.
+
+**One-time, on the phone:** the certificate is only trusted if the CA behind it is, and that takes
+*two* steps on iOS — installing the profile is not enough on its own.
+
+1. Get `rootCA.pem` from `$(mkcert -CAROOT)` onto the phone (AirDrop is simplest).
+2. Settings → Profile Downloaded → **Install**.
+3. Settings → General → About → **Certificate Trust Settings** → enable full trust for the mkcert
+   root.
+
+Step 3 is the one that gets missed, and skipping it produces a plain "this connection is not
+private" that looks like the certificate is wrong rather than untrusted.
+
+**Each session:**
+
+```sh
+npm run dev:lan        # or preview:lan for the production build
+```
+
+Then open `https://<your-lan-ip>:3000` on the phone. Both devices have to be on the same network,
+and macOS may prompt to allow incoming connections the first time.
+
+`infra/certs/` is gitignored — the key never leaves the machine.
+
+**Browser floor:** `crossOriginIsolated` and `SharedArrayBuffer` need **iOS 15.2+**. Below that the
+page still runs, reports `postMessage` as its transport, and loses audio capture.
 
 ## Checking it by hand
 

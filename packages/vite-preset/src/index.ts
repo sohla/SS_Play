@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import tailwind from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -19,6 +20,36 @@ export const DOCUMENT_HEADERS: Readonly<Record<string, string>> = Object.freeze(
 // for the whole 35MB library multiplies that across every release on the VM.
 // Pages use a handful; wanting dozens means the page should load them on demand.
 export const MAX_SAMPLES_PER_APP = 32
+
+/**
+ * TLS for testing on a physical device over the LAN, enabled with SS_LAN=1.
+ *
+ * Plain http://localhost is already a secure context, so the normal loop needs
+ * no certificate. A phone reaching the Mac by IP is not localhost, and without
+ * a secure context there is no AudioWorklet, no SharedArrayBuffer and no
+ * DeviceMotion — and iOS additionally wants a chain it trusts, not merely a
+ * certificate. Hence mkcert rather than a self-signed pair.
+ */
+function lanServerOptions(repoRoot: string) {
+  if (!process.env['SS_LAN']) return {}
+
+  const dir = join(repoRoot, 'infra', 'certs')
+  const key = join(dir, 'lan-key.pem')
+  const cert = join(dir, 'lan.pem')
+
+  if (!existsSync(key) || !existsSync(cert)) {
+    throw new Error(
+      `SS_LAN is set but no certificate was found in infra/certs/.\n` +
+        `Generate one for this machine's LAN address:\n` +
+        `  mkcert -install\n` +
+        `  mkdir -p infra/certs && cd infra/certs\n` +
+        `  mkcert -key-file lan-key.pem -cert-file lan.pem localhost 127.0.0.1 <your-lan-ip>\n` +
+        `See docs/CROSS_ORIGIN.md.`,
+    )
+  }
+
+  return { host: true, https: { key: readFileSync(key), cert: readFileSync(cert) } }
+}
 
 export interface SSAppOptions {
   /** Workspace directory name under apps/, and the deploy target name. */
@@ -72,11 +103,13 @@ export function defineSSApp(options: SSAppOptions): UserConfig {
       port,
       headers: { ...DOCUMENT_HEADERS },
       fs: { allow: [repoRoot] },
+      ...lanServerOptions(repoRoot),
     },
 
     preview: {
       port: port + 1173,
       headers: { ...DOCUMENT_HEADERS },
+      ...lanServerOptions(repoRoot),
     },
 
     optimizeDeps: {

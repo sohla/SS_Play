@@ -27,7 +27,9 @@
     "infra:check": "node infra/gen.mjs --check",
     "e2e": "playwright test",
     "verify": "npm run infra:check && npm run typecheck && npm test && npm run build && npm run e2e",
-    "clean": "rm -rf apps/*/dist packages/*/dist node_modules/.vite sidecar/out"
+    "clean": "rm -rf apps/*/dist packages/*/dist node_modules/.vite sidecar/out",
+    "dev:lan": "SS_LAN=1 npm run dev -w @ss/playground",
+    "preview:lan": "SS_LAN=1 npm run preview -w @ss/playground"
   },
   "overrides": {
     "react": "19.3.0",
