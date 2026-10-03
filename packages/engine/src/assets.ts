@@ -21,16 +21,23 @@ export interface SynthDefLoader {
 export class SynthDefLoadError extends Error {
   override readonly name = 'SynthDefLoadError'
 
+  readonly failures: { name: string; error: string }[]
+  readonly loaded: string[]
+  readonly reportedKeys: string[]
+
   constructor(
-    readonly failures: { name: string; error: string }[],
-    readonly loaded: string[],
-    readonly reportedKeys: string[] = [],
+    failures: { name: string; error: string }[],
+    loaded: string[],
+    reportedKeys: string[] = [],
   ) {
     super(
       `${failures.length} of ${failures.length + loaded.length} SynthDefs failed to load:\n` +
         failures.map(({ name, error }) => `  ${name}: ${error}`).join('\n') +
         (reportedKeys.length > 0 ? `\nkeys reported: ${reportedKeys.join(', ')}` : ''),
     )
+    this.failures = failures
+    this.loaded = loaded
+    this.reportedKeys = reportedKeys
   }
 }
 

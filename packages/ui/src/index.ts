@@ -1,2 +1,2 @@
-export { CheckRow } from './CheckRow'
-export { SourceFooter } from './SourceFooter'
+export { CheckRow } from './CheckRow.tsx'
+export { SourceFooter } from './SourceFooter.tsx'

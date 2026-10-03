@@ -4,7 +4,7 @@ import {
   enableNodeNotifications,
   type OscMessage,
   type ReplySource,
-} from '../src/dispatcher'
+} from '../src/dispatcher.ts'
 
 /** Stands in for SuperSonic, and counts listeners so leaks are visible. */
 function fakeSource() {

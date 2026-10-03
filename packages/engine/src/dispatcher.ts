@@ -28,7 +28,11 @@ export class Dispatcher {
   #detach: Unsubscribe | null = null
   #disposed = false
 
-  constructor(private readonly source: ReplySource) {}
+  readonly #source: ReplySource
+
+  constructor(source: ReplySource) {
+    this.#source = source
+  }
 
   /** Live listener count, for leak assertions in tests and dev tooling. */
   get handlerCount(): number {
@@ -53,7 +57,7 @@ export class Dispatcher {
 
     // Attach lazily and detach when the last handler goes, so an idle page
     // costs nothing and a leak shows up as `attached` staying true.
-    this.#detach ??= this.source.on('in', (message) => this.#deliver(message))
+    this.#detach ??= this.#source.on('in', (message) => this.#deliver(message))
 
     let released = false
     return () => {

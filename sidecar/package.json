@@ -1,0 +1,16 @@
+{
+  "name": "@ss/sidecar",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "node bin/sc.mjs build",
+    "test": "node bin/sc.mjs test",
+    "manifest": "node bin/manifest.mjs",
+    "promote": "node bin/manifest.mjs --promote"
+  },
+  "dependencies": {
+    "@ss/engine": "*"
+  }
+}

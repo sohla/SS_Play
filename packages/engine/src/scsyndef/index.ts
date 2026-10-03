@@ -1,4 +1,4 @@
-export { parseSynthDefFile } from './parse'
+export { parseSynthDefFile } from './parse.ts'
 export {
   RATE_NAMES,
   SynthDefParseError,
@@ -8,4 +8,4 @@ export {
   type SynthDefUGen,
   type SynthDefVariant,
   type UGenRate,
-} from './types'
+} from './types.ts'

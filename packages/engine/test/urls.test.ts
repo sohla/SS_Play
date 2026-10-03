@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WASM_FILENAME, WORKLET_FILENAME, resolveEngineUrls } from '../src/urls'
+import { WASM_FILENAME, WORKLET_FILENAME, resolveEngineUrls } from '../src/urls.ts'
 
 describe('defaults', () => {
   const urls = resolveEngineUrls({ base: '/vendor/supersonic/' })

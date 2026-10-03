@@ -302,6 +302,82 @@ silenced phone gives a visually perfect run with no sound — a convincing false
   it does nothing. Serving the certificate over plain HTTP and opening it in Safari triggers the
   configuration-profile flow properly. Serve `rootCA.pem` only; `rootCA-key.pem` sits in the same
   directory and must never leave the machine.
+
+---
+
+## 2026-10-03 — Phase 4: the sclang sidecar and the binary contract
+
+### Done
+
+- `sidecar/` — hermetic headless sclang build, `SynthDescLib` assertions, manifest with sha256, and
+  a committed `dist/` behind an explicit promotion gate.
+- `packages/engine/test/sidecar-dist.test.ts` — Tier 2 over the committed output, no SuperCollider
+  needed.
+- `tools/ugen-survey.mjs` — loads every vendored def into a real engine, writes
+  `docs/UGEN-SURVEY.json`.
+- `docs/SYNTHDEFS.md`.
+- The playground now vendors all 131 defs, which also sets up Phase 5's browser.
+
+### Verified
+
+- `npm run verify`: **867 unit + type tests**, build, 13 e2e.
+- `npm run sc:verify`: 2 defs compiled, **17 sclang assertions passed**, `dist/` in sync.
+- Every gate was tested by breaking something, not assumed:
+  - Reordering two controls → `ssp_sine/controls` fails with an expected-vs-got diff.
+  - Changing a default → the promotion gate reports `~ ssp_sine bdc6b2b7d59e -> 5ba43cd404d8`.
+  - A def with no `doneAction` → the in-test negative control confirms `canFreeSynth` catches it.
+
+### The `-a` question, settled
+
+The prediction from reading `SC_LanguageConfig.cpp:54` was right.
+`excludeDefaultPaths: true` with an empty `includePaths` gives *"Library has not been compiled
+successfully"* and exit 1 — it drops **`SCClassLibrary` itself**, not just the extension dirs.
+Naming it back gives 2263 classes, and `JSONlib`/`Spectrogram` are absent where the default config
+has them, which is hermeticity demonstrated rather than asserted.
+
+### Findings
+
+**1. The browser build is *richer* than the local SuperCollider, not poorer.** `SPLimiter2` loads
+fine in the browser but is **not installed in this machine's sclang** — `sonic-pi-mixer` failed to
+read locally for exactly that reason. So a def using it would fail to compile here while running
+fine once deployed. The plan assumed the constraint ran the other way.
+
+**2. There is no UGen the browser cannot run.** All 117 classes across the corpus are supported;
+zero suspect. The planned "UGen whitelist" has nothing to exclude, so it stays a survey artifact
+rather than becoming a gate.
+
+**3. The first survey was measuring the wrong thing and said so confidently.** It reported 131/131,
+including the file that cannot possibly load. `loadSynthDef` fetches, extracts the name, and calls
+`send('/d_recv', …)` — synchronous, returns void — so awaiting it proves only that bytes were
+dispatched. scsynth reports refusal asynchronously as `/fail`. The survey now awaits `sync()` after
+each load and reads that stream: **130/131**, with `sonic-pi-mixout` failing as
+`/d_recv unknown exception`.
+
+That message closes a loop: it is the same opaque error recorded in `moovit`'s
+`LESSONS_LEARNED.md`. It means a malformed synthdef, and it names nothing.
+
+**4. Node cannot load the engine's TypeScript until two things are true.** Node 22.19 strips types
+natively, but only in strip-only mode: extensionless relative imports do not resolve, and
+**parameter properties** (`constructor(readonly x: T)`) are rejected outright, since they require
+code generation rather than erasure. Both are now fixed throughout `packages/`, which is what lets
+the sidecar reuse the real parser instead of duplicating it.
+
+### Two sclang failure modes worth remembering
+
+- **Any error leaves sclang alive at its REPL.** The script's `0.exit` never runs, so a failure
+  presents as a hang. `bin/sc.mjs` kills it after `SSP_TIMEOUT_MS` and explains why — without that
+  timeout every mistake costs a wedged terminal.
+- **A parse error prints nothing at all.** Not the error, not even output from lines before it —
+  the whole file silently fails to execute. `var` inside a parenthesised block is one such error;
+  `var` is only legal at the start of a function body. If a script produces no output whatsoever,
+  suspect syntax.
+
+### Open
+
+- Domain name, needed at Phase 7.
+- CI workflow.
+- `npm run verify` deliberately excludes the sclang chain, since CI has no SuperCollider.
+  `npm run sc:verify` is the local gate for synthdef changes.
 - iOS needs **two** separate actions, and installing alone does nothing: install the profile
   (Settings → Profile Downloaded, or General → VPN & Device Management), **then** trust it
   (General → About → Certificate Trust Settings). Missing the second produces a generic privacy

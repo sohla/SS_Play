@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createMetricsPoller, createMetricsReader, type MetricsSchema } from '../src/metrics'
+import { createMetricsPoller, createMetricsReader, type MetricsSchema } from '../src/metrics.ts'
 
 // Deliberately mirrors the real schema's awkward parts: non-contiguous offsets,
 // an enum with labels, and a gap where no metric lives.

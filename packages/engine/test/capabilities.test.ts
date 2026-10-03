@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { probeCapabilities } from '../src/capabilities'
+import { probeCapabilities } from '../src/capabilities.ts'
 
 // probeCapabilities takes its scope as a parameter precisely so the degraded
 // paths can be exercised without a browser. Everything a page shows about why

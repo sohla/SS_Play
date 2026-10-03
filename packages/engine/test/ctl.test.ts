@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ctl, f, i } from '../src/ctl'
+import { ctl, f, i } from '../src/ctl.ts'
 
 describe('the integer inference footgun', () => {
   it('sends a whole-number control as a float', () => {

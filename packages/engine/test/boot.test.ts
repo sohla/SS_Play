@@ -4,9 +4,9 @@ import {
   type BootResult,
   type BootableEngine,
   type EngineFactoryOptions,
-} from '../src/boot'
-import { resolveEngineUrls } from '../src/urls'
-import { loadSynthDefsChecked, SynthDefLoadError } from '../src/assets'
+} from '../src/boot.ts'
+import { resolveEngineUrls } from '../src/urls.ts'
+import { loadSynthDefsChecked, SynthDefLoadError } from '../src/assets.ts'
 
 const urls = resolveEngineUrls({ base: '/vendor/supersonic/' })
 

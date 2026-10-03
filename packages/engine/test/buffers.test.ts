@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BufAllocator } from '../src/buffers'
+import { BufAllocator } from '../src/buffers.ts'
 
 describe('allocation', () => {
   it('starts at 0 and counts up', () => {

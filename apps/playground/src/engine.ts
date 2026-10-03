@@ -66,18 +66,24 @@ export async function startSession(): Promise<
     schema: SuperSonic.getMetricsSchema() as never,
   })
 
-  return {
-    ok: true,
-    session: {
-      sonic,
-      dispatcher,
-      buffers: new BufAllocator(scsynthOptions.numBuffers),
-      metrics,
-      mode: result.mode,
-      ...(result.degraded ? { degraded: result.degraded } : {}),
-      loadedSynthDefs,
-    },
+  const session: Session = {
+    sonic,
+    dispatcher,
+    buffers: new BufAllocator(scsynthOptions.numBuffers),
+    metrics,
+    mode: result.mode,
+    ...(result.degraded ? { degraded: result.degraded } : {}),
+    loadedSynthDefs,
   }
+
+  // Opt-in handle for tooling that needs to drive the engine directly, such as
+  // the UGen survey. Behind a query parameter so it is never present by
+  // accident, and never on a deployed page unless someone asks for it.
+  if (new URLSearchParams(location.search).has('debug')) {
+    ;(window as unknown as Record<string, unknown>)['__ss'] = session
+  }
+
+  return { ok: true, session }
 }
 
 /** Fire a note and resolve when scsynth reports the node freed. */

@@ -6,15 +6,17 @@ import {
   type SynthDefUGen,
   type SynthDefVariant,
   type UGenRate,
-} from './types'
+} from './types.ts'
 
 const MAGIC = 0x53436766 // 'SCgf'
 
 class Reader {
   offset = 0
+  readonly bytes: Uint8Array
   private readonly view: DataView
 
-  constructor(readonly bytes: Uint8Array) {
+  constructor(bytes: Uint8Array) {
+    this.bytes = bytes
     this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   }
 

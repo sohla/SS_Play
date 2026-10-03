@@ -11,7 +11,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "sidecar"
   ],
   "engines": {
     "node": ">=22.12.0"
@@ -29,7 +30,13 @@
     "verify": "npm run infra:check && npm run typecheck && npm test && npm run build && npm run e2e",
     "clean": "rm -rf apps/*/dist packages/*/dist node_modules/.vite sidecar/out",
     "dev:lan": "SS_LAN=1 npm run dev -w @ss/playground",
-    "preview:lan": "SS_LAN=1 npm run preview -w @ss/playground"
+    "preview:lan": "SS_LAN=1 npm run preview -w @ss/playground",
+    "sc:build": "npm run build -w @ss/sidecar",
+    "sc:test": "npm run test -w @ss/sidecar",
+    "sc:manifest": "npm run manifest -w @ss/sidecar",
+    "sc:promote": "npm run promote -w @ss/sidecar",
+    "survey": "node tools/ugen-survey.mjs",
+    "sc:verify": "npm run sc:build && npm run sc:test && npm run sc:manifest"
   },
   "overrides": {
     "react": "19.3.0",

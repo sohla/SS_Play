@@ -8,11 +8,13 @@
  */
 export class BufAllocator {
   readonly #used = new Set<number>()
+  readonly capacity: number
 
-  constructor(readonly capacity: number = 1024) {
+  constructor(capacity = 1024) {
     if (!Number.isInteger(capacity) || capacity < 1) {
       throw new RangeError(`Buffer capacity must be a positive integer, got ${capacity}`)
     }
+    this.capacity = capacity
   }
 
   get usedCount(): number {

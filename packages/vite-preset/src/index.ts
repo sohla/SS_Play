@@ -54,8 +54,8 @@ function lanServerOptions(repoRoot: string) {
 export interface SSAppOptions {
   /** Workspace directory name under apps/, and the deploy target name. */
   name: string
-  /** Logical SynthDef names this page loads. */
-  synthdefs?: string[]
+  /** Logical SynthDef names, or 'all' for the whole vendored library. */
+  synthdefs?: string[] | 'all'
   /** Sample filenames this page loads. */
   samples?: string[]
   /** Dev server port. Defaults to 3000. */

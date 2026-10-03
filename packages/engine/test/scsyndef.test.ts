@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
-import { SynthDefParseError, parseSynthDefFile } from '../src/scsyndef'
+import { SynthDefParseError, parseSynthDefFile } from '../src/scsyndef/index.ts'
 
 // The binary-contract tier. No browser, no SuperCollider — just the parser
 // against every compiled def that ships, which is the strongest corpus

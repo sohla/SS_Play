@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import headers from '../../../infra/headers.json' with { type: 'json' }
-import { MAX_SAMPLES_PER_APP, defineSSApp } from '../src/index'
+import { MAX_SAMPLES_PER_APP, defineSSApp } from '../src/index.ts'
 
 // infra/headers.json is the single source of truth: the Vite servers import it
 // and infra/gen.mjs renders the Caddyfile from it. These tests guard the Vite

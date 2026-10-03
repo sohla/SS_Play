@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { Plugin } from 'vite'
 
@@ -32,8 +32,12 @@ function packageRoot(name: string): string {
 export interface StageVendorOptions {
   /** The app directory, e.g. apps/playground. */
   appDir: string
-  /** Logical SynthDef names this page loads, without the .scsyndef suffix. */
-  synthdefs?: string[]
+  /**
+   * Logical SynthDef names this page loads, without the .scsyndef suffix.
+   * `'all'` stages the whole vendored library — 131 defs at ~656KB, which is
+   * small enough to be worth it for a page that browses them.
+   */
+  synthdefs?: string[] | 'all'
   /** Sample filenames this page loads, with extension. */
   samples?: string[]
 }
@@ -56,7 +60,16 @@ export interface StageVendorResult {
  * licence boundary visible. Both LICENSE files travel with it.
  */
 export function stageVendor(options: StageVendorOptions): StageVendorResult {
-  const { appDir, synthdefs = [], samples = [] } = options
+  const { appDir, samples = [] } = options
+
+  const synthdefSource = join(packageRoot('supersonic-scsynth-synthdefs'), 'synthdefs')
+  const synthdefs =
+    options.synthdefs === 'all'
+      ? readdirSync(synthdefSource)
+          .filter((name) => name.endsWith('.scsyndef'))
+          .map((name) => name.replace(/\.scsyndef$/, ''))
+          .sort()
+      : (options.synthdefs ?? [])
 
   const core = packageRoot('supersonic-scsynth-core')
   const client = packageRoot('supersonic-scsynth')
@@ -81,7 +94,7 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
   cpSync(join(client, 'LICENSE'), join(target, 'LICENSE-supersonic-scsynth'))
 
   const stagedSynthdefs = copyNamed({
-    from: join(packageRoot('supersonic-scsynth-synthdefs'), 'synthdefs'),
+    from: synthdefSource,
     to: join(target, 'synthdefs'),
     names: synthdefs.map((name) => `${name}.scsyndef`),
     kind: 'SynthDef',

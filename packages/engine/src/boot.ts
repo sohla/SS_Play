@@ -1,5 +1,5 @@
-import { probeCapabilities, type CapabilityReport, type TransportMode } from './capabilities'
-import type { EngineUrls } from './urls'
+import { probeCapabilities, type CapabilityReport, type TransportMode } from './capabilities.ts'
+import type { EngineUrls } from './urls.ts'
 
 export interface BootableEngine {
   init(): Promise<void>

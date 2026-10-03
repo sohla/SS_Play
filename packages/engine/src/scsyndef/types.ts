@@ -61,11 +61,12 @@ export interface SynthDefFile {
 export class SynthDefParseError extends Error {
   override readonly name = 'SynthDefParseError'
 
-  constructor(
-    message: string,
-    readonly offset: number,
-    readonly context?: string,
-  ) {
+  readonly offset: number
+  readonly context: string | undefined
+
+  constructor(message: string, offset: number, context?: string) {
     super(context ? `${message} at byte ${offset} (${context})` : `${message} at byte ${offset}`)
+    this.offset = offset
+    this.context = context
   }
 }

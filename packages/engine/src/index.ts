@@ -3,7 +3,7 @@ export {
   type Capabilities,
   type CapabilityReport,
   type TransportMode,
-} from './capabilities'
+} from './capabilities.ts'
 
 export {
   resolveEngineUrls,
@@ -12,11 +12,11 @@ export {
   WORKLET_FILENAME,
   type EngineUrls,
   type ResolveEngineUrlsOptions,
-} from './urls'
+} from './urls.ts'
 
-export { bootEngine, type BootOptions, type BootResult, type Degradation } from './boot'
+export { bootEngine, type BootOptions, type BootResult, type Degradation } from './boot.ts'
 
-export { ctl, f, i, type ControlValue, type OscFloat, type OscInt } from './ctl'
+export { ctl, f, i, type ControlValue, type OscFloat, type OscInt } from './ctl.ts'
 
 export {
   Dispatcher,
@@ -27,9 +27,9 @@ export {
   type ReplySource,
   type Unsubscribe,
   type WaitOptions,
-} from './dispatcher'
+} from './dispatcher.ts'
 
-export { BufAllocator } from './buffers'
+export { BufAllocator } from './buffers.ts'
 
 export {
   createMetricsPoller,
@@ -39,14 +39,14 @@ export {
   type MetricsSchema,
   type MetricsSnapshot,
   type MetricsSource,
-} from './metrics'
+} from './metrics.ts'
 
 export {
   loadSynthDefsChecked,
   SynthDefLoadError,
   type SynthDefLoader,
   type SynthDefLoadResult,
-} from './assets'
+} from './assets.ts'
 
 export {
   parseSynthDefFile,
@@ -55,4 +55,4 @@ export {
   type SynthDefFile,
   type SynthDefParam,
   type SynthDefUGen,
-} from './scsyndef'
+} from './scsyndef/index.ts'
