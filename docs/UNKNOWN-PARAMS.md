@@ -1,8 +1,8 @@
 # Parameters still without a range
 
 The vendored Sonic Pi defs carry no metadata, so their control ranges are inferred from naming
-conventions — see [SYNTHDEFS.md](SYNTHDEFS.md#inferred-contracts). **93.3% of parameters are
-covered.** These 148 names are not, so they appear in the UI as values with no control.
+conventions — see [SYNTHDEFS.md](SYNTHDEFS.md#inferred-contracts). **94.2% of parameters are
+covered.** These 143 names are not, so they appear in the UI as values with no control.
 
 That is deliberate. A parameter with an invented range is worse than one with none: the slider
 looks authoritative and is not.
@@ -27,15 +27,10 @@ clue to its range and units.
 
 | parameter | defs | defaults seen | used by |
 |---|---|---|---|
-| `phase` | 9 | 0.25, 0.5, 1, 4 | fx_echo, fx_flanger, fx_ixi_techno, fx_panslicer, … |
-| `phase_offset` | 8 | 0 | beep, fx_flanger, fx_ixi_techno, fx_panslicer, … |
-| `mod_phase` | 6 | 0.25 | mod_dsaw, mod_fm, mod_pulse, mod_saw, … |
 | `mod_phase_offset` | 6 | 0 | mod_dsaw, mod_fm, mod_pulse, mod_saw, … |
 | `centre` | 4 | 100 | fx_bpf, fx_nbpf, fx_nrbpf, fx_rbpf |
-| `depth` | 4 | 0.5, 1, 5 | fm, fx_flanger, fx_tremolo, mod_fm |
 | `pitch` | 3 | 0 | fx_pitch_shift, mono_player, stereo_player |
 | `pitch_dis` | 3 | 0 | fx_pitch_shift, mono_player, stereo_player |
-| `room` | 3 | 0.6, 10, 70 | dark_ambience, fx_gverb, fx_reverb |
 | `smooth` | 3 | 0 | fx_panslicer, fx_slicer, fx_wobble |
 | `smooth_down` | 3 | 0 | fx_panslicer, fx_slicer, fx_wobble |
 | `smooth_up` | 3 | 0 | fx_panslicer, fx_slicer, fx_wobble |

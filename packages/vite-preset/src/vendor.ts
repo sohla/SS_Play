@@ -191,7 +191,7 @@ function inferContracts(synthdefDir: string, authored: string[]): string[] {
 
     writeFileSync(
       join(synthdefDir, `${name}.contract.json`),
-      `${JSON.stringify(inferContract(params), null, 2)}\n`,
+      `${JSON.stringify(inferContract(params, name), null, 2)}\n`,
     )
     written.push(name)
   }

@@ -24,8 +24,13 @@ import type { SynthDefParam } from '@ss/engine/scsyndef'
  * Hand-supplied ranges for parameters the conventions do not cover.
  *
  * A separate JSON file rather than entries in the rule table below, so adding
- * one is an edit to data and not to code. Exact names, so they win over every
- * pattern.
+ * one is an edit to data and not to code.
+ *
+ * Keys are either a bare parameter name or `defName.param`. The per-def form
+ * exists because some names genuinely mean different things in different defs:
+ * `depth` is milliseconds in fx_flanger, a modulation index in fm, and a 0-1
+ * amount in fx_tremolo. A single global range for those would be wrong
+ * everywhere except by accident.
  */
 function loadOverrides(): Map<string, ReturnType<typeof spec>> {
   const out = new Map<string, ReturnType<typeof spec>>()
@@ -145,7 +150,11 @@ const RULES: [RegExp, ReturnType<typeof spec>, string][] = [
 
 const OVERRIDES = loadOverrides()
 
-function inferSpec(name: string) {
+function inferSpec(name: string, defName: string) {
+  // Per-def first, then the bare name, then the patterns.
+  const scoped = OVERRIDES.get(`${defName.replace(/^sonic-pi-/, '')}.${name}`)
+  if (scoped) return scoped
+
   const override = OVERRIDES.get(name)
   if (override) return override
 
@@ -155,7 +164,7 @@ function inferSpec(name: string) {
   return null
 }
 
-export function inferContract(params: SynthDefParam[]): InferredContract {
+export function inferContract(params: SynthDefParam[], defName = ''): InferredContract {
   const specs: InferredSpec[] = []
   const supplied: { name: string; default: number }[] = []
   const unknown: { name: string; default: number }[] = []
@@ -166,7 +175,7 @@ export function inferContract(params: SynthDefParam[]): InferredContract {
       continue
     }
 
-    const inferred = inferSpec(param.name)
+    const inferred = inferSpec(param.name, defName)
     if (!inferred) {
       unknown.push({ name: param.name, default: param.default })
       continue

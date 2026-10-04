@@ -10,6 +10,20 @@
   "//8": "An exponential warp cannot include or cross zero.",
   "//9": "See docs/UNKNOWN-PARAMS.md for the list still needing ranges.",
 
+  "//10": "",
+  "//11": "--- supplied by hand, 2026-10-04 ---",
+
+  "phase": [0, 6.283185307179586, "linear", 0],
+  "phase_offset": [0, 6.283185307179586, "linear", 0],
+  "mod_phase": [0, 1, "linear", 0],
+  "room": [0.0001, 70, "exponential", 0],
+
+  "//12": "`depth` means three different things, so it is scoped per def:",
+  "fx_flanger.depth": [0, 20, "linear", 0, "ms"],
+  "fx_tremolo.depth": [0, 1, "linear", 0],
+  "fm.depth": [0, 10, "linear", 0],
+  "mod_fm.depth": [0, 10, "linear", 0],
+
   "buf": [0, 1023, "linear", 1],
   "rate": [-4, 4, "linear", 0],
   "start": [0, 1, "linear", 0],
