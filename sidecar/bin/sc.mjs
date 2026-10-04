@@ -132,8 +132,8 @@ function reportTests(stdout) {
 }
 
 const command = process.argv[2]
-if (!command || !['build', 'test'].includes(command)) {
-  console.error('usage: sc.mjs <build|test>')
+if (!command || !['build', 'test', 'continuity'].includes(command)) {
+  console.error('usage: sc.mjs <build|test|continuity>')
   process.exit(2)
 }
 
@@ -160,7 +160,9 @@ writeFileSync(
   ].join('\n'),
 )
 
-const script = command === 'build' ? 'build.scd' : 'test.scd'
+const script = { build: 'build.scd', test: 'test.scd', continuity: 'tests/reload_continuity.scd' }[
+  command
+]
 const { code, stdout } = await runSclang(sclangPath, configPath, script, [outDir])
 
 if (code !== 0) {
@@ -168,7 +170,7 @@ if (code !== 0) {
   process.exit(code ?? 1)
 }
 
-if (command === 'test') {
+if (command === 'test' || command === 'continuity') {
   const { results, failed, summary } = reportTests(stdout)
 
   // A run that produced no assertions is a failure, not a pass: it usually

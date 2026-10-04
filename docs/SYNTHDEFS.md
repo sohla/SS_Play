@@ -97,13 +97,19 @@ SynthDef(\ssp_sine, { |out = 0, freq = 440, amp = 0.2, pan = 0,
 })
 ```
 
-Two rules the build enforces:
+Four rules the build enforces:
 
 - **Names start with `ssp_`.** The synthdefs package stages 131 `sonic-pi-*` defs into the same
   directory; the prefix makes a collision impossible rather than unlikely.
 - **Every def must free itself.** `desc.canFreeSynth` is asserted, so a missing `doneAction` fails
   at authoring time. In the browser it would instead surface as `maxNodes` exhaustion partway
   through a performance, with new notes silently failing to start.
+- **Every def must have a `gate`.** The event system only sends gate-off when `desc.hasGate` is
+  true (`sendGate = ~sendGate ? ~hasGate`), so without one `\legato` and `\sustain` do nothing,
+  the pattern cannot release a note, and you cannot hold a drone while tuning it.
+- **No argument may be called `sustain`.** The event system computes `sustain` as a *time*
+  (`dur * legato * stretch`) and sends it to any argument of that name, which silently overwrites
+  whatever it was meant to mean. Use `susLevel` for an envelope level.
 
 Then classify every argument in the `metadata` block above. The build refuses a def with an
 argument in no category, so a control cannot be added to the graph and silently reach neither the
@@ -146,8 +152,17 @@ Three details that matter in use:
   will compile in CI. Inheriting your global config instead would let you author something against
   a quark and discover the problem much later.
 
+`npm run sc:live ssp_sine play` starts the pattern immediately instead of waiting for the button.
+
+**Reset moves the existing sliders rather than rebuilding the panel** — a redraw makes the window
+flash and buys nothing.
+
 Closing the window stops the pattern and frees the server's nodes. Ctrl-C in the terminal ends the
 process.
+
+`npm run sc:continuity` is the regression test for the rig's core promise: it boots a server,
+plays silently, reloads the def mid-pattern and asserts events keep arriving. It is separate from
+`sc:test` because it needs a server, and `sc:test` is deliberately serverless and fast.
 
 ## The hermetic class path
 

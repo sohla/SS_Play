@@ -11,16 +11,17 @@
 // def that works here is a def that will build. Inheriting the user's global
 // config instead would let you author something that fails in CI.
 
-var defName, srcPath, patternPath;
+var defName, srcPath, patternPath, autoPlay;
 var here = PathName(thisProcess.nowExecutingPath).pathOnly;
 var contract;
-var params, specs, controlNames;
-var window, sliderBox, statusView;
+var params, specs, sliders, controlNames;
+var window, sliderBox, statusView, playButton;
 var buildGui, loadDef, loadPattern, rebuild, specFor, watcher;
 var defStamp = 0, patternStamp = 0;
 var currentDef;
 
 defName = thisProcess.argv[0] ? "ssp_sine";
+autoPlay = (thisProcess.argv[1] ? "") == "play";
 srcPath = here +/+ "synthdefs" +/+ defName ++ ".scd";
 patternPath = here +/+ "live_pattern.scd";
 
@@ -34,6 +35,7 @@ if (File.exists(srcPath).not) {
 
 params = IdentityDictionary.new;
 specs = IdentityDictionary.new;
+sliders = IdentityDictionary.new;
 
 // Ranges come from the def's own metadata, never from a guess. A control the
 // contract does not put in `specs` gets no slider: `frozen` is pinned and
@@ -95,6 +97,7 @@ buildGui = {
     controlNames = desc.controlNames.collect(_.asSymbol);
 
     sliderBox.children.copy.do { |child| child.remove };
+    sliders.clear;
 
     specNames.do { |name|
         var spec = specFor.(desc, name);
@@ -102,7 +105,7 @@ buildGui = {
         specs[name] = spec;
         params[name] = params[name] ? defaults[name] ? spec.default;
 
-        EZSlider(sliderBox, Rect(0, 0, 420, 24), name, spec, { |ez|
+        sliders[name] = EZSlider(sliderBox, Rect(0, 0, 420, 24), name, spec, { |ez|
             params[name] = ez.value;
             rebuild.value;
         }, params[name], labelWidth: 110, numberWidth: 70);
@@ -200,14 +203,33 @@ Server.default.waitForBoot({
 
         window.view.decorator = FlowLayout(window.view.bounds, 8@8, 4@4);
 
-        Button(window, Rect(0, 0, 100, 26))
+        playButton = Button(window, Rect(0, 0, 100, 26))
             .states_([["play", Color.black, Color.green(0.7)],
                       ["stop", Color.white, Color.red(0.6)]])
             .action_({ |b| if (b.value == 1) { Pdef(\sspLive).play } { Pdef(\sspLive).stop } });
 
+        if (autoPlay) { playButton.valueAction_(1) };
+
         Button(window, Rect(0, 0, 100, 26))
-            .states_([["reset sliders"]])
-            .action_({ params.clear; buildGui.value; rebuild.value });
+            .states_([["reset"]])
+            .action_({
+                // Move the existing sliders rather than tearing the panel down
+                // and building it again: a redraw makes the whole window flash
+                // and loses scroll position for no benefit.
+                var desc = SynthDescLib.global[currentDef.name];
+                var defaults = IdentityDictionary.new;
+                desc.controls.do { |c| defaults[c.name.asSymbol] = c.defaultValue };
+
+                sliders.keysValuesDo { |name, ez|
+                    var value = defaults[name] ? specs[name].default;
+                    params[name] = value;
+                    // value_ rather than valueAction_: setting them one by one
+                    // would rebuild the pattern once per slider.
+                    ez.value_(value);
+                };
+
+                rebuild.value;
+            });
 
         statusView = StaticText(window, Rect(0, 0, 230, 26))
             .string_(" watching " ++ srcPath.basename);

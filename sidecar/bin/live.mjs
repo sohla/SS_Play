@@ -28,7 +28,16 @@ mkdirSync(join(sidecar, 'out'), { recursive: true })
 
 const child = spawn(
   sclang,
-  ['-l', config, '-d', sidecar, join(sidecar, 'live.scd'), process.argv[2] ?? 'ssp_sine'],
+  [
+    '-l',
+    config,
+    '-d',
+    sidecar,
+    join(sidecar, 'live.scd'),
+    process.argv[2] ?? 'ssp_sine',
+    // Forward the rest, so `sc:live ssp_sine play` starts immediately.
+    ...process.argv.slice(3),
+  ],
   { stdio: 'inherit' },
 )
 

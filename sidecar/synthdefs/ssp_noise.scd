@@ -1,8 +1,11 @@
 // Filtered noise, as a contrast to the sine: broadband where the sine is not,
 // which is what makes a spectral assertion meaningful rather than tautological.
-SynthDef(\ssp_noise, { |out = 0, cutoff = 2000, rq = 0.5, amp = 0.2, pan = 0,
-                       attack = 0.01, sustain = 0.5, release = 0.1|
-    var env = EnvGen.kr(Env.linen(attack, sustain, release), doneAction: 2);
+//
+// Gated, and the sustain level is `susLevel` rather than `sustain` — see
+// ssp_sine.scd for why both of those matter.
+SynthDef(\ssp_noise, { |out = 0, cutoff = 2000, rq = 0.5, amp = 0.2, pan = 0, gate = 1,
+                       attack = 0.01, decay = 0.1, susLevel = 0.7, release = 0.3|
+    var env = EnvGen.kr(Env.adsr(attack, decay, susLevel, release), gate, doneAction: 2);
     Out.ar(out, Pan2.ar(RLPF.ar(WhiteNoise.ar, cutoff, rq) * env * amp, pan));
 },
 metadata: (
@@ -20,15 +23,19 @@ metadata: (
         pan: \pan,
 
         attack: ControlSpec(0.001, 2, \exp, 0, 0.01),
-        sustain: ControlSpec(0.01, 2, \exp, 0, 0.5),
-        release: ControlSpec(0.001, 2, \exp, 0, 0.1)
+        decay: ControlSpec(0.001, 2, \exp, 0, 0.1),
+        release: ControlSpec(0.001, 2, \exp, 0, 0.3),
+
+        susLevel: \unipolar
     ),
 
     frozen: (
         out: 0
     ),
 
-    // Nothing here is per-event: this def has no pitch, so the pattern's \freq
-    // key simply goes unused.
-    supplied: ()
+    // This def has no pitch, so the pattern's \freq key simply goes unused.
+    // The gate still comes from the event.
+    supplied: (
+        gate: 1
+    )
 ))

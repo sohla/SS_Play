@@ -52,6 +52,17 @@ sources.do { |path|
                 "specs with bounds that cannot be written to JSON:" + problems[\unencodable]);
         }.value;
 
+        // Without a gate the event system never releases a note: sendGate is
+        // conditioned on desc.hasGate, so \legato and \sustain do nothing and
+        // you cannot hold a note to tune it.
+        ~sspCheck.(name ++ "/has-gate", desc.hasGate,
+            "no gate — the pattern cannot release a note");
+
+        // The event system computes `sustain` as a time and sends it to any
+        // argument of that name, overwriting whatever it was meant to be.
+        ~sspCheck.(name ++ "/no-sustain-arg", desc.controlNames.includes(\sustain).not,
+            "an argument named sustain collides with the event system's own key");
+
         ~sspCheck.(name ++ "/stereo", desc.outputs.sum { |o| o.numberOfChannels } == 2,
             "expected 2 output channels, got" + desc.outputs.sum { |o| o.numberOfChannels });
 
@@ -125,6 +136,13 @@ sources.do { |path|
         [\unencodable, "bad_unencodable.scd", "a spec whose bounds cannot be encoded"]
     ];
 
+    var behaviours = [
+        ["nogate", "bad_nogate.scd", { |desc| desc.hasGate.not }, "a def with no gate"],
+        ["sustain-arg", "bad_sustain_arg.scd",
+            { |desc| desc.controlNames.includes(\sustain) },
+            "an argument named sustain"]
+    ];
+
     fixtures.do { |entry|
         var key = entry[0], file = entry[1], description = entry[2];
         var def = thisProcess.interpreter.executeFile(here +/+ "tests/fixtures" +/+ file);
@@ -133,6 +151,14 @@ sources.do { |path|
         problems = ~sspContractProblems.(SynthDescLib.global[def.name]);
 
         ~sspCheck.("fixture/detects-" ++ key, problems[key].notEmpty,
+            description + "was not detected");
+    };
+
+    behaviours.do { |entry|
+        var label = entry[0], file = entry[1], predicate = entry[2], description = entry[3];
+        var def = thisProcess.interpreter.executeFile(here +/+ "tests/fixtures" +/+ file);
+        def.add;
+        ~sspCheck.("fixture/detects-" ++ label, predicate.(SynthDescLib.global[def.name]),
             description + "was not detected");
     };
 }.value;

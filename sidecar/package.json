@@ -9,7 +9,8 @@
     "test": "node bin/sc.mjs test",
     "manifest": "node bin/manifest.mjs",
     "promote": "node bin/manifest.mjs --promote",
-    "live": "node bin/live.mjs"
+    "live": "node bin/live.mjs",
+    "continuity": "node bin/sc.mjs continuity"
   },
   "dependencies": {
     "@ss/engine": "*"
