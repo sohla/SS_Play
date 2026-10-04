@@ -38,7 +38,8 @@
     "survey": "node tools/ugen-survey.mjs",
     "sc:verify": "npm run sc:build && npm run sc:test && npm run sc:continuity && npm run sc:manifest",
     "sc:live": "npm run live -w @ss/sidecar --",
-    "sc:continuity": "npm run continuity -w @ss/sidecar"
+    "sc:continuity": "npm run continuity -w @ss/sidecar",
+    "listen": "node tools/listen.mjs"
   },
   "overrides": {
     "react": "19.3.0",

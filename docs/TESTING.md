@@ -110,6 +110,15 @@ That the sound reaches a speaker. Capture taps the worklet's output ring, which 
 produced samples — not that a device played them. Confirmed by ear on desktop Chrome and on an
 iPhone; see `docs/LOG.md`.
 
+```sh
+npm run listen
+```
+
+Opens a visible Chrome with the sound **on** and plays the same notes the audio suite measures,
+printing each measurement beside it. The point is that the numbers and what you hear can be checked
+against each other: if a row looks right and the note sounds wrong, the engine rendered correct
+samples that never reached the device — which nothing in the automated suite can tell you.
+
 ## CI
 
 Runs tiers 1 and 2, typecheck, the build, and the Caddyfile drift check. It does **not** run
