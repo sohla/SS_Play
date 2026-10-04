@@ -244,3 +244,140 @@ test('a sample loads, decodes, and plays', async ({ page }) => {
   expect(result.peak).toBeGreaterThan(0.05)
   expect(result.peak).toBeLessThan(0.99)
 })
+
+test('an effect reads a private bus and writes to the output', async ({ page }) => {
+  // The routing case. Everything above writes straight to bus 0, so none of it
+  // touches In.ar, private buses, or node order — and node order is the part
+  // that fails silently: an effect placed before its source reads an empty bus
+  // and the page simply goes quiet.
+  //
+  // Also exercises the bus range, which 0.88 widened from 128 to 1024.
+  const result = await page.evaluate(async () => {
+    const session = (window as unknown as { __ss: Record<string, never> }).__ss as never as {
+      sonic: {
+        on(event: string, cb: (message: unknown[]) => void): () => void
+        sync(): Promise<void>
+        loadSynthDef(name: string): Promise<unknown>
+        nextNodeId(): number
+        send(address: string, ...args: unknown[]): void
+        startCapture(): void
+        stopCapture(): { frames: number; left: Float32Array }
+        getCaptureFrames(): number
+      }
+    }
+
+    const float = (value: number) => ({ type: 'float' as const, value })
+    const int = (value: number) => ({ type: 'int' as const, value })
+
+    const measure = async (routeThroughBus: boolean) => {
+      const fails: string[] = []
+      const offFail = session.sonic.on('in', (message) => {
+        if (message[0] === '/fail') fails.push(message.slice(1).join(' '))
+      })
+
+      await session.sonic.loadSynthDef('ssp_sine')
+      await session.sonic.loadSynthDef('sonic-pi-fx_reverb')
+      await session.sonic.sync()
+
+      // Private bus, above the two hardware outputs.
+      const bus = 16
+      const sourceOut = routeThroughBus ? bus : 0
+
+      session.sonic.startCapture()
+
+      const sourceId = session.sonic.nextNodeId()
+      const fxId = session.sonic.nextNodeId()
+
+      if (routeThroughBus) {
+        // A group executes head to tail, and the source below is added to the
+        // head *after* this, so the source ends up first either way — this
+        // addAction is not what establishes the order, despite looking like it.
+        // What actually matters is the source using addToHead: switching it to
+        // addToTail puts the effect first, it reads an empty bus, and the
+        // capture comes back at exactly 0. Verified by making that change.
+        session.sonic.send(
+          '/s_new',
+          'sonic-pi-fx_reverb',
+          fxId,
+          1,
+          0,
+          'in_bus',
+          float(bus),
+          'out_bus',
+          float(0),
+          'mix',
+          float(1),
+          'amp',
+          float(1),
+        )
+      }
+
+      session.sonic.send(
+        '/s_new',
+        'ssp_sine',
+        sourceId,
+        0,
+        0,
+        'out',
+        float(sourceOut),
+        'freq',
+        float(440),
+        'amp',
+        float(0.4),
+        'attack',
+        float(0.01),
+        'decay',
+        float(0.05),
+        'susLevel',
+        float(0.9),
+        'release',
+        float(0.05),
+      )
+
+      const deadline = performance.now() + 8000
+      while (session.sonic.getCaptureFrames() < 0.35 * 48_000 && performance.now() < deadline) {
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+      }
+
+      session.sonic.send('/n_set', sourceId, 'gate', int(0))
+      await new Promise((resolve) => setTimeout(resolve, 120))
+      if (routeThroughBus) session.sonic.send('/n_free', fxId)
+
+      const capture = session.sonic.stopCapture()
+      offFail()
+
+      const start = Math.floor(capture.frames * 0.2)
+      const end = Math.floor(capture.frames * 0.8)
+      let sumSquares = 0
+      let peak = 0
+      for (let i = start; i < end; i++) {
+        const value = capture.left[i] ?? 0
+        sumSquares += value * value
+        peak = Math.max(peak, Math.abs(value))
+      }
+
+      return { fails, rms: Math.sqrt(sumSquares / Math.max(1, end - start)), peak }
+    }
+
+    const routed = await measure(true)
+    // The control: the same source writing straight to the output. Without it,
+    // "the routed version made a sound" could just mean the source leaked to
+    // bus 0 and the effect did nothing at all.
+    const direct = await measure(false)
+
+    return { routed, direct }
+  })
+
+  expect(result.routed.fails).toEqual([])
+
+  // Audio came out, which means In.ar read a private bus that something had
+  // already written to — the ordering held and the effect was not reading
+  // silence.
+  expect(result.routed.rms).toBeGreaterThan(0.01)
+  expect(result.routed.peak).toBeGreaterThan(0.05)
+  expect(result.routed.peak).toBeLessThan(0.99)
+
+  // And the direct path still works, so the routed result is not an artefact of
+  // the source reaching the output some other way.
+  expect(result.direct.rms).toBeGreaterThan(0.01)
+})

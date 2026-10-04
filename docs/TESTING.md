@@ -63,9 +63,16 @@ checked against two deliberate mutations of `ssp_sine`:
 |---|---|
 | `SinOsc.ar(freq)` → `SinOsc.ar(freq * 1.5)` | both spectral tests fail; energy and headroom still pass |
 | `SinOsc.ar(freq)` → `WhiteNoise.ar` | both spectral tests fail; energy and headroom still pass |
+| routing: source `addToHead` → `addToTail` | the effect reads an empty bus; capture is exactly 0 |
 
-That split is exactly the point: the sound was still there, still the right loudness, and still
-completely wrong.
+That split is exactly the point: in the first two the sound was still there, still the right
+loudness, and still completely wrong.
+
+The routing mutation is worth describing precisely, because the first one tried did **not** fail.
+Changing the *effect's* `addAction` from `addToTail` to `addToHead` changed nothing: a group runs
+head to tail, and the source is added to the head afterwards, so it lands first either way. Only
+moving the *source* to the tail actually inverts the order. A mutation that fails to fail is useful
+information — it means the thing you thought you were testing is not the thing under test.
 
 There is also a silence test, which proves the measurement can come back empty — so a passing run
 means the engine produced something rather than the harness always reporting that it did.
@@ -81,6 +88,7 @@ means the engine produced something rather than the harness always reporting tha
 | a lowpass cutoff removes high end | the filter working, not merely present |
 | silence | the measurement can fail |
 | a sample loads, decodes and plays | `loadSample`, the buffer allocator, Chrome's FLAC decode |
+| an effect reads a private bus | `In.ar`, bus routing, and node order |
 
 ### Constraints worth knowing
 

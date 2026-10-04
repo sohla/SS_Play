@@ -589,6 +589,24 @@ Worth having measured rather than assumed, since the plan listed it as a risk.
 **4. `Pan2` at centre scales by ~0.707**, so `amp: 0.3` peaks near 0.21. Knowing that avoids
 mistaking correct output for a level bug.
 
+### Closing a gap I had quietly left
+
+The plan named three defs for this phase: a sine, a sample player, and **an effect with an input,
+for bus routing**. I shipped sine, noise and sample player — meeting the stated gate ("proves sound
+for three defs") while substituting one of them. Bus routing, `In.ar` and node order were untested,
+and the plan wanted that case specifically because 0.88 widened `numAudioBusChannels` from 128 to
+1024.
+
+Now covered: a source writes to a private bus, `sonic-pi-fx_reverb` reads it and writes to the
+output, with the direct path measured alongside as a control.
+
+**The first mutation I used to check that test did not fail**, which was more informative than if
+it had. Changing the *effect's* `addAction` from `addToTail` to `addToHead` changes nothing: a
+group runs head to tail and the source is added to the head afterwards, so it lands first either
+way. Only moving the *source* to the tail inverts the order — and then the capture comes back at
+exactly 0. The comment claiming the effect's addAction established the order was wrong, and has
+been corrected.
+
 ### Open
 
 - Domain name, needed at Phase 7.
