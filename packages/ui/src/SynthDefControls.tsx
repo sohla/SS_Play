@@ -36,9 +36,20 @@ export function SynthDefControls({ contract, values, onChange }: SynthDefControl
       {contract.supplied.map((supplied) => (
         <PinnedRow key={supplied.name} name={supplied.name} detail="" note="per event" />
       ))}
+
+      {(contract.unknown ?? []).map((unknown) => (
+        <PinnedRow
+          key={unknown.name}
+          name={unknown.name}
+          detail={String(round(unknown.default))}
+          note="no range"
+        />
+      ))}
     </div>
   )
 }
+
+const round = (value: number) => Math.round(value * 1000) / 1000
 
 function SpecControl({
   spec,

@@ -1,7 +1,17 @@
 import { createRequire } from 'node:module'
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
+import { parseSynthDefFile } from '@ss/engine/scsyndef'
 import type { Plugin } from 'vite'
+import { inferContract } from './infer-contract.ts'
 
 /** Path under an app's public/ that the engine is staged into. */
 export const VENDOR_DIR = 'vendor/supersonic'
@@ -128,10 +138,20 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
           kind: 'sample',
         })
 
+  // Every def the browser can select needs a contract, or it gets no controls.
+  // Authored defs bring their own; the vendored ones get one inferred from
+  // Sonic Pi's naming conventions, clearly marked as such.
+  const inferred = inferContracts(join(target, 'synthdefs'), authored)
+
   writeFileSync(
     join(target, 'manifest.json'),
     `${JSON.stringify(
-      { synthdefs: [...synthdefs, ...authored].sort(), authored: authored.sort(), samples },
+      {
+        synthdefs: [...synthdefs, ...authored].sort(),
+        authored: authored.sort(),
+        inferred: inferred.sort(),
+        samples,
+      },
       null,
       2,
     )}\n`,
@@ -142,6 +162,41 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
     synthdefs: [...synthdefs, ...authored],
     samples: stagedSamples,
   }
+}
+
+/**
+ * Write a contract beside every vendored def that has none.
+ *
+ * Skips anything that fails to parse: the corrupt `sonic-pi-mixout` is already
+ * pinned by the parser tests, and a contract for a file the engine cannot load
+ * would be a control surface for something unplayable.
+ */
+function inferContracts(synthdefDir: string, authored: string[]): string[] {
+  if (!existsSync(synthdefDir)) return []
+  const written: string[] = []
+
+  for (const file of readdirSync(synthdefDir)) {
+    if (!file.endsWith('.scsyndef')) continue
+    const name = file.replace(/\.scsyndef$/, '')
+    if (authored.includes(name)) continue
+
+    let params
+    try {
+      params = parseSynthDefFile(new Uint8Array(readFileSync(join(synthdefDir, file)))).defs[0]
+        ?.params
+    } catch {
+      continue
+    }
+    if (!params) continue
+
+    writeFileSync(
+      join(synthdefDir, `${name}.contract.json`),
+      `${JSON.stringify(inferContract(params), null, 2)}\n`,
+    )
+    written.push(name)
+  }
+
+  return written
 }
 
 function copyNamed(options: { from: string; to: string; names: string[]; kind: string }): string[] {

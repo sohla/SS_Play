@@ -3,8 +3,10 @@ import { parseSynthDefFile, type SynthDefContract, type SynthDefParam } from '@s
 export interface VendorManifest {
   /** Every def staged into this app. */
   synthdefs: string[]
-  /** The subset authored here, which are the ones carrying a contract. */
+  /** Authored here, so their contracts are declared rather than inferred. */
   authored: string[]
+  /** Vendored, with a contract inferred from naming conventions. */
+  inferred: string[]
   samples: string[]
 }
 
@@ -12,7 +14,7 @@ export interface LoadedDef {
   name: string
   params: SynthDefParam[]
   ugens: string[]
-  /** Only authored defs declare one. */
+  /** Declared for authored defs, inferred for vendored ones. */
   contract: SynthDefContract | null
 }
 
@@ -31,7 +33,7 @@ export async function fetchManifest(): Promise<VendorManifest> {
  * the names and defaults are in the file itself. What the binary cannot tell
  * you is a *range*, which is exactly what the contract adds.
  */
-export async function fetchDef(name: string, authored: boolean): Promise<LoadedDef> {
+export async function fetchDef(name: string): Promise<LoadedDef> {
   const binary = await fetch(`${base}synthdefs/${name}.scsyndef`)
   if (!binary.ok) throw new Error(`${name}.scsyndef: HTTP ${binary.status}`)
 
@@ -39,11 +41,11 @@ export async function fetchDef(name: string, authored: boolean): Promise<LoadedD
   const def = parsed.defs[0]
   if (!def) throw new Error(`${name}.scsyndef declares no SynthDef`)
 
+  // Every def staged into the app has a contract now: authored ones declare
+  // theirs, vendored ones get one inferred at build time.
   let contract: SynthDefContract | null = null
-  if (authored) {
-    const response = await fetch(`${base}synthdefs/${name}.contract.json`)
-    if (response.ok) contract = (await response.json()) as SynthDefContract
-  }
+  const response = await fetch(`${base}synthdefs/${name}.contract.json`)
+  if (response.ok) contract = (await response.json()) as SynthDefContract
 
   return {
     name: def.name,

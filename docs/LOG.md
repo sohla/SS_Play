@@ -612,3 +612,46 @@ been corrected.
 - Domain name, needed at Phase 7.
 - CI workflow.
 - Phase 7: the Linode deploy — provisioning, Caddy, and the first real page.
+
+---
+
+## 2026-10-04 — Inferred contracts for the vendored defs
+
+### Done
+
+The 131 Sonic Pi defs carry no metadata, so they had names and defaults but no ranges and therefore
+no controls. Their naming is regular enough to recover most of it:
+
+- `packages/vite-preset/src/infer-contract.ts` — a rule table over the conventions, run at vendor
+  time so every staged def gets a contract.
+- `param-ranges.json` — hand-supplied ranges by exact name, which win over any pattern. Data rather
+  than code, so adding one needs no TypeScript.
+- `docs/UNKNOWN-PARAMS.md` — the 148 names still uncovered, with every default seen and which defs
+  use them.
+
+**93.3% of 3179 parameters now have a range.**
+
+### Verified
+
+921 unit + type tests, **23 e2e**. `sonic-pi-prophet` gets 28 controls with zero unknowns;
+`sonic-pi-fx_echo` shows `phase` as a value with no control.
+
+### The line held
+
+Inferred contracts carry `"source": "inferred"` and the page says so. A range derived from a naming
+convention is useful, and it is not the same thing as a range someone chose for a reason — which is
+the whole argument for the contract in the first place. Presenting them identically would quietly
+dissolve the distinction.
+
+Anything no rule recognises still gets **no control**, which was the principle from the start: an
+invented range is worse than none, because the slider looks authoritative and is not.
+
+### Two readings worth checking
+
+- **`cutoff` is a MIDI note, not Hz** — inferred from defaults of 83/100/102/110, which are absurd
+  as filter frequencies in Hz and ordinary as notes.
+- **`sustain: -1`** means "hold" in several defs. The inferred default is clamped into range and the
+  original preserved as `declaredDefault`.
+
+Both are readings of Sonic Pi's conventions rather than documented facts, and both are recorded so
+they can be challenged.

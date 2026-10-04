@@ -24,7 +24,7 @@ export function SynthDefBrowser({ manifest, session }: SynthDefBrowserProps) {
     setError(null)
 
     const load = async () => {
-      const loaded = await fetchDef(name, manifest.authored.includes(name))
+      const loaded = await fetchDef(name)
 
       // Send it to the engine as well as reading it here. Only the defs named
       // at boot are loaded, so playing any other one would get a /fail
@@ -114,7 +114,15 @@ export function SynthDefBrowser({ manifest, session }: SynthDefBrowserProps) {
       {error ? <p className="text-xs text-rose-300">{error}</p> : null}
 
       {def?.contract ? (
-        <SynthDefControls contract={def.contract} values={values} onChange={change} />
+        <>
+          {def.contract.source === 'inferred' ? (
+            <p className="text-xs text-amber-500/80">
+              Ranges inferred from Sonic Pi's naming conventions, not declared by the def. Controls
+              marked <span className="italic">no range</span> had no rule that recognised them.
+            </p>
+          ) : null}
+          <SynthDefControls contract={def.contract} values={values} onChange={change} />
+        </>
       ) : def ? (
         <ParamsWithoutRanges def={def} />
       ) : null}

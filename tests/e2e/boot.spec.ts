@@ -29,12 +29,24 @@ test('generates a control surface from the SynthDef contract', async ({ page }) 
   await expect(page.getByText('per event')).toBeVisible()
 })
 
-test('draws no sliders for a def that declares no ranges', async ({ page }) => {
-  // A vendored def has names and defaults in its binary but no contract.
-  // Inventing bounds would be worse than showing none.
+test('a vendored def gets inferred controls, clearly labelled as inferred', async ({ page }) => {
+  // These carry no metadata, so their ranges come from Sonic Pi's naming
+  // conventions. Useful, but not the same thing as a range someone chose — and
+  // the page has to say so rather than presenting them identically.
   await page.selectOption('select', 'sonic-pi-prophet')
-  await expect(page.getByText(/No parameter contract/)).toBeVisible()
-  await expect(page.locator('input[type=range]')).toHaveCount(0)
+  await expect(page.getByText(/Ranges inferred/)).toBeVisible()
+  await expect(page.locator('input[type=range]').first()).toBeVisible()
+
+  // An authored def states its ranges and says nothing about inference.
+  await page.selectOption('select', 'ssp_sine')
+  await expect(page.getByText(/Ranges inferred/)).toHaveCount(0)
+})
+
+test('a parameter with no recognised range gets no control', async ({ page }) => {
+  // fx_echo has `phase`, which no rule covers. Showing the value without a
+  // slider is the honest outcome: an invented range would look authoritative.
+  await page.selectOption('select', 'sonic-pi-fx_echo')
+  await expect(page.getByText('no range').first()).toBeVisible()
 })
 
 test('the audio thread is running', async ({ page }) => {

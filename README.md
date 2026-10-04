@@ -27,6 +27,7 @@ library surface this is built against.
 |---|---|
 | [`docs/UI.md`](docs/UI.md) | The React layer: hooks, re-render rules, generated controls |
 | [`docs/TESTING.md`](docs/TESTING.md) | The five tiers, and how the audio assertions stay honest |
+| [`docs/UNKNOWN-PARAMS.md`](docs/UNKNOWN-PARAMS.md) | Vendored parameters still needing a range |
 | [`docs/SIDECAR.md`](docs/SIDECAR.md) | Authoring SynthDefs: the live rig, and how to use it |
 | [`docs/SYNTHDEFS.md`](docs/SYNTHDEFS.md) | The parameter contract, the compile pipeline, the binary format |
 | [`docs/CROSS_ORIGIN.md`](docs/CROSS_ORIGIN.md) | Isolation headers, and testing on a phone |

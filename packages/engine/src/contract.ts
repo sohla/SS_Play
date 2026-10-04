@@ -37,10 +37,28 @@ export interface SuppliedControl {
   default: number
 }
 
+export interface UnknownControl {
+  name: string
+  default: number
+}
+
 export interface SynthDefContract {
   specs: ControlSpec[]
   frozen: FrozenControl[]
   supplied: SuppliedControl[]
+  /**
+   * `declared` was written by hand alongside the SynthDef and states intent.
+   * `inferred` was derived from naming conventions for a def that carries no
+   * metadata. The distinction matters: a range nobody chose should not be
+   * presented as one somebody did.
+   */
+  source?: 'declared' | 'inferred'
+  /**
+   * Parameters no rule recognised. Shown as values with no control, because an
+   * invented range is worse than none — the slider looks authoritative and is
+   * not.
+   */
+  unknown?: UnknownControl[]
 }
 
 const round = (value: number, step: number) =>

@@ -48,6 +48,7 @@ export {
   type FrozenControl,
   type SuppliedControl,
   type SynthDefContract,
+  type UnknownControl,
   type Warp,
 } from './contract.ts'
 
