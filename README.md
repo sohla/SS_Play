@@ -12,8 +12,8 @@ serving static files — with exactly the right headers, which is the whole tric
 | Path | What |
 |---|---|
 | `packages/engine` | Typed boot and mode reporting, OSC helpers, reply dispatcher, `.scsyndef` parser |
-| `packages/react` | Provider and hooks |
-| `packages/ui` | Tailwind component kit |
+| `packages/react` | Provider, external stores, and hooks |
+| `packages/ui` | Tailwind component kit, including contract-generated controls |
 | `packages/vite-preset` | The shared app config factory |
 | `apps/*` | One app per deployed page |
 | `sidecar` | SynthDef authoring: the live rig, headless `sclang` build, assertions, compiled output |
@@ -25,6 +25,7 @@ library surface this is built against.
 
 | Doc | |
 |---|---|
+| [`docs/UI.md`](docs/UI.md) | The React layer: hooks, re-render rules, generated controls |
 | [`docs/SIDECAR.md`](docs/SIDECAR.md) | Authoring SynthDefs: the live rig, and how to use it |
 | [`docs/SYNTHDEFS.md`](docs/SYNTHDEFS.md) | The parameter contract, the compile pipeline, the binary format |
 | [`docs/CROSS_ORIGIN.md`](docs/CROSS_ORIGIN.md) | Isolation headers, and testing on a phone |

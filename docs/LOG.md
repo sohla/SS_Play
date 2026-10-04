@@ -495,3 +495,50 @@ question.
 - Domain name, needed at Phase 7.
 - CI workflow.
 - Phase 5: the React layer, which is where the contract gets consumed in the browser.
+
+---
+
+## 2026-10-04 — Phase 5: the React layer and the UI kit
+
+### Done
+
+- `@ss/engine` gained `createSession`, which bundles boot, node notifications, the dispatcher, the
+  buffer allocator and the metrics poller. It was in the playground; it belongs in the engine.
+- `@ss/react`: `SuperSonicProvider` plus four external stores and six hooks.
+- `@ss/ui`: `BootGate`, `SynthDefControls`, `MetricsPanel`, `OscLog`, `NodeTree`.
+- The playground rebuilt on top: a browser over all 133 defs, controls generated from each
+  contract, live metrics, an OSC log and the node tree.
+
+### Verified
+
+**921 unit + type tests, 14 e2e.** The playground boots to `sab`, draws **eight sliders for
+`ssp_noise` from its contract and no more**, draws **none** for a vendored def while saying why,
+plays with no `/fail`, drops no messages, and shows OSC in both directions.
+
+The burst behaviour is asserted rather than assumed: 500 messages into the log store produce **at
+most two** listener notifications.
+
+### Findings
+
+**1. The OSC log earned its place within minutes of existing.** It showed
+`→ /s_new ssp_noise` immediately followed by `← /fail /s_new SynthDef not found`. Only the defs
+named on the provider are loaded at boot, so every def in the browser except `sonic-pi-beep` failed
+to play — and the only visible symptom was a note that never sounded. The browser now loads a def
+when you select it.
+
+**2. The vendor manifest was mixing filenames with logical names.** `copyNamed` returns filenames,
+and the manifest was built from its return value, so vendored entries carried `.scsyndef` while
+authored ones did not. The page then requested `<name>.scsyndef.scsyndef`. Fixed to use logical
+names throughout, which is what `loadSynthDef` and the URLs actually want.
+
+**3. A def with no contract is the better demonstration.** The 131 vendored defs have names and
+defaults in their binaries but no ranges, so the browser shows the values and says there are no
+sliders. The contrast with the eight generated sliders beside it makes the case for the contract
+better than any amount of prose.
+
+### Open
+
+- Domain name, needed at Phase 7.
+- CI workflow.
+- Phase 6: audio assertions through `startCapture`/`stopCapture`, which is the last thing standing
+  between "it reports success" and "it made the right sound".

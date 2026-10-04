@@ -4,6 +4,7 @@
    packages/ui live outside that tree, so without this their classes are never
    generated and they render unstyled with no error anywhere. */
 @source "../../../packages/ui/src";
+@source "../../../packages/react/src";
 
 @theme {
   --color-surface: oklch(0.16 0.01 260);

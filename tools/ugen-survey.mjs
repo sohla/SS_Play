@@ -46,8 +46,8 @@ const browser = await chromium.launch({ channel: 'chrome', args: ['--mute-audio'
 const page = await browser.newPage()
 
 await page.goto(`${baseURL}/?debug=1`)
-await page.click('button:has-text("Boot scsynth")')
-await page.waitForSelector('text=achieved transport', { timeout: 30_000 })
+await page.getByRole('button', { name: 'Start audio' }).click()
+await page.getByRole('heading', { name: 'SynthDefs' }).waitFor({ timeout: 30_000 })
 
 const mode = await page.evaluate(() => window.__ss.mode)
 if (mode !== 'sab') {

@@ -13,7 +13,8 @@
     "@ss/engine": "*",
     "@ss/ui": "*",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@ss/react": "*"
   },
   "devDependencies": {
     "@ss/vite-preset": "*",

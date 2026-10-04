@@ -1,5 +1,5 @@
 {
-  "name": "@ss/ui",
+  "name": "@ss/react",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,14 +7,14 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@ss/engine": "*"
+  },
   "peerDependencies": {
     "react": "19.3.0"
   },
   "devDependencies": {
     "@types/react": "19.2.6",
     "react": "19.3.0"
-  },
-  "dependencies": {
-    "@ss/engine": "*"
   }
 }

@@ -3,38 +3,38 @@ import { expect, test } from '@playwright/test'
 // Phase 3's gate: scsynth actually running in the browser. Everything here is
 // observable from the page, so it holds against a deployed URL too.
 
-const bootButton = 'button:has-text("Boot scsynth")'
+const bootButton = 'button:has-text("Start audio")'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.click(bootButton)
-  await expect(page.getByText('achieved transport')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'SynthDefs' })).toBeVisible({
+    timeout: 30_000,
+  })
 })
 
 test('boots on the SharedArrayBuffer transport', async ({ page }) => {
   // Users get a graceful fallback to postMessage; the build does not. A silent
   // downgrade would disable audio capture and make the audio assertions
   // meaningless, and nothing else would report it.
-  // Scoped to the achieved row: the pre-boot probe reports an expected mode
-  // with the same value, so an unscoped match would pass without booting.
-  const achieved = page.getByText('achieved transport').locator('..')
-  await expect(achieved).toContainText('sab')
-  await expect(page.getByText(/degraded/)).toHaveCount(0)
+  await expect(page.getByText(/^sab · \d+ loaded$/)).toBeVisible()
+  await expect(page.getByText(/compatibility mode/)).toHaveCount(0)
 })
 
-test('reports engine info from the running worklet', async ({ page }) => {
-  // The AudioContext is created by the engine, so a real rate and a real boot
-  // time mean the worklet started rather than merely downloaded. `version` is
-  // deliberately not asserted: getInfo() types it string | null and the wasm
-  // does not always report one.
-  await expect(page.getByText('48000 Hz')).toBeVisible()
-  await expect(page.getByText(/^\d+ ms$/)).toBeVisible()
+test('generates a control surface from the SynthDef contract', async ({ page }) => {
+  // The payoff for the whole contract chain: no range is written in TypeScript.
+  // ssp_noise declares eight specs, so eight sliders and no more.
+  await expect(page.locator('input[type=range]')).toHaveCount(8)
+  await expect(page.getByText('frozen')).toBeVisible()
+  await expect(page.getByText('per event')).toBeVisible()
 })
 
-test('loads the declared synthdef', async ({ page }) => {
-  // loadSynthDefs reports per-name results and never rejects, so this passing
-  // means loadSynthDefsChecked inspected the map rather than assuming success.
-  await expect(page.getByText('sonic-pi-beep')).toBeVisible()
+test('draws no sliders for a def that declares no ranges', async ({ page }) => {
+  // A vendored def has names and defaults in its binary but no contract.
+  // Inventing bounds would be worse than showing none.
+  await page.selectOption('select', 'sonic-pi-prophet')
+  await expect(page.getByText(/No parameter contract/)).toBeVisible()
+  await expect(page.locator('input[type=range]')).toHaveCount(0)
 })
 
 test('the audio thread is running', async ({ page }) => {
@@ -51,22 +51,34 @@ test('the audio thread is running', async ({ page }) => {
   expect(second).toBeGreaterThan(first)
 })
 
-test('plays a beep and the node frees itself', async ({ page }) => {
-  await page.click('button:has-text("Play beep")')
+test('plays the selected def and the node frees itself', async ({ page }) => {
+  await page.getByRole('button', { name: 'play' }).click()
 
   // The button re-enables when waitForNodeEnd resolves, so this proves scsynth
   // sent /n_end — the envelope's doneAction freed the node rather than it
   // lingering until maxNodes runs out.
-  await expect(page.locator('button:has-text("Play beep")')).toBeEnabled({ timeout: 15_000 })
-  await expect(page.locator('text=/Timed out/')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'play' })).toBeEnabled({ timeout: 15_000 })
+
+  // A def the engine was never told about fails as /fail "SynthDef not found",
+  // which presents as a note that simply never sounds.
+  await expect(page.getByText('/fail')).toHaveCount(0)
 })
 
 test('drops no messages', async ({ page }) => {
-  await page.click('button:has-text("Play beep")')
-  await expect(page.locator('button:has-text("Play beep")')).toBeEnabled({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'play' }).click()
+  await expect(page.getByRole('button', { name: 'play' })).toBeEnabled({ timeout: 15_000 })
 
   const dropped = await page.getByText('engineMessagesDropped').locator('..').innerText()
   expect(dropped).toMatch(/\b0\b/)
+})
+
+test('shows OSC traffic in both directions', async ({ page }) => {
+  await page.getByRole('button', { name: 'play' }).click()
+  await expect(page.getByRole('button', { name: 'play' })).toBeEnabled({ timeout: 15_000 })
+
+  const osc = page.locator('section', { hasText: 'OSC' }).first()
+  await expect(osc.getByText('→', { exact: true }).first()).toBeVisible()
+  await expect(osc.getByText('←', { exact: true }).first()).toBeVisible()
 })
 
 test('serves the vendored engine from its own origin', async ({ page, baseURL }) => {

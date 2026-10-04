@@ -47,9 +47,11 @@ test('the page reports the fast transport', async ({ page }) => {
   // isolation is lost: visitors get a graceful fallback to the slower
   // transport, we get a hard failure, because a silent downgrade would turn
   // the audio assertions into assertions about nothing.
-  await expect(page.getByText('expected transport')).toBeVisible()
-  await expect(page.getByText('sab', { exact: true })).toBeVisible()
-  await expect(page.getByText(/degraded/)).toHaveCount(0)
+  // The pre-boot probe drives the BootGate's warning, so an isolated page
+  // shows no compatibility-mode banner before anyone clicks.
+  await expect(page.getByRole('button', { name: 'Start audio' })).toBeVisible()
+  await expect(page.getByText(/compatibility mode/)).toHaveCount(0)
+  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true)
 })
 
 test('nothing cross-origin is requested', async ({ page, baseURL }) => {

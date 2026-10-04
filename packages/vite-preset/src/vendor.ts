@@ -93,7 +93,10 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
   cpSync(join(core, 'LICENSE'), join(target, 'LICENSE-supersonic-scsynth-core'))
   cpSync(join(client, 'LICENSE'), join(target, 'LICENSE-supersonic-scsynth'))
 
-  const stagedSynthdefs = copyNamed({
+  // copyNamed deals in filenames; the manifest deals in logical names, because
+  // that is what loadSynthDef and the page's URLs use. Mixing the two produced
+  // `<name>.scsyndef.scsyndef` requests.
+  copyNamed({
     from: synthdefSource,
     to: join(target, 'synthdefs'),
     names: synthdefs.map((name) => `${name}.scsyndef`),
@@ -128,7 +131,7 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
   writeFileSync(
     join(target, 'manifest.json'),
     `${JSON.stringify(
-      { synthdefs: [...stagedSynthdefs, ...authored].sort(), authored: authored.sort(), samples },
+      { synthdefs: [...synthdefs, ...authored].sort(), authored: authored.sort(), samples },
       null,
       2,
     )}\n`,
@@ -136,7 +139,7 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
 
   return {
     dir: target,
-    synthdefs: [...stagedSynthdefs, ...authored],
+    synthdefs: [...synthdefs, ...authored],
     samples: stagedSamples,
   }
 }

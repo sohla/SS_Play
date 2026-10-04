@@ -32,6 +32,14 @@ export {
 export { BufAllocator } from './buffers.ts'
 
 export {
+  createSession,
+  type Session,
+  type SessionOptions,
+  type SessionResult,
+  type Sonic,
+} from './session.ts'
+
+export {
   initialValues,
   isDiscrete,
   mapSpec,

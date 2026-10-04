@@ -1,8 +1,8 @@
 {
   "engine": "supersonic-scsynth@0.88.0",
   "totals": {
-    "tried": 131,
-    "loaded": 130,
+    "tried": 133,
+    "loaded": 132,
     "failed": 1
   },
   "supportedUGens": [
