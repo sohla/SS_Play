@@ -69,12 +69,20 @@ normalisation worth having — a MIDI CC or a touch position feeds the same path
 whether to draw a fader or a stepper, because SuperCollider's `Select.ar` truncates toward zero and
 a fractional index silently picks the wrong branch.
 
-`frozen` and `supplied` controls are listed without a fader, so it is clear why they have none
-rather than looking broken.
+Clicking the value lets you type one. A slider over an exponential range cannot be nudged to
+exactly 440, and hunting for a specific cutoff by dragging is miserable. Typed values are **clamped**
+to the control's range rather than refused — entering a large number means "as high as it goes" —
+and Escape abandons the edit, so a half-typed number never reaches a synth that is currently
+sounding.
 
-A def with **no** contract — any of the 131 vendored ones — shows its names and defaults, read out
-of the compiled binary by the parser, and says plainly that it has no ranges. Inventing bounds
-would be worse than showing none, and the contrast is the argument for the contract made visible.
+`frozen` and `supplied` controls are listed without a fader, so it is clear why they have none
+rather than looking broken. So are parameters whose range no rule recognised, marked `no range`.
+
+The vendored defs carry no metadata, so their contracts are **inferred** from Sonic Pi's naming
+conventions at build time and marked as such — the page says so above the controls. A range derived
+from a convention is useful, and it is not the same thing as a range someone chose for a reason.
+Parameters no rule recognised show their value with no control at all; see
+[UNKNOWN-PARAMS.md](UNKNOWN-PARAMS.md).
 
 See [SYNTHDEFS.md](SYNTHDEFS.md#the-parameter-contract) for the contract itself, and
 [SIDECAR.md](SIDECAR.md) for where it comes from.

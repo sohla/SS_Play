@@ -42,6 +42,32 @@ test('a vendored def gets inferred controls, clearly labelled as inferred', asyn
   await expect(page.getByText(/Ranges inferred/)).toHaveCount(0)
 })
 
+test('a control value can be typed, and is clamped to its own range', async ({ page }) => {
+  // A slider cannot be nudged to exactly 440 on an exponential range, and
+  // hunting for a specific cutoff by dragging is miserable.
+  await page.selectOption('select', 'ssp_sine')
+  const row = page.locator('div').filter({ hasText: /^attack/ }).last()
+  const value = row.getByRole('button')
+
+  await value.click()
+  await row.locator('input[type=text]').fill('1.234')
+  await row.locator('input[type=text]').press('Enter')
+  await expect(value).toHaveText('1.23')
+
+  // Clamped rather than refused: typing a large number means "as high as it
+  // goes", and rejecting it outright would be unhelpful.
+  await value.click()
+  await row.locator('input[type=text]').fill('99')
+  await row.locator('input[type=text]').press('Enter')
+  await expect(value).toHaveText('2.00')
+
+  // Escape abandons, so a half-typed number never reaches a sounding synth.
+  await value.click()
+  await row.locator('input[type=text]').fill('0.001')
+  await row.locator('input[type=text]').press('Escape')
+  await expect(value).toHaveText('2.00')
+})
+
 test('a parameter with no recognised range gets no control', async ({ page }) => {
   // fx_echo has `phase`, which no rule covers. Showing the value without a
   // slider is the honest outcome: an invented range would look authoritative.

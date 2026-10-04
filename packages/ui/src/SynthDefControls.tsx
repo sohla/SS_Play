@@ -62,6 +62,7 @@ function SpecControl({
 }) {
   const discrete = isDiscrete(spec)
   const [unit, setUnit] = useState(() => unmapSpec(spec, value))
+  const [draft, setDraft] = useState<string | null>(null)
 
   const handle = useCallback(
     (nextUnit: number) => {
@@ -71,8 +72,27 @@ function SpecControl({
     [onChange, spec],
   )
 
+  // Typing a value is the only way to reach a precise one: a slider over an
+  // exponential range cannot be nudged to exactly 440, and a cutoff you want at
+  // a specific note is not something to hunt for by dragging.
+  const commit = useCallback(() => {
+    if (draft === null) return
+    const parsed = Number(draft)
+    setDraft(null)
+    if (!Number.isFinite(parsed)) return
+
+    // Clamp rather than reject: typing 50000 into a 20..20000 control means
+    // "as high as it goes", and refusing it outright is unhelpful.
+    const lo = Math.min(spec.min, spec.max)
+    const hi = Math.max(spec.min, spec.max)
+    const clamped = Math.min(Math.max(parsed, lo), hi)
+
+    setUnit(unmapSpec(spec, clamped))
+    onChange(discrete ? Math.round(clamped) : clamped)
+  }, [discrete, draft, onChange, spec])
+
   return (
-    <label className="flex items-center gap-3 py-1">
+    <div className="flex items-center gap-3 py-1">
       <span className="min-w-28 shrink-0 font-mono text-xs text-neutral-400">{spec.name}</span>
 
       <input
@@ -89,10 +109,34 @@ function SpecControl({
         aria-label={spec.name}
       />
 
-      <output className="min-w-20 text-right font-mono text-xs text-emerald-300">
-        {format(value, spec)}
-      </output>
-    </label>
+      {draft === null ? (
+        <button
+          type="button"
+          onClick={() => setDraft(String(discrete ? Math.round(value) : round(value)))}
+          title={`${spec.min} to ${spec.max}${spec.units ? ` ${spec.units}` : ''} — click to type`}
+          className="min-w-20 cursor-text text-right font-mono text-xs text-emerald-300 hover:text-emerald-200"
+        >
+          {format(value, spec)}
+        </button>
+      ) : (
+        <input
+          type="text"
+          inputMode="decimal"
+          autoFocus
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') commit()
+            // Escape abandons the edit, so a half-typed number never lands on
+            // a synth that is currently sounding.
+            if (event.key === 'Escape') setDraft(null)
+          }}
+          aria-label={`${spec.name} value`}
+          className="min-w-20 rounded border border-emerald-700 bg-neutral-900 px-1 text-right font-mono text-xs text-emerald-200 outline-none"
+        />
+      )}
+    </div>
   )
 }
 
