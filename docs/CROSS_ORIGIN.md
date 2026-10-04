@@ -88,8 +88,8 @@ never taking it.
 Second, and this is the design consequence: the shared engine directory must **not** live on its
 own subdomain. `engine.example.com/0.88.0/` is tempting for deduplication, and it immediately drags
 in CORS, CORP, the blob-worker path and a second certificate. Instead the engine is shared **on
-disk** and hardlinked into each release, so every page serves it from its own origin. See
-[DEPLOY.md](DEPLOY.md).
+disk** and hardlinked into each release, so every page serves it from its own origin. The
+deployment side of this is not written yet — it lands with Phase 7.
 
 ## Local development
 
@@ -120,13 +120,27 @@ be regenerated when the Mac's DHCP lease changes.
 **One-time, on the phone:** the certificate is only trusted if the CA behind it is, and that takes
 *two* steps on iOS — installing the profile is not enough on its own.
 
-1. Get `rootCA.pem` from `$(mkcert -CAROOT)` onto the phone (AirDrop is simplest).
-2. Settings → Profile Downloaded → **Install**.
-3. Settings → General → About → **Certificate Trust Settings** → enable full trust for the mkcert
-   root.
+**Do not AirDrop it.** A `.pem` lands in Files, where tapping it does nothing. Downloading it in
+Safari is what triggers the configuration-profile flow. Serve just the certificate — never
+`rootCA-key.pem`, which sits in the same directory:
 
-Step 3 is the one that gets missed, and skipping it produces a plain "this connection is not
-private" that looks like the certificate is wrong rather than untrusted.
+```sh
+D=$(mktemp -d); cp "$(mkcert -CAROOT)/rootCA.pem" "$D/"
+cd "$D" && python3 -m http.server 8099
+```
+
+Then on the phone:
+
+1. Open `http://<your-lan-ip>:8099/rootCA.pem` in Safari → **Allow** → **Close**.
+2. **Settings**, at the very top under your Apple ID → **Profile Downloaded** → **Install** →
+   passcode → **Install**. If that row is missing it has expired — reload the URL. It can also be
+   reached at Settings → General → **VPN & Device Management**.
+3. Settings → General → **About** → scroll to the bottom → **Certificate Trust Settings** → turn
+   the switch on for the mkcert root.
+
+Step 3 is a separate action from installing, and it is the one that gets missed. Skipping it gives
+a plain "this connection is not private" that reads like a broken certificate rather than an
+untrusted one. Stop the server when you are done.
 
 **Each session:**
 

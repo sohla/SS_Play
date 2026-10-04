@@ -117,55 +117,8 @@ UI nor the pattern.
 
 ## The live rig
 
-```sh
-npm run sc:live ssp_sine
-```
-
-Boots a real scsynth, plays the def under a pattern, and opens a window with a slider for every
-control. **Saving the `.scd` reloads it without stopping the pattern** — the next event uses the new
-sound while the note already sounding finishes on the old one, which is what makes it usable for
-tuning by ear.
-
-This is the counterpart to the browser: the browser proves a def ships, the rig is where you decide
-what it should sound like.
-
-| | |
-|---|---|
-| **play / stop** | starts and stops the pattern |
-| **sliders** | one per `specs` control, over its declared range |
-| **reset sliders** | back to the def's declared defaults |
-| **status line** | confirms each reload, so you know the save landed |
-
-`sidecar/live_pattern.scd` drives it and is **also** reloaded on save, so the sequence can be
-edited while it plays. Keys in the pattern override their sliders; anything the pattern doesn't
-mention keeps its slider value. Sequence what should move, leave the rest to the sliders.
-
-Three details that matter in use:
-
-- **The panel is rebuilt on every save, and your values survive it.** Slider positions live in the
-  rig's parameter dictionary, not in the widgets, so tearing the panel down and building it again
-  keeps your tuning while picking up any control you just added. Values for controls the def no
-  longer declares are dropped.
-- **Ranges come from the contract, never from a guess.** Only `specs` controls get sliders:
-  `frozen` is pinned and `supplied` belongs to the pattern, so a fader for either would look
-  broken. Both are listed in the window as text, so it is obvious why they have none.
-- **It uses the same hermetic class path as the build.** A def that works in the rig is a def that
-  will compile in CI. Inheriting your global config instead would let you author something against
-  a quark and discover the problem much later.
-
-`npm run sc:live ssp_sine play` starts the pattern immediately instead of waiting for the button.
-
-**Reset moves the existing sliders rather than rebuilding the panel** — a redraw makes the window
-flash and buys nothing.
-
-The panel scrolls, so a def with many controls stays reachable.
-
-Closing the window stops the pattern and frees the server's nodes. Ctrl-C in the terminal ends the
-process.
-
-`npm run sc:continuity` is the regression test for the rig's core promise: it boots a server,
-plays silently, reloads the def mid-pattern and asserts events keep arriving. It is separate from
-`sc:test` because it needs a server, and `sc:test` is deliberately serverless and fast.
+Lives in [SIDECAR.md](SIDECAR.md) — booting a server, tuning by ear, and reloading a def without
+stopping the pattern.
 
 ## The hermetic class path
 
@@ -213,18 +166,5 @@ command has completed — and reads the `/fail` stream.
 
 ## Running it
 
-```sh
-npm run sc:build      # compile
-npm run sc:test       # assert
-npm run sc:manifest   # describe and check against dist/
-npm run sc:promote    # accept the change into dist/
-npm run survey        # ask a real engine what loads
-```
-
-`sclang` is resolved from `$SCLANG`, then the standard macOS app path, then `PATH`.
-
-**Any error in a `.scd` leaves sclang alive at its REPL** — the script's own `0.exit` never runs, so
-a failure looks like a hang rather than an error. `bin/sc.mjs` kills it after `SSP_TIMEOUT_MS`
-(default 120s) and says so. A parse error is worse still: nothing is printed at all, not even the
-error. If a script produces no output whatsoever, suspect a syntax error — `var` inside a
-parenthesised block is one that bites, since `var` is only legal at the start of a function body.
+See [SIDECAR.md](SIDECAR.md#commands) for the full command set and for what to do when sclang
+hangs or prints nothing.

@@ -16,20 +16,36 @@ serving static files — with exactly the right headers, which is the whole tric
 | `packages/ui` | Tailwind component kit |
 | `packages/vite-preset` | The shared app config factory |
 | `apps/*` | One app per deployed page |
-| `sidecar` | SynthDef authoring: headless `sclang` build, assertions, compiled output |
+| `sidecar` | SynthDef authoring: the live rig, headless `sclang` build, assertions, compiled output |
 | `infra` | Header source of truth, generated Caddyfile, deploy |
 | `docs` | Architecture, cross-origin, synthdefs, testing, deploy, and the work log |
 
 See [`PLAN.md`](PLAN.md) for the full design and [`docs/API-0.88.0.md`](docs/API-0.88.0.md) for the
 library surface this is built against.
 
+| Doc | |
+|---|---|
+| [`docs/SIDECAR.md`](docs/SIDECAR.md) | Authoring SynthDefs: the live rig, and how to use it |
+| [`docs/SYNTHDEFS.md`](docs/SYNTHDEFS.md) | The parameter contract, the compile pipeline, the binary format |
+| [`docs/CROSS_ORIGIN.md`](docs/CROSS_ORIGIN.md) | Isolation headers, and testing on a phone |
+| [`docs/API-0.88.0.md`](docs/API-0.88.0.md) | What SuperSonic 0.88 actually does, where it differs from its typings |
+| [`docs/LOG.md`](docs/LOG.md) | What was done, what was verified, what is open |
+
 ## Getting started
 
 ```sh
 nvm use          # 22.19.0
 npm install
-npm test         # unit + binary contract + type assertions
-npm run typecheck
+
+npm run dev      # the playground, at http://localhost:3000
+npm run verify   # the web gate: typecheck, tests, build, e2e
+```
+
+Working on sounds rather than pages needs SuperCollider installed:
+
+```sh
+npm run sc:live ssp_sine play   # tune a SynthDef by ear, reloading on save
+npm run sc:verify               # the SuperCollider gate
 ```
 
 ## Cross-origin isolation
