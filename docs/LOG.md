@@ -542,3 +542,55 @@ better than any amount of prose.
 - CI workflow.
 - Phase 6: audio assertions through `startCapture`/`stopCapture`, which is the last thing standing
   between "it reports success" and "it made the right sound".
+
+---
+
+## 2026-10-04 — Phase 6: audio assertions
+
+### Done
+
+`tests/e2e/audio.spec.ts` — seven tests that assert the engine made the **right** sound, through
+`startCapture`/`stopCapture`. Plus `docs/TESTING.md`.
+
+Two samples vendored into the playground so the sample path is covered.
+
+### Verified
+
+**921 unit + type tests, 21 e2e** (14 existing + 7 audio).
+
+### The assertions can fail, and that was checked rather than assumed
+
+A green audio suite is worthless if it cannot detect a wrong sound. Two deliberate mutations of
+`ssp_sine`:
+
+| Mutation | Result |
+|---|---|
+| `SinOsc.ar(freq)` → `SinOsc.ar(freq * 1.5)` | both spectral tests fail; energy and headroom pass |
+| `SinOsc.ar(freq)` → `WhiteNoise.ar` | both spectral tests fail; energy and headroom pass |
+
+The split is the point: in both cases the sound was present and at the right level, and completely
+wrong. Energy and headroom alone would have shipped it.
+
+### Findings
+
+**1. The first capture came back silent, and the cause was not the obvious one.** I suspected
+`--mute-audio`. It was not: only the defs named on the provider are loaded at boot, and
+`ssp_sine` was not among them, so `/s_new` failed with `SynthDef not found` — which is
+indistinguishable from silence. The capture helper now loads a def before playing it and asserts no
+`/fail` arrived. This is the third time this session that a missing SynthDef has presented as
+silence rather than as an error.
+
+**2. `--mute-audio` genuinely does not affect capture.** Verified by running with and without it:
+identical frame counts and levels. It mutes the output device; capture taps the worklet upstream.
+Worth having measured rather than assumed, since the plan listed it as a risk.
+
+**3. `getMaxCaptureDuration()` is 1 second.** Captures must fit, so the tests use ~0.4s notes.
+
+**4. `Pan2` at centre scales by ~0.707**, so `amp: 0.3` peaks near 0.21. Knowing that avoids
+mistaking correct output for a level bug.
+
+### Open
+
+- Domain name, needed at Phase 7.
+- CI workflow.
+- Phase 7: the Linode deploy — provisioning, Caddy, and the first real page.
