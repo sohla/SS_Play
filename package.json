@@ -40,7 +40,8 @@
     "sc:live": "npm run live -w @ss/sidecar --",
     "sc:continuity": "npm run continuity -w @ss/sidecar",
     "listen": "node tools/listen.mjs",
-    "infer-contracts": "node tools/infer-contracts.mjs"
+    "infer-contracts": "node tools/infer-contracts.mjs",
+    "unknown-params": "node tools/unknown-params.mjs"
   },
   "overrides": {
     "react": "19.3.0",

@@ -655,3 +655,42 @@ invented range is worse than none, because the slider looks authoritative and is
 
 Both are readings of Sonic Pi's conventions rather than documented facts, and both are recorded so
 they can be challenged.
+
+---
+
+## 2026-10-04 — Supplied ranges, and names that mean more than one thing
+
+### Done
+
+Ranges supplied by hand for `phase`, `phase_offset`, `mod_phase` and `room`. Coverage **93.3% →
+94.2%**, 143 names still uncovered.
+
+`param-ranges.json` now accepts a `defName.param` key as well as a bare name, and
+`npm run unknown-params` regenerates the report from the staged contracts rather than re-deriving
+it, so the two cannot drift.
+
+### Checking before applying was the right call
+
+Four of six proposed ranges applied cleanly. Two did not, and the defaults are what showed it:
+
+**`depth` means three different things.** Milliseconds in `fx_flanger` (default 5), a modulation
+index in `fm` and `mod_fm` (default 1), a 0–1 amount in `fx_tremolo` (default 0.5). A global 0–1
+would have been right for one def and wrong for the others — and `fx_flanger`'s default already
+sat outside it, which is the tell. This is what prompted per-def scoping, and the mechanism is
+reusable for the next overloaded name.
+
+**`centre` would have broken four defs.** All four bandpass filters default it to 100, the same
+MIDI-note convention as `cutoff`. On a −1…1 range every one of them would sit at effectively 0 Hz
+and pass nothing, with the slider pinned past its own maximum. Left unset and raised rather than
+applied.
+
+Both were caught by comparing a proposal against observed defaults before writing it in — cheap,
+and the alternative was four silently broken effects.
+
+### Still open for a decision
+
+`phase` was applied as 0–2π as asked, and it works numerically since the defaults span 0.25–4. But
+those defaults — 0.25, 0.5, 1, 4 — are beat subdivisions, and in Sonic Pi `fx_slicer phase:` is a
+period in beats. If so, an exponential 0.125–8 would put the useful values under the fingers
+instead of bunched at the bottom. `mod_phase` has the same 0.25 default but was given 0–1, so the
+two are currently inconsistent.
