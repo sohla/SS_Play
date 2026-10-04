@@ -142,9 +142,10 @@ mention keeps its slider value. Sequence what should move, leave the rest to the
 
 Three details that matter in use:
 
-- **Sliders survive a reload.** Rebuilding them on every save would throw away the tuning you were
-  in the middle of. They are only rebuilt when the control surface actually changes — add or remove
-  a control and the window updates.
+- **The panel is rebuilt on every save, and your values survive it.** Slider positions live in the
+  rig's parameter dictionary, not in the widgets, so tearing the panel down and building it again
+  keeps your tuning while picking up any control you just added. Values for controls the def no
+  longer declares are dropped.
 - **Ranges come from the contract, never from a guess.** Only `specs` controls get sliders:
   `frozen` is pinned and `supplied` belongs to the pattern, so a fader for either would look
   broken. Both are listed in the window as text, so it is obvious why they have none.
@@ -156,6 +157,8 @@ Three details that matter in use:
 
 **Reset moves the existing sliders rather than rebuilding the panel** — a redraw makes the window
 flash and buys nothing.
+
+The panel scrolls, so a def with many controls stays reachable.
 
 Closing the window stops the pattern and frees the server's nodes. Ctrl-C in the terminal ends the
 process.

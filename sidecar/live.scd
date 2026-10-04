@@ -96,8 +96,26 @@ buildGui = {
 
     controlNames = desc.controlNames.collect(_.asSymbol);
 
+    // Tear the panel down and rebuild it on every reload. Trying to detect
+    // whether the control surface changed was both wrong and unnecessary: the
+    // values that matter are carried in `params`, not in the widgets.
     sliderBox.children.copy.do { |child| child.remove };
+
+    // FlowLayout.remove is a no-op — removing a view does not give its space
+    // back — so without this every rebuild starts lower than the last and the
+    // panel walks off the bottom of the window.
+    // FlowLayout.remove is a no-op — removing a view does not give its space
+    // back — so without this every rebuild starts lower than the last. Measured:
+    // the panel walked 0 -> 216 -> 432 across three saves, which put a newly
+    // added control off the bottom of the window entirely.
+    sliderBox.decorator.reset;
     sliders.clear;
+
+    // Drop values for arguments the def no longer declares, so a renamed
+    // control does not keep being sent to a synth that has never heard of it.
+    params.keys.asArray.do { |name|
+        if (controlNames.includes(name).not) { params.removeAt(name) };
+    };
 
     specNames.do { |name|
         var spec = specFor.(desc, name);
@@ -144,21 +162,25 @@ watcher = Routine({
             {
                 var reloaded = loadDef.value;
                 if (reloaded.notNil) {
+                    var added;
                     var before = controlNames;
                     currentDef = reloaded;
 
-                    // Only rebuild the GUI when the control surface actually
-                    // changed; otherwise the sliders would snap back to their
-                    // defaults on every save and you would lose your tuning.
-                    if (SynthDescLib.global[currentDef.name].controls
-                        .collect { |c| c.name.asSymbol } != before) {
-                        buildGui.value;
-                        statusView.string = " reloaded — controls changed, sliders rebuilt";
-                        "SSP_LIVE reloaded (controls changed)".postln;
+                    // Always rebuild. The pattern is unaffected — it lives in
+                    // the Pdef, not the window — so the server keeps playing
+                    // while the panel is replaced, and slider positions survive
+                    // because they are read back out of `params`.
+                    buildGui.value;
+
+                    added = controlNames.difference(before);
+                    statusView.string = if (added.isEmpty) {
+                        " reloaded " ++ Date.getDate.hourStamp
                     } {
-                        statusView.string = " reloaded " ++ Date.getDate.hourStamp;
-                        "SSP_LIVE reloaded".postln;
+                        " reloaded — new: " ++ added.join(", ")
                     };
+                    ("SSP_LIVE reloaded"
+                        ++ if (added.isEmpty) { "" } { " (new controls: " ++ added.join(", ") ++ ")" }
+                    ).postln;
 
                     rebuild.value;
                 } {
@@ -234,8 +256,14 @@ Server.default.waitForBoot({
         statusView = StaticText(window, Rect(0, 0, 230, 26))
             .string_(" watching " ++ srcPath.basename);
 
-        sliderBox = CompositeView(window, Rect(0, 0, 440, 440));
-        sliderBox.decorator = FlowLayout(sliderBox.bounds, 0@0, 2@2);
+        // A ScrollView, not a plain CompositeView: a def with twenty controls
+        // would otherwise run off the bottom with no way to reach them. The
+        // decorator's bounds are deliberately taller than the view so content
+        // flows past the fold and the scroller has something to scroll.
+        sliderBox = ScrollView(window, Rect(0, 0, 440, 440))
+            .hasHorizontalScroller_(false)
+            .autohidesScrollers_(true);
+        sliderBox.decorator = FlowLayout(Rect(0, 0, 424, 4000), 0@0, 2@2);
 
         buildGui.value;
         rebuild.value;
