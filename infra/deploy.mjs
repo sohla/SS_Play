@@ -171,7 +171,12 @@ remote(`mkdir -p ${releaseDir}`)
 // Hardlink anything byte-identical to the live release instead of re-sending
 // it. The engine is 3.4MB of wasm and synthdefs that changes only on a library
 // bump, so most releases transfer only the hashed /assets.
-const previous = remote(`readlink -f ${pageRoot}/current 2>/dev/null || true`).trim()
+// `-d` first: readlink -f resolves a dangling symlink to its target path
+// anyway, so readlink alone hands rsync a directory that does not exist. rsync
+// only warns, so the dedupe would quietly stop happening.
+const previous = remote(
+  `if [ -d ${pageRoot}/current ]; then readlink -f ${pageRoot}/current; fi`,
+).trim()
 const linkDest = previous && previous !== releaseDir ? [`--link-dest=${previous}`] : []
 if (linkDest.length > 0) console.log(`Hardlinking unchanged files from ${previous}`)
 
