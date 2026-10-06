@@ -14,6 +14,14 @@ export interface Motion extends Pose {
   accelZ: number
   /** 0..1, the magnitude of the three. Decays on its own. */
   shake: number
+  /**
+   * 0..1, how fast the device is turning, in any direction.
+   *
+   * AirKit calls this `rrateMassFiltered` and several personalities read it
+   * instead of acceleration — turning a thing and shaking it are different
+   * gestures, and a wrist can do one without the other.
+   */
+  turn: number
   /** False until an event has actually arrived, which is not the same as permitted. */
   live: boolean
   /** Whether the device reports linear acceleration separately from gravity. */
@@ -29,6 +37,7 @@ export const RESTING: Motion = {
   accelY: 0,
   accelZ: 0,
   shake: 0,
+  turn: 0,
   live: false,
   hasAcceleration: false,
 }
@@ -47,6 +56,9 @@ function ballistic(previous: number, next: number, decay = 0.9) {
 
 /** m/s². Roughly the hardest flick of a wrist, used to normalise to -1..1. */
 const FULL_SCALE = 12
+
+/** Degrees per second. A brisk turn of the wrist, used to normalise `turn`. */
+const FULL_TURN = 400
 
 type Permission = 'unsupported' | 'prompt' | 'granted' | 'denied'
 
@@ -141,6 +153,18 @@ export function watchMotion({ onMotion }: MotionWatchOptions): () => void {
       accelY: ballistic(current.accelY, unit(y)),
       accelZ: ballistic(current.accelZ, unit(z)),
       shake: ballistic(current.shake, Math.min(1, Math.hypot(x, y, z) / FULL_SCALE), 0.92),
+    }
+
+    // rotationRate is reported separately from acceleration and is often absent
+    // where acceleration is not, so it is read on its own terms rather than
+    // being folded into the same guard.
+    const r = event.rotationRate
+    if (r) {
+      const speed = Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0)
+      current = {
+        ...current,
+        turn: ballistic(current.turn, Math.min(1, speed / FULL_TURN), 0.9),
+      }
     }
 
     onMotion(current)

@@ -81,13 +81,13 @@ describe.each(manifest.defs.map((def) => [def.name, def] as const))('%s', (_name
     const names = def.params.map((p) => p.name)
     expect(names).toContain('out')
 
-    // ssp_drop_clock is the first def that makes no sound: it runs a demand
-    // sequence and reports each event over SendReply, so the page can spawn a
-    // real voice. An amp control on it would be a number nothing reads.
+    // A `_clock` def makes no sound: it runs a demand sequence and reports each
+    // event over SendReply so the page can spawn a real voice. An amp control
+    // on one would be a number nothing reads.
     //
-    // Narrowed by name rather than dropped, so that the next def without an amp
-    // has to come here and say why.
-    if (def.name !== 'ssp_drop_clock') expect(names).toContain('amp')
+    // A suffix rule rather than a list of names, now that there are four of
+    // them — but still narrow, so a voice that forgets its amp still fails.
+    if (!def.name.endsWith('_clock')) expect(names).toContain('amp')
   })
 
   it('has finite defaults', () => {

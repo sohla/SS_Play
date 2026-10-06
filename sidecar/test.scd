@@ -18,7 +18,7 @@ sources = PathName(here +/+ "synthdefs").files.select { |p| p.extension == "scd"
 sources.do { |path|
     var def = thisProcess.interpreter.executeFile(path.fullPath);
     var name = def.name.asString;
-    var desc, file;
+    var desc, file, busOut;
 
     def.add;
     desc = SynthDescLib.global[def.name];
@@ -63,8 +63,14 @@ sources.do { |path|
         ~sspCheck.(name ++ "/no-sustain-arg", desc.controlNames.includes(\sustain).not,
             "an argument named sustain collides with the event system's own key");
 
-        ~sspCheck.(name ++ "/stereo", desc.outputs.sum { |o| o.numberOfChannels } == 2,
-            "expected 2 output channels, got" + desc.outputs.sum { |o| o.numberOfChannels });
+        // Only what reaches a bus. desc.outputs counts LocalOut too, so a synth
+        // that feeds back through LocalIn/LocalOut double-counts and reads as
+        // four channels when it is two. Filtering on the `out` control is exact
+        // and uses a rule this file already enforces a few lines up.
+        busOut = desc.outputs.select { |o| o.startingChannel == \out };
+        ~sspCheck.(name ++ "/stereo", busOut.sum { |o| o.numberOfChannels } == 2,
+            "expected 2 output channels to the out bus, got"
+                + busOut.sum { |o| o.numberOfChannels });
 
         ~sspCheck.(name ++ "/no-infs",
             desc.controls.every { |c| c.defaultValue.isNumber and: { c.defaultValue.isNaN.not } },

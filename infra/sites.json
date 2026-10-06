@@ -26,6 +26,27 @@
       "engine": true
     },
     {
+      "app": "melchair",
+      "path": "/melchair/",
+      "title": "melchair",
+      "blurb": "AirKit's melChair3. Turn the phone to play a figure on a self-feeding sine.",
+      "engine": true
+    },
+    {
+      "app": "suz",
+      "path": "/suz/",
+      "title": "suz",
+      "blurb": "AirKit's suz1. Nine notes against a sixteen-step octave, drifting apart.",
+      "engine": true
+    },
+    {
+      "app": "beast",
+      "path": "/beast/",
+      "title": "beast",
+      "blurb": "AirKit's movingBeast. Five against four against seven. Shake, turn, tilt and roll.",
+      "engine": true
+    },
+    {
       "app": "playground",
       "path": "/playground/",
       "title": "scsynth tester",

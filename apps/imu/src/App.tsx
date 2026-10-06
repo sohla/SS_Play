@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ctl, mapSpec, type SynthDefContract } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
-import { unipolar } from './pose.ts'
-import { RESTING, requestMotion, watchMotion, type Motion } from './sensors.ts'
+import { unipolar } from '@ss/motion'
+import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 
 const DEF = 'ssp_drone'
 

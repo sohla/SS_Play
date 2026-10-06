@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ctl } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
-import { RESTING, requestMotion, watchMotion, type Motion } from '../../imu/src/sensors.ts'
+import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 import {
   plotFrom,
   showerFrom,

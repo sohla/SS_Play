@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { poseFrom, quaternionFromEuler, smooth, unipolar } from '../src/pose.ts'
+import { poseFrom, quaternionFromEuler, smooth, unipolar } from '../src/index.ts'
 
 const pose = (alpha: number, beta: number, gamma: number) =>
   poseFrom(quaternionFromEuler(alpha, beta, gamma))
