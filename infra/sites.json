@@ -33,6 +33,20 @@
       "engine": true
     },
     {
+      "app": "leaves",
+      "path": "/leaves/",
+      "title": "leaves",
+      "blurb": "Noise chopped into grains \u2014 a surface being disturbed. Tilt from soft to crisp, turn for the grain rate.",
+      "engine": true
+    },
+    {
+      "app": "gendy",
+      "path": "/gendy/",
+      "title": "gendy",
+      "blurb": "Twenty oscillators inventing their own waveform by a random walk. Move to play, tilt for the note.",
+      "engine": true
+    },
+    {
       "app": "trainmelody",
       "path": "/trainmelody/",
       "title": "train melody",

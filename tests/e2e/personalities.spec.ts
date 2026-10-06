@@ -12,8 +12,18 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 // spawns a voice per event; a held one opens a single voice and plays it by
 // moving its controls — which is why those have no Pbind at all.
 const CONDUCTED = ['suz', 'beast', 'moog'] as const
-const HELD = ['pluck'] as const
+const HELD = ['pluck', 'leaves', 'gendy'] as const
 const PORTED = [...CONDUCTED, ...HELD] as const
+
+/**
+ * Pages whose source gates on a curve that never reaches its own dead zone.
+ *
+ * leaves' level bottoms out at 0.01 against a 0.0003 threshold, so it is a
+ * whisper at rest rather than a silence. That is the original's behaviour and
+ * not a port bug — see the note on SILENCE_BELOW in its mapping — so it is
+ * exempted here rather than having the threshold moved to satisfy the test.
+ */
+const ALWAYS_ON: readonly string[] = ['leaves']
 
 const pathOf = (app: string) => {
   const page = sites.pages.find((candidate) => candidate.app === app)
@@ -83,6 +93,7 @@ const events = (page: import('@playwright/test').Page) =>
 
 for (const app of PORTED) {
   test(`${app} is silent until it is moved`, async ({ page }) => {
+    test.skip(ALWAYS_ON.includes(app), 'sounds at rest by design')
     await boot(page, app)
 
     // The resting pose is a valid one, so a page that drove its clock before a
