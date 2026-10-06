@@ -224,6 +224,15 @@ run('rsync', [...RSYNC_FLAGS, ...rsh(), ...linkDest, `${dist}/`, `${target}:${re
 // without needing anything local.
 remote(`printf '%s\\n' ${release} ${commit} > ${releaseDir}/RELEASE`)
 
+// `ln -sfn x current` drops the link *inside* current when current is already a
+// symlink to a directory. Build it beside, then rename over — mv -T replaces
+// the symlink itself atomically, so a request mid-deploy gets the old release
+// whole rather than a tree that is half-new.
+console.log('Pointing current at the new release')
+remote(
+  `ln -sfn ${release} ${pageRoot}/.current.new && mv -Tf ${pageRoot}/.current.new ${pageRoot}/current`,
+)
+
 // Push the server config too, when the VM is set up for it.
 //
 // /etc/caddy needs root and `deploy` has no sudo, so installing the Caddyfile
@@ -260,6 +269,18 @@ try {
       `${error.stdout ?? error.message}\n\n` +
       `The previous config is still running. Fix infra/Caddyfile and deploy again.`,
   )
+}
+
+// Keep the newest KEEP_RELEASES, counting the one just made. The name filter is
+// what stops this touching `current`, the caddy directory, or anything else
+// living here.
+const pruned = remote(
+  `cd ${pageRoot} && ` +
+    `old=$(ls -1 | grep -E '^[0-9]{8}-[0-9]{6}$' | grep -v '^${release}$' | sort -r | tail -n +${KEEP_RELEASES}) && ` +
+    `if [ -n "$old" ]; then echo "$old"; echo "$old" | xargs rm -rf; fi`,
+).trim()
+if (pruned) {
+  console.log(`Pruned ${pruned.split('\n').length} old release(s): ${pruned.replace(/\n/g, ' ')}`)
 }
 
 // ------------------------------------------------------------------ confirm
