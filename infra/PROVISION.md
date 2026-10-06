@@ -73,27 +73,31 @@ adduser --disabled-password --gecos "" deploy
 install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
 ```
 
-Give it your public key. Paste the whole line:
+Give it your public key. **On your Mac**, print the key and its fingerprint together — derived from
+the private key, not read from the `.pub` file:
 
 ```sh
-echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMY1S8XwoJZTmulNltfBs2unzU2ZA/bgjo5mc5gTrSOy ssplay-deploy' \
-  > /home/deploy/.ssh/authorized_keys
-chown deploy:deploy /home/deploy/.ssh/authorized_keys
-chmod 600 /home/deploy/.ssh/authorized_keys
+ssh-keygen -y -f ~/.ssh/id_ed25519 | tee /dev/tty | ssh-keygen -lf -
 ```
 
-**Check the paste survived**, because a key truncated in a terminal is still a valid-looking file
-and fails only at login, with no clue why:
+The first line is what to paste; the second is what to check against afterwards.
+
+Deriving it matters. An earlier run of this guide pasted a stale `id_ed25519.pub` whose private half
+had since been replaced by a re-run of `ssh-keygen` — the file looked right, the fingerprint
+matched *itself*, and login failed with nothing but `Permission denied (publickey,password)`.
+`ssh-keygen -y` reads the private key, so it can only ever print the key SSH will actually offer.
+
+**On the VM**, paste that first line between the quotes:
 
 ```sh
+echo 'PASTE_THE_KEY_HERE' > /home/deploy/.ssh/authorized_keys
+chown deploy:deploy /home/deploy/.ssh/authorized_keys
+chmod 600 /home/deploy/.ssh/authorized_keys
 ssh-keygen -lf /home/deploy/.ssh/authorized_keys
 ```
 
-Must print exactly:
-
-```
-256 SHA256:puLy282zD2Q5N4DR8gf8TVQPpRBABTplCWXsDK1hYdQ ssplay-deploy (ED25519)
-```
+That last line must print the same fingerprint your Mac just showed. It catches both failures at
+once: a paste truncated by the terminal, and a key that was never the right one.
 
 `--disabled-password` means the account has no password to guess — it is reachable only by that
 key. It also has no sudo, which is the point: a deploy credential should not be able to reconfigure
