@@ -11,8 +11,8 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 // The two shapes a personality takes. A conducted one runs a pattern and
 // spawns a voice per event; a held one opens a single voice and plays it by
 // moving its controls — which is why those have no Pbind at all.
-const CONDUCTED = ['suz', 'beast', 'chime', 'moog'] as const
-const HELD = ['woiworung', 'pluck'] as const
+const CONDUCTED = ['suz', 'beast', 'moog'] as const
+const HELD = ['pluck'] as const
 const PORTED = [...CONDUCTED, ...HELD] as const
 
 const pathOf = (app: string) => {
@@ -169,28 +169,4 @@ test('each ported page reaches its own SynthDefs', async ({ page }) => {
     await boot(page, app)
     await expect.poll(() => voices(page), { timeout: 10_000 }).toBe(1)
   }
-})
-
-test('woiworung steps its note on the way out of a rest', async ({ page }) => {
-  await boot(page, 'woiworung')
-
-  const note = () => page.locator('[data-testid=value-note]').innerText()
-
-  // The only event in the personality, and it fires on the rising edge after a
-  // rest rather than on movement itself — going still arms it, moving advances.
-  // A naive reading would advance on every frame of movement, which sounds like
-  // a glissando rather than a step.
-  await hold(page, 600)
-  await page.waitForTimeout(700)
-  const first = await note()
-
-  await shake(page)
-  await page.waitForTimeout(400)
-  const second = await note()
-  expect(second).not.toBe(first)
-
-  // Still moving is not a new event: it steps once per rest, not continuously.
-  await shake(page)
-  await page.waitForTimeout(400)
-  expect(await note()).toBe(second)
 })

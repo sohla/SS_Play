@@ -11,9 +11,8 @@ export function App() {
       title="beast"
       blurb={
         <>
-          AirKit&rsquo;s <code className="text-neutral-400">movingBeast</code>. Five against four
-          against seven, so the figure takes 140 notes to repeat. Shake it to drive it, turn it to
-          open the filter, tilt and roll for the timbre.
+          Five against four against seven, so the figure takes 140 notes to repeat. Shake it to
+          drive it, turn it to open the filter, tilt and roll for the timbre.
         </>
       }
       instrument={{

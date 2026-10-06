@@ -119,9 +119,8 @@ export function App() {
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
         <p className="text-sm text-neutral-500">
-          Synth droplets, from AirKit&rsquo;s{' '}
-          <code className="text-neutral-400">droplet</code> personality. Hold the phone flat to
-          play, stand it upright to stop. Flick it to lengthen the tails; roll it to colour them.
+          Synth droplets. Hold the phone flat to play, stand it upright to stop. Flick it to
+          lengthen the tails; roll it to colour them.
         </p>
 
         <BootGate
@@ -159,9 +158,9 @@ export function App() {
               {playing ? `${drops} droplets` : 'stopped — lay the phone flat to start'}
             </div>
 
-            {/* What AirKit's ~plot draws: the three numbers the curves are
-                actually fed, rather than the orientation they came from. A
-                gesture that does nothing shows up here and is invisible in
+            {/* The three numbers the curves are actually fed, which is what the
+                original plots too — rather than the orientation they came from.
+                A gesture that does nothing shows up here and is invisible in
                 roll/pitch/yaw. */}
             <Readout id="gyroY" label="gyroY" hint="rate, level" value={plot.gyroY} />
             <Readout id="gyroX" label="gyroX" hint="wobble ceiling" value={plot.gyroX} />

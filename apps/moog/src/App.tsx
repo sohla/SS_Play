@@ -11,9 +11,9 @@ export function App() {
       title="moog"
       blurb={
         <>
-          AirKit&rsquo;s <code className="text-neutral-400">miniMoog</code>. Three detuned
-          oscillators through a resonant lowpass, five against six against two so the figure takes
-          thirty notes to come round and 180 before it does so in the same key.
+          Three detuned oscillators through a resonant lowpass. Five against six against two,
+          so the figure takes thirty notes to come round and 180 before it does so in the same
+          key.
         </>
       }
       instrument={{

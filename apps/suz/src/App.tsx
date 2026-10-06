@@ -11,9 +11,9 @@ export function App() {
       title="suz"
       blurb={
         <>
-          AirKit&rsquo;s <code className="text-neutral-400">suz1</code>. A nine-note melody against
-          a sixteen-step octave, so the two drift apart and meet again every 144 notes. Move the
-          phone to play; move it more and it closes up.
+          A nine-note melody against a sixteen-step octave, so the two drift apart and meet
+          again every 144 notes. Move the phone to play &mdash; move it more and it closes up.
+          Tilt to shift the register.
         </>
       }
       instrument={{

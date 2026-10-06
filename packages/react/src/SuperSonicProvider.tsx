@@ -1,6 +1,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -105,6 +106,43 @@ export function SuperSonicProvider({ base, synthdefs = [], children }: SuperSoni
 
     return booting.current
   }, [base, synthdefs, statusStore])
+
+  /**
+   * Give the engine back, on unmount and on the way out of the page.
+   *
+   * Nothing did this before, and the engine is not small: `getInfo` reports
+   * around 70MB of WebAssembly memory per boot, none of it visible in the JS
+   * heap. On a desktop the browser reclaims it when the document goes; on a
+   * phone, where the per-tab budget is a fraction of that, several pages in a
+   * session is enough to be killed for it.
+   *
+   * Both hooks are needed and neither is sufficient. React unmount covers a
+   * component going away while the page stays; `pagehide` covers navigating
+   * between pages, which on this site is a full document load and never
+   * unmounts anything. `pagehide` rather than `unload`, because Safari does not
+   * fire `unload` reliably and treats a page with one as ineligible for the
+   * back/forward cache.
+   *
+   * dispose() stops the metrics poller, drops every OSC subscription and
+   * destroys the engine, in that order — the poller must stop before the
+   * engine it reads from goes.
+   */
+  useEffect(() => {
+    const release = () => {
+      const live = session.current
+      session.current = null
+      // Deliberately not awaited: `pagehide` gives no time for a promise, and
+      // the teardown's first act is to stop the pollers, which is the part that
+      // has to happen before the document goes.
+      void live?.dispose()
+    }
+
+    window.addEventListener('pagehide', release)
+    return () => {
+      window.removeEventListener('pagehide', release)
+      release()
+    }
+  }, [])
 
   const value = useMemo<SuperSonicContextValue>(
     () => ({

@@ -22,49 +22,35 @@
       "app": "droplet",
       "path": "/droplet/",
       "title": "droplet",
-      "blurb": "Synth droplets, ported from AirKit. Hold the phone flat to play, stand it upright to stop.",
-      "engine": true
-    },
-    {
-      "app": "woiworung",
-      "path": "/woiworung/",
-      "title": "woiworung",
-      "blurb": "AirKit's woiworung1. One voice phase-modulating itself. Hold still, then move, to step the note.",
+      "blurb": "Synth droplets. Hold the phone flat to play, stand it upright to stop. Flick it to lengthen the tails.",
       "engine": true
     },
     {
       "app": "pluck",
       "path": "/pluck/",
       "title": "pluck",
-      "blurb": "AirKit's pluck1. A plucked string you knock to pitch and move to play.",
-      "engine": true
-    },
-    {
-      "app": "chime",
-      "path": "/chime/",
-      "title": "chime",
-      "blurb": "AirKit's wingChimes3. Grains of noise through a filter narrow enough to ring.",
+      "blurb": "A plucked string you knock to pitch and move to play.",
       "engine": true
     },
     {
       "app": "moog",
       "path": "/moog/",
       "title": "moog",
-      "blurb": "AirKit's miniMoog. Three detuned oscillators, five against six against two.",
+      "blurb": "Three detuned oscillators through a resonant lowpass. Five against six against two.",
       "engine": true
     },
     {
       "app": "suz",
       "path": "/suz/",
       "title": "suz",
-      "blurb": "AirKit's suz1. Nine notes against a sixteen-step octave, drifting apart.",
+      "blurb": "A nine-note melody against a sixteen-step octave, drifting apart. Move to play, tilt to change register.",
       "engine": true
     },
     {
       "app": "beast",
       "path": "/beast/",
       "title": "beast",
-      "blurb": "AirKit's movingBeast. Five against four against seven. Shake, turn, tilt and roll.",
+      "blurb": "Five against four against seven. Shake it to drive it, turn it to open the filter, tilt and roll for the timbre.",
       "engine": true
     },
     {
