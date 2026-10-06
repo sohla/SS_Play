@@ -2,6 +2,8 @@
   "domain": "soh.la",
   "subdomain": "playground",
   "releaseRoot": "/srv/ssplay",
+  "sampleRoot": "/srv/ssplay/samples",
+  "samplePath": "/samples/",
   "landing": "landing",
   "pages": [
     {
@@ -86,6 +88,13 @@
       "path": "/playground/",
       "title": "scsynth tester",
       "blurb": "Boot the engine, play any SynthDef from the library, and watch the OSC traffic and audio thread while it runs.",
+      "engine": true
+    },
+    {
+      "app": "sample",
+      "path": "/sample/",
+      "title": "sample",
+      "blurb": "Load an audio file into a buffer and loop it. Pitch and level by hand.",
       "engine": true
     }
   ]

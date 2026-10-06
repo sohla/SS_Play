@@ -11,7 +11,7 @@
 // Headers come from infra/headers.json through the same expansion the Caddyfile
 // uses, so this server and production cannot disagree about isolation.
 
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { extname, join, normalize, resolve } from 'node:path'
 import { dirname } from 'node:path'
@@ -24,6 +24,41 @@ const root = join(repoRoot, 'dist')
 const headers = readJson('headers.json')
 const sites = readJson('sites.json')
 const { immutable, revalidate } = cachePaths(headers, sites)
+
+/**
+ * The sample store, which is outside the repo and outside dist/.
+ *
+ * Caddy serves it in production from a shared directory with its own
+ * handle_path block; here it is a second root, so the sample page behaves the
+ * same locally and the e2e suite exercises the real URL shape instead of a
+ * fixture.
+ *
+ * A missing store is normal rather than an error — most pages have nothing to do
+ * with samples, and requiring one to run the site would break the common case.
+ * The index is answered as an empty list, which is what a server with an empty
+ * store returns anyway, so the page's "nothing here yet" path gets exercised
+ * too.
+ *
+ * The index is generated per request rather than cached, because the point of a
+ * local store is dropping a file in and reloading.
+ */
+const sampleStore = process.env['SS_SAMPLES_DIR'] ?? join(repoRoot, '..', 'SS_Play-samples')
+const samplePath = sites.samplePath
+const PLAYABLE = ['.wav', '.flac', '.mp3', '.ogg', '.m4a', '.opus']
+
+function sampleIndex() {
+  if (!existsSync(sampleStore) || !statSync(sampleStore).isDirectory()) return { samples: [] }
+
+  const samples = readdirSync(sampleStore, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && PLAYABLE.includes(extname(entry.name).toLowerCase()))
+    .map((entry) => ({
+      name: entry.name,
+      bytes: statSync(join(sampleStore, entry.name)).size,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return { samples }
+}
 
 const portArg = process.argv.indexOf('--port')
 const port = portArg === -1 ? 4173 : Number(process.argv[portArg + 1])
@@ -46,6 +81,10 @@ const TYPES = {
   '.scsyndef': 'application/octet-stream',
   '.flac': 'audio/flac',
   '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.m4a': 'audio/mp4',
   '.map': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
@@ -64,9 +103,29 @@ function cacheControl(path) {
 createServer((request, response) => {
   const path = decodeURIComponent(new URL(request.url, 'http://localhost').pathname)
 
+  // The store is the second root, matching production's handle_path. Served
+  // before the release tree so a page directory named `samples` could never
+  // shadow it.
+  const underSamples = path.startsWith(samplePath)
+  const servedRoot = underSamples ? sampleStore : root
+  const relative = underSamples ? path.slice(samplePath.length) : path
+
+  if (underSamples && relative === 'index.json') {
+    const body = `${JSON.stringify(sampleIndex(), null, 2)}\n`
+    response
+      .writeHead(200, {
+        ...headers.document,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': headers.revalidate['Cache-Control'],
+        'Content-Length': Buffer.byteLength(body),
+      })
+      .end(body)
+    return
+  }
+
   // normalize before resolve: without it, '/../' escapes the served tree.
-  const candidate = resolve(root, '.' + normalize(path))
-  if (!candidate.startsWith(root)) {
+  const candidate = resolve(servedRoot, '.' + normalize(`/${relative}`))
+  if (!candidate.startsWith(servedRoot)) {
     response.writeHead(403).end('forbidden')
     return
   }
@@ -97,4 +156,9 @@ createServer((request, response) => {
 }).listen(port, () => {
   console.log(`serving dist/ at http://localhost:${port}/`)
   for (const page of sites.pages) console.log(`  http://localhost:${port}${page.path}`)
+  const { samples } = sampleIndex()
+  console.log(
+    `samples ${samplePath} from ${sampleStore}` +
+      (existsSync(sampleStore) ? ` (${samples.length})` : ' (absent)'),
+  )
 })

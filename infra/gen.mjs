@@ -20,7 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 const headers = readJson('headers.json')
 const sites = readJson('sites.json')
-const { domain, subdomain, releaseRoot } = sites
+const { domain, subdomain, releaseRoot, sampleRoot, samplePath } = sites
 
 const host = `${subdomain}.${domain}`
 const root = `${releaseRoot}/${subdomain}/current`
@@ -30,8 +30,6 @@ const indent = (depth, line) => '\t'.repeat(depth) + line
 
 const siteBlock = () => [
   `${host} {`,
-  indent(1, `root * ${root}`),
-  '',
   indent(1, 'header {'),
   ...Object.entries(headers.document).map(([name, value]) => indent(2, `${name} "${value}"`)),
   indent(2, '-Server'),
@@ -48,13 +46,36 @@ const siteBlock = () => [
   ),
   '',
   indent(1, 'encode zstd gzip'),
+  '',
+  // The sample store, served from outside the release tree.
+  //
+  // Two roots in one site, which is why the main root moved into its own
+  // handle: samples are pushed on their own schedule, survive every deploy, and
+  // are never pruned with old releases. A release should not carry a copy of
+  // audio that can run to hundreds of megabytes.
+  //
+  // Same origin, deliberately. A separate subdomain would drag in CORS, CORP
+  // and a second certificate, and would make every sample a cross-origin
+  // subresource under COEP: require-corp — which is the one thing this site's
+  // isolation cannot tolerate.
+  //
+  // handle_path rather than handle: it strips the prefix, so /samples/foo.wav
+  // reads foo.wav from the store root rather than samples/foo.wav under it.
+  indent(1, `handle_path ${samplePath}* {`),
+  indent(2, `root * ${sampleRoot}`),
+  indent(2, 'file_server'),
+  indent(1, '}'),
+  '',
+  indent(1, 'handle {'),
+  indent(2, `root * ${root}`),
   // No try_files. None of these pages has a client-side router, so the only
   // thing a fallback would do is answer a missing .scsyndef or .wasm with
   // index.html and a 200 — a binary request served HTML, which surfaces as an
   // opaque parse failure instead of a 404. Every bug of that shape in this
   // project so far has presented as silence. file_server resolves /<page>/ to
   // that page's index.html through index_names, which is all that was wanted.
-  indent(1, 'file_server'),
+  indent(2, 'file_server'),
+  indent(1, '}'),
   '}',
 ]
 

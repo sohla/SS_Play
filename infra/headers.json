@@ -9,13 +9,21 @@
   "revalidate": {
     "Cache-Control": "no-cache"
   },
-  "immutablePagePaths": ["assets/*"],
-  "revalidatePagePaths": ["", "index.html"],
+  "immutablePagePaths": [
+    "assets/*"
+  ],
+  "revalidatePagePaths": [
+    "",
+    "index.html"
+  ],
   "revalidateEnginePaths": [
     "vendor/supersonic/manifest.json",
     "vendor/supersonic/wasm/*",
     "vendor/supersonic/workers/*",
     "vendor/supersonic/synthdefs/*",
     "vendor/supersonic/samples/*"
+  ],
+  "revalidateSharedPaths": [
+    "*"
   ]
 }

@@ -38,10 +38,21 @@ export function cachePaths(headers, sites) {
     headers.immutablePagePaths.map((pattern) => under(page.path, pattern)),
   )
 
-  const revalidate = pages.flatMap((page) => [
-    ...headers.revalidatePagePaths.map((pattern) => under(page.path, pattern)),
-    ...(page.engine ? headers.revalidateEnginePaths.map((p) => under(page.path, p)) : []),
-  ])
+  const revalidate = [
+    ...pages.flatMap((page) => [
+      ...headers.revalidatePagePaths.map((pattern) => under(page.path, pattern)),
+      ...(page.engine ? headers.revalidateEnginePaths.map((p) => under(page.path, p)) : []),
+    ]),
+    // The shared sample store. Not page-relative, because it sits outside every
+    // release — there is one of it rather than one per page.
+    //
+    // Revalidated rather than immutable-cached, which is the honest choice here:
+    // the names are stable and the bytes behind them are not. Replacing a file
+    // and keeping its name is the entire point of a store you push to, and an
+    // immutable header would leave a visitor hearing last week's audio with no
+    // way to discover it.
+    ...(headers.revalidateSharedPaths ?? []).map((pattern) => under(sites.samplePath, pattern)),
+  ]
 
   return { immutable, revalidate }
 }

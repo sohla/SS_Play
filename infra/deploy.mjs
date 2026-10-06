@@ -26,49 +26,26 @@
 // Everything below was checked against the installed openrsync before being
 // committed. Re-check before adding a flag.
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  cli,
+  die,
+  DEPLOY_USER,
+  remoteOn,
+  RSYNC_FLAGS,
+  rsh,
+  run,
+  SSH_OPTS,
+} from './remote.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repoRoot = join(here, '..')
 
-const RSYNC_FLAGS = ['-rlpt', '--delete', '--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r']
 const KEEP_RELEASES = 3
-const DEPLOY_USER = process.env['SSPLAY_USER'] ?? 'deploy'
 
-// One TCP connection for the whole deploy, shared by every ssh, the scp and
-// rsync. A deploy makes half a dozen connections otherwise, and each one is a
-// chance to fail — which it did: unattended-upgrades restarted sshd mid-run and
-// took the deploy with it, after the files were already in place.
-//
-// ControlPath uses %C, a hash of the connection parameters, because a unix
-// socket path is capped at ~104 characters and a readable one overruns it.
-const SSH_OPTS = [
-  '-o',
-  'ControlMaster=auto',
-  '-o',
-  'ControlPath=~/.ssh/ssplay-%C',
-  '-o',
-  'ControlPersist=120',
-  '-o',
-  'ConnectTimeout=20',
-  '-o',
-  'ServerAliveInterval=15',
-  '-o',
-  'ServerAliveCountMax=4',
-]
-
-/** openrsync takes --rsh as one string, so the options are joined rather than spread. */
-const rsh = () => ['-e', `ssh ${SSH_OPTS.join(' ')}`]
-
-const args = process.argv.slice(2)
-const flag = (name) => args.includes(`--${name}`)
-const value = (name) => {
-  const at = args.indexOf(`--${name}`)
-  return at === -1 ? undefined : args[at + 1]
-}
+const { flag, value } = cli()
 
 const apply = flag('yes')
 
@@ -94,36 +71,7 @@ const release = new Date()
   .slice(0, 15)
 const releaseDir = `${pageRoot}/${release}`
 
-function die(message) {
-  console.error(`\n${message}\n`)
-  process.exit(1)
-}
-
-function run(command, commandArgs, options = {}) {
-  return execFileSync(command, commandArgs, { encoding: 'utf8', ...options })
-}
-
-/** Run a command on the VM. Quoted as one argv entry so the local shell is never involved. */
-function remote(script) {
-  return retrying(() => run('ssh', [...SSH_OPTS, target, script]))
-}
-
-/**
- * Retry once on a connection failure, not on a command failure.
- *
- * sshd exits 255 for its own errors and passes the remote command's status
- * through otherwise, so 255 is the one status worth retrying — a failed
- * `mkdir` should surface immediately rather than being attempted twice.
- */
-function retrying(attempt) {
-  try {
-    return attempt()
-  } catch (error) {
-    if (error.status !== 255) throw error
-    console.log('  connection dropped, retrying once')
-    return attempt()
-  }
-}
+const remote = remoteOn(target)
 
 function git(...gitArgs) {
   return run('git', gitArgs, { cwd: repoRoot }).trim()
