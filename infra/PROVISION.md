@@ -43,13 +43,17 @@ ssh-keyscan -t ed25519 playground.soh.la >> ~/.ssh/known_hosts
 
 If it does **not** match, stop — do not type a password into that session.
 
-## 2. First login and updates — On your Mac
+## 2. First login and updates — In the LISH console
 
-```sh
-ssh root@playground.soh.la
-```
+Stay in LISH. Attaching an SSH key on Linode's create form authorises it for `root`, and this
+instance was built without that, so `ssh root@…` is refused — `Permission denied (publickey,
+password)`.
 
-Then **on the VM**:
+That turns out not to matter. Everything root needs to do is steps 2 to 6, and step 4 disables root
+SSH permanently anyway. So root access stays console-only for the life of the machine, which is one
+fewer way in than the usual setup, and LISH remains the out-of-band route if SSH ever breaks.
+
+**On the VM**, at the LISH root prompt:
 
 ```sh
 apt update && apt upgrade -y
@@ -76,6 +80,19 @@ echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMY1S8XwoJZTmulNltfBs2unzU2ZA/bgjo5mc5
   > /home/deploy/.ssh/authorized_keys
 chown deploy:deploy /home/deploy/.ssh/authorized_keys
 chmod 600 /home/deploy/.ssh/authorized_keys
+```
+
+**Check the paste survived**, because a key truncated in a terminal is still a valid-looking file
+and fails only at login, with no clue why:
+
+```sh
+ssh-keygen -lf /home/deploy/.ssh/authorized_keys
+```
+
+Must print exactly:
+
+```
+256 SHA256:puLy282zD2Q5N4DR8gf8TVQPpRBABTplCWXsDK1hYdQ ssplay-deploy (ED25519)
 ```
 
 `--disabled-password` means the account has no password to guess — it is reachable only by that
