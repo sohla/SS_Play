@@ -40,9 +40,8 @@ export function App() {
       </ul>
 
       <p className="mt-10 text-sm text-neutral-500">
-        Each page needs a browser with <code className="text-neutral-400">SharedArrayBuffer</code>,
-        which the site&rsquo;s isolation headers enable. Audio needs a tap or a click first &mdash;
-        browsers will not start an audio context without one.
+        Audio needs a tap or a click first &mdash; browsers will not start an audio context without
+        one.
       </p>
 
       <SourceFooter />
