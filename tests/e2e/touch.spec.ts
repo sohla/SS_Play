@@ -177,7 +177,7 @@ test('the engine asks for a small output buffer and says what it got', async ({ 
   const quantumMs = (128 / context.sampleRate) * 1000
   expect(context.baseLatency).toBeLessThan(quantumMs * 1.5)
 
-  await expect(page.locator('[data-testid=latency]')).toContainText('ms out')
+  await expect(page.locator('[data-testid=latency]')).toContainText('ms ·')
 })
 
 test('a press reaches the output within a render quantum or two', async ({ page }) => {
