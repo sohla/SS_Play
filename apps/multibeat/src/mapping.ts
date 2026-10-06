@@ -22,7 +22,19 @@ export const SILENCE_BELOW = 0.02
 export const DIVS = [1, 2, 4] as const
 export const POOL = [0, 4, 7, 11, 12, 11, 7, 2] as const
 export const BAR_S = 0.5
-export const DRONE_NOTE = 24
+
+/**
+ * The drone, an octave above where it started.
+ *
+ * It was 24 — C1, 32.7Hz — and the voice's loudest component is
+ * `SinOsc.ar(freq / 2)` at 0.6 against the pulse's 0.5, which put most of its
+ * energy at 16.3Hz: below hearing, and audible only as whatever the phone's
+ * speaker folded back up. Only the quieter pulse was carrying the note.
+ *
+ * At 36 the sub lands on 32.7Hz and the pulse on 65.4Hz, so the two components
+ * sit either side of where a bass actually speaks.
+ */
+export const DRONE_NOTE = 36
 
 const dbamp = (db: number) => 10 ** (db * 0.05)
 
