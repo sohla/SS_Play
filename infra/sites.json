@@ -1,10 +1,23 @@
 {
   "domain": "soh.la",
+  "subdomain": "playground",
   "releaseRoot": "/srv/ssplay",
-  "sites": [
+  "landing": "landing",
+  "pages": [
     {
-      "page": "playground",
-      "subdomain": "playground"
+      "app": "playground",
+      "path": "/playground/",
+      "title": "scsynth tester",
+      "blurb": "Boot the engine, play any SynthDef from the library, and watch the OSC traffic and audio thread while it runs.",
+      "engine": true
+    },
+    {
+      "app": "scratch",
+      "path": "/scratch/",
+      "title": "scratch",
+      "blurb": "A throwaway page. It exists to prove that adding one costs a directory and a line here, with no DNS record and no certificate.",
+      "engine": true,
+      "temporary": true
     }
   ]
 }

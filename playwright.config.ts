@@ -29,8 +29,12 @@ export default defineConfig({
   webServer: process.env['SS_BASE_URL']
     ? undefined
     : {
-        // preview, not dev: this serves the real build with preview.headers,
-        // which is what production will look like.
+        // tools/serve.mjs over the assembled tree, not `vite preview` over a
+        // single app. The pages share an origin and sit under their own path
+        // prefixes, so a one-app server cannot represent what ships: the
+        // landing page's links would 404 and no test would touch a real page
+        // path. It also sends the headers from infra/headers.json, so what the
+        // suite checks is what Caddy will serve.
         command: 'npm run preview',
         url: 'http://localhost:4173',
         reuseExistingServer: !process.env['CI'],

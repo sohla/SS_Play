@@ -1,3 +1,4 @@
+import { PLAYGROUND } from './pages.ts'
 import { expect, test } from '@playwright/test'
 
 // Phase 3's gate: scsynth actually running in the browser. Everything here is
@@ -6,7 +7,7 @@ import { expect, test } from '@playwright/test'
 const bootButton = 'button:has-text("Start audio")'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto(PLAYGROUND)
   await page.click(bootButton)
   await expect(page.getByRole('heading', { name: 'SynthDefs' })).toBeVisible({
     timeout: 30_000,
@@ -122,7 +123,7 @@ test('shows OSC traffic in both directions', async ({ page }) => {
 test('serves the vendored engine from its own origin', async ({ page, baseURL }) => {
   // Same-origin is what keeps require-corp satisfied without CORP headers, and
   // keeps the library off its cross-origin blob-worker path.
-  const wasm = await page.request.get(`${baseURL}/vendor/supersonic/wasm/scsynth-nrt.wasm`)
+  const wasm = await page.request.get(`${baseURL}${PLAYGROUND}vendor/supersonic/wasm/scsynth-nrt.wasm`)
   expect(wasm.status()).toBe(200)
   // A wrong MIME type fails the streaming compile with a confusing error.
   expect(wasm.headers()['content-type']).toBe('application/wasm')
@@ -132,7 +133,7 @@ test('serves the vendored engine from its own origin', async ({ page, baseURL })
     'workers/osc_in_worker.js',
     'workers/osc_out_log_sab_worker.js',
   ]) {
-    const response = await page.request.get(`${baseURL}/vendor/supersonic/${worker}`)
+    const response = await page.request.get(`${baseURL}${PLAYGROUND}vendor/supersonic/${worker}`)
     expect(response.status(), worker).toBe(200)
   }
 })
@@ -144,7 +145,7 @@ test('ships each vendored package licence beside the code it covers', async ({
   // The client package is AGPL in both its metadata and its LICENSE, and it is
   // the one bundled into this page's JavaScript — which is what makes SS_Play
   // AGPL-3.0-or-later.
-  const client = await request.get(`${baseURL}/vendor/supersonic/LICENSE-supersonic-scsynth`)
+  const client = await request.get(`${baseURL}${PLAYGROUND}vendor/supersonic/LICENSE-supersonic-scsynth`)
   expect(client.status()).toBe(200)
   expect(await client.text()).toMatch(/GNU Affero General Public License/i)
 
@@ -152,7 +153,7 @@ test('ships each vendored package licence beside the code it covers', async ({
   // GPL-3.0 text with no mention of Affero. Asserted as shipped rather than as
   // the metadata claims, so an upstream correction surfaces here. It does not
   // change our choice: GPL-3.0 code is compatible with an AGPL-3.0 whole.
-  const core = await request.get(`${baseURL}/vendor/supersonic/LICENSE-supersonic-scsynth-core`)
+  const core = await request.get(`${baseURL}${PLAYGROUND}vendor/supersonic/LICENSE-supersonic-scsynth-core`)
   expect(core.status()).toBe(200)
   expect(await core.text()).toMatch(/GNU General Public License/i)
 })

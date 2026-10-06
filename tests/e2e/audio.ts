@@ -1,3 +1,4 @@
+import { PLAYGROUND } from './pages.ts'
 import type { Page } from '@playwright/test'
 
 export interface CaptureRequest {
@@ -163,7 +164,7 @@ export async function captureNote(page: Page, request: CaptureRequest): Promise<
 
 /** Boot the engine with the debug handle the capture helper drives. */
 export async function bootForCapture(page: Page): Promise<void> {
-  await page.goto('/?debug=1')
+  await page.goto(`${PLAYGROUND}?debug=1`)
   await page.getByRole('button', { name: 'Start audio' }).click()
   await page.getByRole('heading', { name: 'SynthDefs' }).waitFor({ timeout: 30_000 })
 }

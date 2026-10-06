@@ -43,6 +43,12 @@ export interface StageVendorOptions {
   /** The app directory, e.g. apps/playground. */
   appDir: string
   /**
+   * Whether this page runs an engine at all. A page of links does not, and the
+   * runtime is 1.8MB of wasm before a single SynthDef, so staging it anyway
+   * would be that much served to every visitor for nothing.
+   */
+  engine?: boolean
+  /**
    * Logical SynthDef names this page loads, without the .scsyndef suffix.
    * `'all'` stages the whole vendored library — 131 defs at ~656KB, which is
    * small enough to be worth it for a page that browses them.
@@ -70,7 +76,23 @@ export interface StageVendorResult {
  * licence boundary visible. Both LICENSE files travel with it.
  */
 export function stageVendor(options: StageVendorOptions): StageVendorResult {
-  const { appDir, samples = [] } = options
+  const { appDir, samples = [], engine = true } = options
+  const target = join(appDir, 'public', VENDOR_DIR)
+
+  if (!engine) {
+    // Removed rather than merely skipped: a page that used to run an engine
+    // and no longer does would otherwise keep serving a stale copy from a
+    // previous build, which is invisible until someone measures the bundle.
+    //
+    // The whole vendor root, not just VENDOR_DIR. Vite copies every directory
+    // under public/, including empty ones, so leaving the parent behind puts an
+    // empty vendor/ in the deployed tree.
+    rmSync(join(appDir, 'public', VENDOR_DIR.split('/')[0] as string), {
+      recursive: true,
+      force: true,
+    })
+    return { dir: target, synthdefs: [], samples: [] }
+  }
 
   const synthdefSource = join(packageRoot('supersonic-scsynth-synthdefs'), 'synthdefs')
   const synthdefs =
@@ -83,7 +105,6 @@ export function stageVendor(options: StageVendorOptions): StageVendorResult {
 
   const core = packageRoot('supersonic-scsynth-core')
   const client = packageRoot('supersonic-scsynth')
-  const target = join(appDir, 'public', VENDOR_DIR)
 
   rmSync(target, { recursive: true, force: true })
   mkdirSync(join(target, 'workers'), { recursive: true })

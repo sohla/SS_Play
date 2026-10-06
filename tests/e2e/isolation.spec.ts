@@ -1,3 +1,4 @@
+import { PLAYGROUND } from './pages.ts'
 import { expect, test } from '@playwright/test'
 import headers from '../../infra/headers.json' with { type: 'json' }
 
@@ -7,7 +8,7 @@ import headers from '../../infra/headers.json' with { type: 'json' }
 // this proves the chain end to end rather than trusting it.
 
 test('the document carries every isolation header', async ({ page }) => {
-  const response = await page.goto('/')
+  const response = await page.goto(PLAYGROUND)
   expect(response?.status()).toBe(200)
 
   const received = response?.headers() ?? {}
@@ -17,7 +18,7 @@ test('the document carries every isolation header', async ({ page }) => {
 })
 
 test('the browser actually grants cross-origin isolation', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(PLAYGROUND)
 
   // The headers being present is necessary but not sufficient — only the
   // browser can say whether isolation took effect, and without it
@@ -40,7 +41,7 @@ test('the browser actually grants cross-origin isolation', async ({ page }) => {
 })
 
 test('the page reports the fast transport', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(PLAYGROUND)
 
   // Reported before any gesture, from the capability probe, so a degraded page
   // says so on load rather than after someone clicks. Fails the build when
@@ -66,7 +67,7 @@ test('nothing cross-origin is requested', async ({ page, baseURL }) => {
     if (url.protocol !== 'data:' && url.origin !== ownOrigin) foreign.push(request.url())
   })
 
-  await page.goto('/')
+  await page.goto(PLAYGROUND)
   await page.waitForLoadState('networkidle')
 
   // require-corp blocks cross-origin subresources that do not opt in, so a
@@ -75,7 +76,7 @@ test('nothing cross-origin is requested', async ({ page, baseURL }) => {
 })
 
 test('the AGPL source link is present and absolute', async ({ page }) => {
-  await page.goto('/')
+  await page.goto(PLAYGROUND)
 
   // The bundled client API is AGPL, which makes a deployed page a derivative
   // work conveyed over a network. No page may ship without offering source.

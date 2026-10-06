@@ -9,14 +9,13 @@
   "revalidate": {
     "Cache-Control": "no-cache"
   },
-  "immutablePaths": ["/assets/*"],
-  "revalidatePaths": [
-    "/",
-    "/index.html",
-    "/vendor/supersonic/manifest.json",
-    "/vendor/supersonic/wasm/*",
-    "/vendor/supersonic/workers/*",
-    "/vendor/supersonic/synthdefs/*",
-    "/vendor/supersonic/samples/*"
+  "immutablePagePaths": ["assets/*"],
+  "revalidatePagePaths": ["", "index.html"],
+  "revalidateEnginePaths": [
+    "vendor/supersonic/manifest.json",
+    "vendor/supersonic/wasm/*",
+    "vendor/supersonic/workers/*",
+    "vendor/supersonic/synthdefs/*",
+    "vendor/supersonic/samples/*"
   ]
 }

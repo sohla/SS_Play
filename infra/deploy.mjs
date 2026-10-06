@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Deploy one page to the VM as an atomic release.
+// Deploy the site to the VM as an atomic release.
 //
-//   npm run deploy -- --page playground          what it would do, and nothing else
-//   npm run deploy -- --page playground --yes    do it
+//   npm run deploy          what it would do, and nothing else
+//   npm run deploy -- --yes do it
 //
 // A release is a timestamped directory that `current` is pointed at once it is
 // complete, so a visitor mid-request never sees a half-written tree. Unchanged
@@ -45,29 +45,21 @@ const value = (name) => {
   return at === -1 ? undefined : args[at + 1]
 }
 
-const pageName = value('page')
 const apply = flag('yes')
 
-const { domain, releaseRoot, sites } = JSON.parse(readFileSync(join(here, 'sites.json'), 'utf8'))
+const sites = JSON.parse(readFileSync(join(here, 'sites.json'), 'utf8'))
+const { domain, subdomain, releaseRoot, pages } = sites
 
-if (!pageName) {
-  die(
-    `--page is required. Configured pages:\n` +
-      sites.map((s) => `  ${s.page}  ->  ${s.subdomain}.${domain}`).join('\n'),
-  )
-}
-
-const site = sites.find((s) => s.page === pageName)
-if (!site) {
-  die(`No page "${pageName}" in sites.json. Known: ${sites.map((s) => s.page).join(', ')}`)
-}
-
-const host = value('host') ?? process.env['SSPLAY_HOST'] ?? `${site.subdomain}.${domain}`
+const host = value('host') ?? process.env['SSPLAY_HOST'] ?? `${subdomain}.${domain}`
 const target = `${DEPLOY_USER}@${host}`
-const url = `https://${site.subdomain}.${domain}`
+const url = `https://${host}`
 
-const dist = join(repoRoot, 'apps', site.page, 'dist')
-const pageRoot = `${releaseRoot}/${site.page}`
+// The whole assembled tree, not one app's dist: the pages share an origin, so
+// a release is the site rather than a page. There is no --page flag because
+// deploying one page of a shared origin would leave the others at whatever the
+// previous release had, and the landing page would link to a mix.
+const dist = join(repoRoot, 'dist')
+const pageRoot = `${releaseRoot}/${subdomain}`
 
 // UTC so releases sort chronologically regardless of where they were cut from.
 const release = new Date()
@@ -123,11 +115,11 @@ if (flag('skip-verify')) {
 }
 
 if (!existsSync(join(dist, 'index.html'))) {
-  die(`No build at ${dist}. Run \`npm run build\`.`)
+  die(`No assembled site at ${dist}. Run \`npm run build\`, which ends with tools/assemble.mjs.`)
 }
 
-checks.push(`page         ${site.page}`)
-checks.push(`from         apps/${site.page}/dist`)
+checks.push(`pages        ${['/', ...pages.map((page) => page.path)].join(' ')}`)
+checks.push(`from         dist/`)
 checks.push(`to           ${target}:${releaseDir}`)
 checks.push(`url          ${url}`)
 

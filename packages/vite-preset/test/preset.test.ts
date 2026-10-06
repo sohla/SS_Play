@@ -34,43 +34,74 @@ describe('isolation headers', () => {
 })
 
 describe('cache rules address paths the build emits', () => {
-  // The build emits exactly two trees: Vite's hashed /assets, and the staged
-  // engine under VENDOR_DIR. The first version of these globs named /engine/*,
-  // /synthdefs/* and /samples/* — none of which exist — so every Cache-Control
-  // rule but one matched nothing. A dead rule is invisible: the site works,
-  // slightly worse, indefinitely.
-  const emitted = ['/assets/', `/${VENDOR_DIR}/`]
-  const documentPaths = ['/', '/index.html']
+  // A build emits exactly two trees per page: Vite's hashed assets, and the
+  // staged engine under VENDOR_DIR. The first version of these globs named
+  // /engine/*, /synthdefs/* and /samples/* — none of which exist — so every
+  // Cache-Control rule but one matched nothing. A dead rule is invisible: the
+  // site works, slightly worse, indefinitely.
+  const patterns = [
+    ...headers.immutablePagePaths,
+    ...headers.revalidatePagePaths,
+    ...headers.revalidateEnginePaths,
+  ]
 
-  const addressable = (path: string) =>
-    documentPaths.includes(path) || emitted.some((prefix) => path.startsWith(prefix))
-
-  it.each([...headers.immutablePaths, ...headers.revalidatePaths])(
-    '%s is under a tree the build produces',
-    (path) => {
-      expect(addressable(path), `${path} matches nothing the build emits`).toBe(true)
-    },
-  )
+  it.each(patterns)('%s is relative to a page root', (pattern) => {
+    // Patterns are joined to each page's own path by infra/cache-paths.mjs. A
+    // leading slash would produce '/playground//assets/*' and match nothing.
+    expect(pattern.startsWith('/'), `"${pattern}" must not start with a slash`).toBe(false)
+  })
 
   it('claims immutable only for content-addressed URLs', () => {
     // A year-long immutable response cannot be revalidated or evicted; the only
     // remedy is a new URL. The engine's filenames are stable while its bytes
     // are not, so immutable there would pin a stale wasm on every return
     // visitor until the URL changed — which it never would.
-    expect(headers.immutablePaths).toEqual(['/assets/*'])
+    expect(headers.immutablePagePaths).toEqual(['assets/*'])
   })
 
   it('revalidates the document that names the hashed assets', () => {
-    for (const path of documentPaths) expect(headers.revalidatePaths).toContain(path)
+    expect(headers.revalidatePagePaths).toEqual(['', 'index.html'])
   })
 
-  it('revalidates every engine subtree', () => {
+  it('addresses every engine subtree, and only under VENDOR_DIR', () => {
     // Without an explicit directive browsers cache heuristically, which can
     // serve a rebuilt synthdef from a stale copy with no way to force a refresh.
     for (const subtree of ['wasm', 'workers', 'synthdefs', 'samples']) {
-      expect(headers.revalidatePaths).toContain(`/${VENDOR_DIR}/${subtree}/*`)
+      expect(headers.revalidateEnginePaths).toContain(`${VENDOR_DIR}/${subtree}/*`)
     }
-    expect(headers.revalidatePaths).toContain(`/${VENDOR_DIR}/manifest.json`)
+    expect(headers.revalidateEnginePaths).toContain(`${VENDOR_DIR}/manifest.json`)
+
+    for (const pattern of headers.revalidateEnginePaths) {
+      expect(pattern.startsWith(`${VENDOR_DIR}/`)).toBe(true)
+    }
+  })
+})
+
+describe('base path', () => {
+  it('moves the engine URL with the page', () => {
+    // resolveEngineUrls derives every worker, wasm and synthdef URL from this
+    // one value, so a page served under a prefix whose engine base was left at
+    // the root fetches the wrong origin-relative paths and fails to boot.
+    const nested = defineSSApp({ name: 'fixture', basePath: '/scratch/' })
+    expect(nested.base).toBe('/scratch/')
+    expect(nested.define?.['__SS_ENGINE_BASE__']).toBe(JSON.stringify(`/scratch/${VENDOR_DIR}/`))
+  })
+
+  it('defaults to the root', () => {
+    expect(config.base).toBe('/')
+    expect(config.define?.['__SS_ENGINE_BASE__']).toBe(JSON.stringify(`/${VENDOR_DIR}/`))
+  })
+
+  it('rejects a path without a trailing slash, naming the consequence', () => {
+    // Vite concatenates base onto asset URLs, so '/scratch' silently yields
+    // '/scratchassets/index.js' rather than erroring.
+    expect(() => defineSSApp({ name: 'fixture', basePath: '/scratch' })).toThrow(
+      /trailing slash.*scratchassets/s,
+    )
+  })
+
+  it('rejects a path without a leading slash', () => {
+    expect(() => defineSSApp({ name: 'fixture', basePath: 'scratch/' })).toThrow(/leading/)
   })
 })
 

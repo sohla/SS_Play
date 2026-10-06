@@ -9,8 +9,15 @@ import { VENDOR_DIR, vendorPlugin } from './vendor.ts'
 
 export { VENDOR_DIR, stageVendor, vendorPlugin } from './vendor.ts'
 
-/** Where the engine is served from, for resolveEngineUrls({ base }). */
-export const ENGINE_BASE = `/${VENDOR_DIR}/`
+/**
+ * Where the engine is served from, for resolveEngineUrls({ base }).
+ *
+ * The pages share one origin and sit under their own path prefixes, so this is
+ * relative to the page rather than to the host. Each page stages its own copy:
+ * one shared tree would be a cross-directory reference that the dev server,
+ * the assembled build and Caddy would each have to be taught separately.
+ */
+export const engineBase = (basePath: string) => `${basePath}${VENDOR_DIR}/`
 
 export const DOCUMENT_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   ...headers.document,
@@ -54,10 +61,22 @@ function lanServerOptions(repoRoot: string) {
 export interface SSAppOptions {
   /** Workspace directory name under apps/, and the deploy target name. */
   name: string
+  /**
+   * URL prefix this page is served from, with both slashes: '/playground/'.
+   * Defaults to '/' for the landing page. Must match the page's `path` in
+   * infra/sites.json, which is what Caddy and the assembled build use.
+   */
+  basePath?: string
   /** Logical SynthDef names, or 'all' for the whole vendored library. */
   synthdefs?: string[] | 'all'
   /** Sample filenames this page loads. */
   samples?: string[]
+  /**
+   * Whether this page runs an engine. Defaults to true. The landing page sets
+   * it false: the runtime is 1.8MB of wasm before any SynthDef, and a page of
+   * links would otherwise serve all of it to every visitor.
+   */
+  engine?: boolean
   /** Dev server port. Defaults to 3000. */
   port?: number
   /** The app's own directory. Defaults to the directory of its vite config. */
@@ -67,8 +86,23 @@ export interface SSAppOptions {
 const repoRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
 export function defineSSApp(options: SSAppOptions): UserConfig {
-  const { name, synthdefs = [], samples = [], port = 3000 } = options
+  const { name, synthdefs = [], samples = [], port = 3000, basePath = '/', engine = true } = options
   const appDir = options.appDir ?? join(repoRoot, 'apps', name)
+
+  if (!engine && (options.synthdefs !== undefined || samples.length > 0)) {
+    throw new Error(
+      `App "${name}" sets engine: false but declares synthdefs or samples. ` +
+        `Nothing would load them, so one of the two is a mistake.`,
+    )
+  }
+
+  if (!basePath.startsWith('/') || !basePath.endsWith('/')) {
+    throw new Error(
+      `App "${name}" has basePath "${basePath}". It needs a leading and trailing slash ` +
+        `("/playground/"), because Vite joins it to asset URLs by concatenation — so this ` +
+        `would silently produce "${basePath}assets/index.js".`,
+    )
+  }
 
   if (samples.length > MAX_SAMPLES_PER_APP) {
     throw new Error(
@@ -79,7 +113,9 @@ export function defineSSApp(options: SSAppOptions): UserConfig {
   }
 
   return defineConfig({
-    plugins: [vendorPlugin({ appDir, synthdefs, samples }), react(), tailwind()],
+    base: basePath,
+
+    plugins: [vendorPlugin({ appDir, synthdefs, samples, engine }), react(), tailwind()],
 
     build: {
       target: 'es2022',
@@ -90,7 +126,7 @@ export function defineSSApp(options: SSAppOptions): UserConfig {
     // package: doing so pulls fs, path and the whole bundler into the client
     // bundle, which fails as "stream did not contain valid UTF-8".
     define: {
-      __SS_ENGINE_BASE__: JSON.stringify(ENGINE_BASE),
+      __SS_ENGINE_BASE__: JSON.stringify(engineBase(basePath)),
       __SS_APP_NAME__: JSON.stringify(name),
     },
 
