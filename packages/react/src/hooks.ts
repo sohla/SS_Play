@@ -1,4 +1,4 @@
-import { useContext, useEffect, useSyncExternalStore } from 'react'
+import { useContext, useEffect, useState, useSyncExternalStore } from 'react'
 import type { Session } from '@ss/engine'
 import { SuperSonicContext, type SuperSonicContextValue } from './SuperSonicProvider.tsx'
 import { metricsOf, type LogEntry, type MetricsSnapshotView, type Status, type Tree } from './stores.ts'
@@ -128,4 +128,46 @@ export function useOscLog(): OscLog {
     total: store?.total ?? 0,
     dropped: store?.dropped ?? 0,
   }
+}
+
+export interface AudioLatency {
+  /** The render buffer, in ms. This is what `latencyHint` asks for. */
+  baseMs: number
+  /** The OS, the route and the speaker, in ms. A Bluetooth output adds 100ms+. */
+  outputMs: number
+  sampleRate: number
+}
+
+/**
+ * What the device costs between the engine and the ear.
+ *
+ * Reported rather than summed, because only one half is reachable: the buffer
+ * responds to `latencyHint`, the output path is the operating system and
+ * whatever the audio is routed to. A single total cannot tell a large buffer
+ * from a Bluetooth speaker, and the two call for completely different answers.
+ *
+ * Read once after boot. Neither figure changes while a context is running,
+ * except when the output route changes — which is worth revisiting if a page
+ * ever needs to notice headphones being plugged in mid-performance.
+ */
+export function useAudioLatency(): AudioLatency | null {
+  const context = useSuperSonicContext()
+  const [latency, setLatency] = useState<AudioLatency | null>(null)
+  const session = context.session
+
+  useEffect(() => {
+    const live = session()
+    if (!live) return
+
+    const audio = (live.sonic as unknown as { audioContext?: AudioContext }).audioContext
+    if (!audio) return
+
+    setLatency({
+      baseMs: audio.baseLatency * 1000,
+      outputMs: audio.outputLatency * 1000,
+      sampleRate: audio.sampleRate,
+    })
+  }, [session])
+
+  return latency
 }

@@ -177,7 +177,7 @@ test('the engine asks for a small output buffer and says what it got', async ({ 
   const quantumMs = (128 / context.sampleRate) * 1000
   expect(context.baseLatency).toBeLessThan(quantumMs * 1.5)
 
-  await expect(page.locator('[data-testid=latency]')).toContainText('ms ·')
+  await expect(page.locator('[data-testid=latency]')).toContainText('ms')
 })
 
 test('a press reaches the output within a render quantum or two', async ({ page }) => {
@@ -233,4 +233,33 @@ test('a press reaches the output within a render quantum or two', async ({ page 
   // asked whether a sound happened.
   expect(onsetMs).toBeGreaterThan(0)
   expect(onsetMs).toBeLessThan(15)
+})
+
+test('the footer counts voices rather than inferring them', async ({ page }) => {
+  await boot(page)
+
+  const surface = await page.locator('[data-testid=surface]').boundingBox()
+  if (!surface) throw new Error('no surface')
+
+  const voices = page.locator('[data-testid=voices]')
+  await expect(voices).toContainText('0 voices')
+
+  const cdp = await page.context().newCDPSession(page)
+  const y = surface.y + surface.height * 0.4
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [0.1, 0.4, 0.7].map((fraction, id) => ({
+      x: surface.x + surface.width * fraction,
+      y,
+      id,
+    })),
+  })
+
+  // Counted by walking the tree, not by subtracting a fixed number of groups:
+  // this page puts its voices in a group of its own and the others do not, so
+  // any constant is right here and off by one everywhere else.
+  await expect(voices).toContainText('3 voices', { timeout: 5_000 })
+
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  await expect(voices).toContainText('0 voices', { timeout: 10_000 })
 })

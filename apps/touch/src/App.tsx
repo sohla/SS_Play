@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mapSpec, unmapSpec, type ControlSpec, type SynthDefContract } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
-import { BootGate, PageHeader } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
 import { NOTE_NAMES, SCALES, midiToFreq, noteName, stripHue, stripNotes, type ScaleName } from './scale.ts'
 import { DEF, Voices, type VoiceParams } from './voices.ts'
 
@@ -30,7 +30,6 @@ export function App() {
   const [scale, setScale] = useState<ScaleName>('pentatonic')
   const [params, setParams] = useState<VoiceParams | null>(null)
   const [lit, setLit] = useState<number[]>([])
-  const [audio, setAudio] = useState<{ base: number; output: number; rate: number } | null>(null)
 
   const surface = useRef<HTMLDivElement>(null)
   const voices = useRef<Voices | null>(null)
@@ -56,20 +55,6 @@ export function App() {
     if (!booted || !live) return
     if (!voices.current) voices.current = new Voices(live)
 
-    // Split rather than summed. The two halves have different causes and only
-    // one of them is reachable from a web page: baseLatency is the render
-    // buffer, which latencyHint asks for; outputLatency is the OS, the route
-    // and the speaker — a Bluetooth output alone adds 100ms or more. A single
-    // total cannot tell those apart, and this is the only instrument available
-    // on a device that cannot be profiled from anywhere else.
-    const context = (live.sonic as unknown as { audioContext?: AudioContext }).audioContext
-    if (context) {
-      setAudio({
-        base: context.baseLatency * 1000,
-        output: context.outputLatency * 1000,
-        rate: context.sampleRate,
-      })
-    }
   }, [booted, session])
 
   // A finger still down when the page is hidden never gets its pointerup, and
@@ -241,19 +226,7 @@ export function App() {
 
           </div>
 
-          {/* Its own row rather than trailing the sliders: a measurement sitting
-              at the end of a control strip reads as another control. */}
-          <footer className="pad-safe flex shrink-0 items-center justify-end pt-1 font-mono text-[10px] text-neutral-600">
-            {audio ? (
-              <span
-                data-testid="latency"
-                title="buffer + output path. The engine itself adds one render quantum."
-              >
-                {audio.base.toFixed(1)} + {audio.output.toFixed(1)} ={' '}
-                {(audio.base + audio.output).toFixed(0)}ms · {(audio.rate / 1000).toFixed(1)}kHz
-              </span>
-            ) : null}
-          </footer>
+          <EngineFooter />
         </>
       )}
     </main>

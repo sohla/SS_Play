@@ -15,6 +15,7 @@
     "react": "19.3.0"
   },
   "dependencies": {
-    "@ss/engine": "*"
+    "@ss/engine": "*",
+    "@ss/react": "*"
   }
 }

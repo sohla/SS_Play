@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useMetrics, useNodeTree, useOscLog, useSuperSonic } from '@ss/react'
-import { BootGate, MetricsPanel, NodeTree, OscLog, PageHeader, SourceFooter } from '@ss/ui'
+import {
+  BootGate,
+  EngineFooter,
+  MetricsPanel,
+  NodeTree,
+  OscLog,
+  PageHeader,
+  SourceFooter,
+} from '@ss/ui'
 import { SynthDefBrowser } from './SynthDefBrowser.tsx'
 import { fetchManifest, type VendorManifest } from './synthdefs.ts'
 
@@ -66,6 +74,7 @@ export function App() {
       ) : null}
 
       <SourceFooter />
+      {booted ? <EngineFooter /> : null}
       </main>
     </>
   )

@@ -1,5 +1,6 @@
 export { BootGate, type BootGateProps } from './BootGate.tsx'
 export { CheckRow, type CheckRowProps } from './CheckRow.tsx'
+export { EngineFooter } from './EngineFooter.tsx'
 export { MetricsPanel, type MetricsPanelProps } from './MetricsPanel.tsx'
 export { NodeTree, type NodeTreeProps, type TreeNode } from './NodeTree.tsx'
 export { OscLog, type OscLogEntry, type OscLogProps } from './OscLog.tsx'

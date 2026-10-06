@@ -127,3 +127,19 @@ test('every page has a way back to the index', async ({ page }) => {
     await expect(page).toHaveURL(new RegExp(`${LANDING}$`))
   }
 })
+
+test('every engine page reports what the engine is doing', async ({ page }) => {
+  for (const declared of sites.pages) {
+    if (!declared.engine) continue
+
+    await page.goto(declared.path)
+    await page.getByRole('button', { name: 'Start audio' }).click()
+
+    const footer = page.locator('[data-testid=engine-footer]')
+    await expect(footer, `${declared.path} has no engine footer`).toBeVisible({ timeout: 30_000 })
+
+    await expect(page.locator('[data-testid=latency]')).toContainText('ms')
+    await expect(page.locator('[data-testid=health]')).toContainText('% health')
+    await expect(page.locator('[data-testid=voices]')).toContainText('voices')
+  }
+})

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ctl, i } from '@ss/engine'
 import { useMetrics, useSuperSonic } from '@ss/react'
-import { BootGate, PageHeader, SourceFooter } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
 
 const DEF = 'ssp_sine'
 
@@ -75,6 +75,7 @@ export function App() {
       ) : null}
 
       <SourceFooter />
+      {booted ? <EngineFooter /> : null}
       </main>
     </>
   )

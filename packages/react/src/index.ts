@@ -2,12 +2,14 @@ export { SuperSonicProvider, SuperSonicContext } from './SuperSonicProvider.tsx'
 export type { SuperSonicContextValue, SuperSonicProviderProps } from './SuperSonicProvider.tsx'
 
 export {
+  useAudioLatency,
   useMetrics,
   useNodeTree,
   useOscLog,
   useOscTap,
   useSession,
   useSuperSonic,
+  type AudioLatency,
   type OscLog,
 } from './hooks.ts'
 
