@@ -26,6 +26,13 @@
       "engine": true
     },
     {
+      "app": "multibeat",
+      "path": "/multibeat/",
+      "title": "multibeat",
+      "blurb": "A half-second bar cut into one, two or four. Move to change the subdivision, not the tempo.",
+      "engine": true
+    },
+    {
       "app": "pluck",
       "path": "/pluck/",
       "title": "pluck",

@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Conductor, HeldVoice, type ConductorOptions, type HeldVoiceOptions } from '@ss/engine'
+import {
+  ClientConductor,
+  Conductor,
+  HeldVoice,
+  type ClientConductorOptions,
+  type ConductorOptions,
+  type HeldVoiceOptions,
+} from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 import { BootGate } from './BootGate.tsx'
@@ -23,6 +30,8 @@ export interface Mapped {
   voice: Record<string, number>
   /** Extra controls on the clock itself, beyond dur and level. */
   clock?: Record<string, number>
+  /** Controls for a held voice, when a page has one alongside a sequence. */
+  held?: Record<string, number>
   /** What `~plot` would draw. */
   traces: Trace[]
   /** Calculated values worth reading, in order. */
@@ -30,20 +39,26 @@ export interface Mapped {
 }
 
 /**
- * The two shapes an AirKit personality takes.
+ * The three shapes a personality takes.
  *
- * `conductor` runs a pattern and spawns a voice per event. `held` opens one
- * voice and plays it by moving its controls — which is why those personalities
- * have no Pbind at all.
+ * `conductor` runs the pattern as a Demand graph in the server and spawns a
+ * voice per event it reports. `client` runs the pattern in JavaScript and
+ * schedules each event ahead with an OSC timetag — slower to reason about,
+ * but the only option when the pattern's shape changes while it plays.
+ * `held` opens one voice and plays it by moving its controls, which is why
+ * those personalities have no pattern at all.
+ *
+ * A page may use more than one: a sequence over a drone is two.
  */
 export type Instrument =
   | ({ kind: 'conductor' } & Omit<ConductorOptions, 'session'>)
+  | ({ kind: 'client' } & Omit<ClientConductorOptions, 'session'>)
   | ({ kind: 'held' } & Omit<HeldVoiceOptions, 'session'>)
 
 export interface MotionInstrumentProps {
   title: string
   blurb: ReactNode
-  instrument: Instrument
+  instrument: Instrument | Instrument[]
   /** The ported `~next`. Called at send rate and again, separately, for display. */
   map(motion: Motion): Mapped
   /** Matches the comparison inside the clock SynthDef. */
@@ -77,24 +92,31 @@ export function MotionInstrument({
   const [spawned, setSpawned] = useState(0)
   const [denied, setDenied] = useState(false)
 
-  const live = useRef<Conductor | HeldVoice | null>(null)
+  const live = useRef<(Conductor | ClientConductor | HeldVoice)[]>([])
   const latest = useRef<Motion>(RESTING)
 
   const booted = status.phase === 'ready' || status.phase === 'degraded'
 
   useEffect(() => {
     const engine = session()
-    if (!booted || !engine || live.current) return
+    // length, not truthiness: an empty array is truthy, so the obvious guard
+    // silently builds nothing and the page renders perfectly in silence.
+    if (!booted || !engine || live.current.length > 0) return
 
-    const built =
-      instrument.kind === 'conductor'
-        ? new Conductor({ session: engine, ...instrument })
-        : new HeldVoice({ session: engine, ...instrument })
+    const built = (Array.isArray(instrument) ? instrument : [instrument]).map((spec) => {
+      if (spec.kind === 'conductor') return new Conductor({ session: engine, ...spec })
+      if (spec.kind === 'client') {
+        const conductor = new ClientConductor({ session: engine, ...spec })
+        conductor.start()
+        return conductor
+      }
+      return new HeldVoice({ session: engine, ...spec })
+    })
 
     live.current = built
     return () => {
-      built.dispose()
-      live.current = null
+      for (const one of built) one.dispose()
+      live.current = []
     }
     // instrument is an object literal at the call site, so it is a new
     // reference every render; depending on it would tear the instrument down
@@ -111,20 +133,31 @@ export function MotionInstrument({
     if (!booted) return
 
     const send = () => {
-      const built = live.current
       // Nothing is sent until a sensor has actually reported. The resting pose
       // is a perfectly valid one, so without this a page plays on load and
       // never stops on a machine with nothing to tilt.
-      if (!built || !latest.current.live) return
+      if (live.current.length === 0 || !latest.current.live) return
 
       const next = map(latest.current)
-      if (built instanceof Conductor) {
-        built.setVoiceControls(next.voice)
-        built.setClock({ dur: next.dur, level: next.level, ...next.clock })
-      } else {
-        // A held voice has no step and no events: everything the phone decides
-        // goes straight onto the one synth, continuously.
-        built.set(next.voice)
+      for (const one of live.current) {
+        if (one instanceof Conductor) {
+          one.setVoiceControls(next.voice)
+          one.setClock({ dur: next.dur, level: next.level, ...next.clock })
+        } else if (one instanceof HeldVoice) {
+          // A held voice has no step and no events: everything the phone
+          // decides goes straight onto the one synth, continuously.
+          one.set(next.held ?? next.voice)
+        }
+        else if (one instanceof ClientConductor) {
+          // A ClientConductor reads the controls itself, through the closure
+          // the page gave it — it pulls events rather than being pushed values.
+          // What it cannot know is whether it should be running at all: a
+          // Demand clock gates its own trigger inside the graph, and this has
+          // no graph. Left alone it schedules inaudible notes forever.
+          const should = next.level >= silenceBelow
+          if (should && !one.running) one.start()
+          if (!should && one.running) one.stop()
+        }
       }
     }
 
@@ -132,14 +165,20 @@ export function MotionInstrument({
     const showing = setInterval(() => {
       setMotion(latest.current)
       setMapped(map(latest.current))
-      setSpawned(live.current instanceof Conductor ? live.current.spawned : 0)
+      setSpawned(
+        live.current.reduce(
+          (total, one) =>
+            total + (one instanceof Conductor || one instanceof ClientConductor ? one.spawned : 0),
+          0,
+        ),
+      )
     }, 100)
 
     return () => {
       clearInterval(sending)
       clearInterval(showing)
     }
-  }, [booted, map])
+  }, [booted, map, silenceBelow])
 
   const start = useCallback(async () => {
     // Both from the same tap: iOS needs requestPermission reached from a
@@ -191,7 +230,7 @@ export function MotionInstrument({
               }`}
             >
               {playing
-                ? instrument.kind === 'conductor'
+                ? spawned > 0
                   ? `${spawned} events`
                   : 'sounding'
                 : 'stopped — move to start'}
@@ -210,7 +249,7 @@ export function MotionInstrument({
                   </dd>
                 </div>
               ))}
-              {instrument.kind === 'conductor' ? (
+              {spawned > 0 ? (
                 <div className="flex justify-between border-b border-neutral-900 py-0.5">
                   <dt>events</dt>
                   <dd className="text-neutral-400" data-testid="value-events">

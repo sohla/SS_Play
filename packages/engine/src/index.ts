@@ -36,6 +36,26 @@ export { Conductor, type ConductorOptions } from './conductor.ts'
 export { HeldVoice, type HeldVoiceOptions } from './held.ts'
 
 export {
+  ClientConductor,
+  type ClientConductorOptions,
+  type ScheduledEvent,
+} from './client-conductor.ts'
+
+export {
+  bind,
+  hold,
+  iwhite,
+  pn,
+  rand,
+  seq,
+  series,
+  switchOn,
+  white,
+  type Pattern,
+  type Stream,
+} from './patterns.ts'
+
+export {
   createSession,
   type Session,
   type SessionOptions,
