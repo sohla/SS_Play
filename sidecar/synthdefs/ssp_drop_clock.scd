@@ -7,8 +7,8 @@
 // Why not run the sequence in JavaScript. A setInterval accumulates error and
 // stutters whenever the main thread is busy; TDuty is clocked by the audio
 // graph and never slips. The spawn still crosses to JS and back, so a few
-// milliseconds of scatter land on each drop — which for rain is not merely
-// tolerable, it is most of what rain sounds like.
+// milliseconds of scatter land on each droplet — which for a scattered,
+// stochastic texture is not merely tolerable, it is most of the character.
 //
 // What Pbind did per event, and what does it here:
 //
@@ -27,7 +27,7 @@ SynthDef(\ssp_drop_clock, { |out = 0, gate = 1, dur = 0.25, level = 0|
 
     // `if (amp < 0.21) { amp = 0 }` in the original, which left the pattern
     // running and silent. Here it stops the drops being born at all: hold the
-    // phone still and the rain stops, with nothing spawned to be silent with.
+    // phone up and they stop, with nothing spawned to be silent with.
     trig = TDuty.ar(dur) * (level > 0.21);
 
     // \octave 4 in the Pbind, so note 2..40 lands at MIDI 50..88.
@@ -54,8 +54,8 @@ metadata: (
         dur: ControlSpec(0.075, 0.5, \exp, 0, 0.25),
         // Below 0.21 the shower stops. The default is zero rather than
         // mid-travel so the instrument is silent until it has been played:
-        // otherwise it starts raining the moment it loads and keeps raining
-        // forever on anything without a sensor to tell it not to.
+        // otherwise it starts the moment it loads and never stops on anything
+        // without a sensor to tell it not to.
         level: ControlSpec(0, 1, \lin, 0, 0)
     ),
 

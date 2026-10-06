@@ -11,7 +11,7 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 async function boot(page: import('@playwright/test').Page) {
   await page.goto(`${DROPLET}?debug=1`)
   await page.getByRole('button', { name: 'Start audio' }).click()
-  await page.locator('[data-testid=raining]').waitFor({ timeout: 30_000 })
+  await page.locator('[data-testid=playing]').waitFor({ timeout: 30_000 })
 }
 
 /** Hold an orientation for long enough that the smoother settles on it. */
@@ -39,7 +39,7 @@ test('a sequence in the server spawns polyphonic voices', async ({ page }) => {
   // allocate nodes, so without this the drops would be one voice retriggering
   // and choking its own tail.
   await expect.poll(() => voices(page), { timeout: 10_000 }).toBeGreaterThan(1)
-  await expect(page.locator('[data-testid=raining]')).toContainText('raining')
+  await expect(page.locator('[data-testid=playing]')).toContainText('droplets')
 })
 
 test('every drop frees itself', async ({ page }) => {
@@ -59,20 +59,20 @@ test('every drop frees itself', async ({ page }) => {
   // DetectSilence, not the envelope — the BPF rings past the end of a 5ms perc.
   // A drop that failed to free would show up as a count that only climbs, and
   // in a performance as maxNodes exhaustion partway through.
-  await hold(page, -88)
+  await hold(page, 88)
   await expect.poll(() => voices(page), { timeout: 15_000 }).toBe(floor)
 })
 
-test('tilting down stops the rain, in the SynthDef', async ({ page }) => {
+test('standing the phone up stops the droplets, in the SynthDef', async ({ page }) => {
   await boot(page)
 
   await hold(page, 0)
-  await expect(page.locator('[data-testid=raining]')).toContainText('raining', { timeout: 10_000 })
+  await expect(page.locator('[data-testid=playing]')).toContainText('droplets', { timeout: 10_000 })
 
   // The threshold is a comparison inside ssp_drop_clock gating its own trigger,
   // so nothing is spawned rather than spawned silently.
-  await hold(page, -88)
-  await expect(page.locator('[data-testid=raining]')).toContainText('stopped', { timeout: 10_000 })
+  await hold(page, 88)
+  await expect(page.locator('[data-testid=playing]')).toContainText('stopped', { timeout: 10_000 })
 
   const stopped = await page.locator('[data-testid=value-drops]').innerText()
   await page.waitForTimeout(1200)
@@ -94,7 +94,7 @@ test('the mapping produces the values SuperCollider does', async ({ page }) => {
   await expect(page.locator('[data-testid=value-level]')).toContainText('0.731')
 })
 
-test('tilting up rains faster', async ({ page }) => {
+test('laying the phone flat plays faster', async ({ page }) => {
   await boot(page)
 
   // Read through a poll: the display samples the sensor ref on a 100ms tick,
@@ -105,8 +105,8 @@ test('tilting up rains faster', async ({ page }) => {
     return Number((await page.locator('[data-testid=value-dur]').innerText()).replace('s', ''))
   }
 
-  const slow = await durAfter(-40)
-  const fast = await durAfter(85)
+  const slow = await durAfter(60)
+  const fast = await durAfter(-40)
 
   expect(fast).toBeLessThan(slow)
   // The spec on ssp_drop_clock is 0.075..0.5, and the mapping must stay inside

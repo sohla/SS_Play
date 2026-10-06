@@ -22,7 +22,7 @@
       "app": "droplet",
       "path": "/droplet/",
       "title": "droplet",
-      "blurb": "Rain, ported from AirKit. Tilt to change the downpour, flick to lengthen the tails.",
+      "blurb": "Synth droplets, ported from AirKit. Hold the phone flat to play, stand it upright to stop.",
       "engine": true
     },
     {

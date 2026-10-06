@@ -1,8 +1,8 @@
-// The reverb the drops play into. Ported from airkit's `droplet.sc`, where it
-// had already been lifted off the individual drops onto one synth at the tail
+// The reverb the droplets play into. Ported from airkit's `droplet.sc`, where it
+// had already been lifted off the individual droplets onto one synth at the tail
 // of the group — the right shape, and the reason this ports cleanly.
 //
-// Lives after the drops in the node order so it hears them.
+// Lives after the droplets in the node order so it hears them.
 SynthDef(\ssp_drop_verb, { |in = 0, out = 0, mix = 0.2, room = 0.83, damp = 0.5,
                            amp = 1, gate = 1, release = 0.5|
     var sig, env;

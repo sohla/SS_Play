@@ -21,8 +21,8 @@ import type { Motion } from '../../imu/src/sensors.ts'
  * A **negative curve bends the output toward `outMax`**, not toward the
  * minimum — the output arrives early and spends most of the input's travel near
  * its far end. Verified rather than assumed: `lincurve(0, -1, 1, 0, 1, -4)` is
- * 0.88, not 0.12. This is why droplet rains hard across most of the tilt and
- * only falls silent at the very bottom, which is a deliberate shape and the
+ * 0.88, not 0.12. This is why droplet plays across most of the tilt and
+ * only falls silent near one end, which is a deliberate shape and the
  * opposite of what the sign suggests.
  */
 export function lincurve(
@@ -76,6 +76,27 @@ export function fold(value: number, lo: number, hi: number): number {
   return lo + (wrapped > span ? 2 * span - wrapped : wrapped)
 }
 
+/**
+ * What `~plot` draws in AirKit, which is the three inputs the mapping reads
+ * rather than the orientation itself:
+ *
+ *   (gyroEvent.x / pi).fold(-0.5, 0.5) * 2
+ *   gyroYFiltered
+ *   (|accelEvent.y| + |accelEvent.z|) * 0.1
+ *
+ * Worth showing in preference to roll/pitch/yaw: these are the numbers the
+ * curves are actually fed, so a gesture that does nothing is visible here and
+ * invisible in the raw angles.
+ */
+export interface Plot {
+  /** Roll, as the original's folded gyro x. Sets the wobble ceiling. */
+  gyroX: number
+  /** Tilt, as the original's gyroYFiltered. Sets rate and level. */
+  gyroY: number
+  /** Movement in the plane of the screen. Sets tail length and wobble travel. */
+  side: number
+}
+
 export interface Shower {
   /** Seconds between drops. */
   dur: number
@@ -104,24 +125,35 @@ const SIDE_SCALE = 1.2
 /** The original reads accelMassFiltered over roughly 0..2.5; `shake` is 0..1. */
 const MASS_SCALE = 2.5
 
+/** The three traces, before any curve is applied to them. */
+export function plotFrom(motion: Motion): Plot {
+  return {
+    gyroX: motion.roll,
+    // Negated against the raw pitch so that standing the phone upright is the
+    // silent end. Held flat, like a bowl, it plays; stood up, it stops. The
+    // original runs the other way because an AirStick is not a thing you look
+    // at while you play it.
+    gyroY: -motion.pitch,
+    side: (Math.abs(motion.accelY) + Math.abs(motion.accelZ)) * SIDE_SCALE,
+  }
+}
+
 export function showerFrom(motion: Motion): Shower {
-  // Movement in the plane of the screen — a flick of the wrist — rather than
-  // across it.
-  const side = (Math.abs(motion.accelY) + Math.abs(motion.accelZ)) * SIDE_SCALE
+  const plot = plotFrom(motion)
 
   // Roll sets the ceiling the wobble can reach; the flick then travels toward
   // it. Two gestures on one parameter, which is the original's idea and the
   // reason this voice is never quite static.
-  const wobbleCeiling = lincurve(motion.roll, -1, 1, 0.01, 14000, -2)
+  const wobbleCeiling = lincurve(plot.gyroX, -1, 1, 0.01, 14000, -2)
 
-  const amp = lincurve(motion.pitch, -1, 1, 0, 1, -2)
+  const amp = lincurve(plot.gyroY, -1, 1, 0, 1, -2)
 
   return {
-    dur: lincurve(motion.pitch, -1, 1, 0.5, 0.075),
+    dur: lincurve(plot.gyroY, -1, 1, 0.5, 0.075),
     level: amp,
     amp,
-    decay: lincurve(side, 0, 1, 0.05, 3, -1),
-    wobble: lincurve(side, 0, 1, 1, wobbleCeiling, -2),
+    decay: lincurve(plot.side, 0, 1, 0.05, 3, -1),
+    wobble: lincurve(plot.side, 0, 1, 1, wobbleCeiling, -2),
     room: lincurve(motion.shake * MASS_SCALE, 0, 2.5, 0.53, 0.95, 2),
     attack: ATTACK,
   }
@@ -132,7 +164,7 @@ export function showerFrom(motion: Motion): Shower {
  *
  * Mirrors `if (amp < 0.21) { amp = 0 }` in the original, and the comparison
  * inside ssp_drop_clock that actually enforces it. From the curve, amp crosses
- * 0.21 at a pitch of about -0.78 — so the silence is at the bottom of the tilt,
- * not at rest. Holding the phone level rains hard.
+ * 0.21 at a gyroY of about -0.78 — which with the axis flipped means the phone
+ * has to be nearly upright before it stops. Held flat it plays hard.
  */
 export const SILENCE_BELOW = 0.21

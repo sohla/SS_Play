@@ -83,7 +83,7 @@ describe('lincurve matches SuperCollider', () => {
 
   it('bends toward outMax on a negative curve, not outMin', () => {
     // The thing I had backwards. At the input midpoint a curve of -4 is 88% of
-    // the way to outMax, which is why droplet rains hard across most of its
+    // the way to outMax, which is why droplet plays across most of its
     // tilt and only stops at the very bottom.
     expect(lincurve(0, -1, 1, 0, 1, -4)).toBeCloseTo(0.8807970779778824, 10)
     // A positive curve does the opposite.
@@ -128,26 +128,29 @@ describe('fold matches SuperCollider', () => {
 const motion = (over: Partial<Motion> = {}): Motion => ({ ...RESTING, live: true, ...over })
 
 describe('the shower a pose asks for', () => {
-  it('rains hard when the phone is held level', () => {
+  it('plays hard when the phone is held level', () => {
     // Not what the sign of the curve suggests, and worth pinning: amp at a
     // level phone is 0.73, well above the threshold. Silence lives at the
-    // bottom of the tilt, not at rest.
+    // upright end, not at rest.
     const level = showerFrom(motion({ pitch: 0 }))
     expect(level.amp).toBeCloseTo(0.73105857863, 10)
     expect(level.level).toBeGreaterThan(SILENCE_BELOW)
   })
 
-  it('falls silent only near the bottom of the tilt', () => {
-    expect(showerFrom(motion({ pitch: -1 })).level).toBeLessThan(SILENCE_BELOW)
-    // The crossing is around -0.78; either side of it must agree with that.
-    expect(showerFrom(motion({ pitch: -0.85 })).level).toBeLessThan(SILENCE_BELOW)
-    expect(showerFrom(motion({ pitch: -0.7 })).level).toBeGreaterThan(SILENCE_BELOW)
+  it('stops when the phone is stood upright', () => {
+    // The flip. pitch is +1 standing up, which the mapping negates, so that is
+    // the silent end — hold it flat like a bowl and it plays, stand it up and
+    // it stops.
+    expect(showerFrom(motion({ pitch: 1 })).level).toBeLessThan(SILENCE_BELOW)
+    // The crossing is at a gyroY of about -0.78, so a phone most of the way up.
+    expect(showerFrom(motion({ pitch: 0.85 })).level).toBeLessThan(SILENCE_BELOW)
+    expect(showerFrom(motion({ pitch: 0.7 })).level).toBeGreaterThan(SILENCE_BELOW)
   })
 
-  it('rains faster as the phone comes up', () => {
+  it('plays faster as the phone is laid flat', () => {
     // dur is the gap between drops, so faster is smaller.
-    expect(showerFrom(motion({ pitch: 1 })).dur).toBeLessThan(
-      showerFrom(motion({ pitch: -1 })).dur,
+    expect(showerFrom(motion({ pitch: -1 })).dur).toBeLessThan(
+      showerFrom(motion({ pitch: 1 })).dur,
     )
   })
 

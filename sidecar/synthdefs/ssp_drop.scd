@@ -1,4 +1,4 @@
-// One raindrop. Ported from airkit's `droplet.sc` personality, unchanged —
+// One droplet. Ported from airkit's `droplet.sc` personality, unchanged —
 // deliberately, so that if the web version sounds different the cause is the
 // pattern translation and not a synth quietly rewritten on the way over.
 //

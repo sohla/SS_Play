@@ -3,7 +3,13 @@ import { ctl } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
 import { RESTING, requestMotion, watchMotion, type Motion } from '../../imu/src/sensors.ts'
-import { showerFrom, SILENCE_BELOW, type Shower as ShowerValues } from './mapping.ts'
+import {
+  plotFrom,
+  showerFrom,
+  SILENCE_BELOW,
+  type Plot,
+  type Shower as ShowerValues,
+} from './mapping.ts'
 import { Shower } from './shower.ts'
 
 /** Control updates per second. The drops are spawned by the clock, not by this. */
@@ -13,6 +19,7 @@ export function App() {
   const { status, boot, probe, session } = useSuperSonic()
   const [motion, setMotion] = useState<Motion>(RESTING)
   const [values, setValues] = useState<ShowerValues>(() => showerFrom(RESTING))
+  const [plot, setPlot] = useState<Plot>(() => plotFrom(RESTING))
   const [drops, setDrops] = useState(0)
   const [denied, setDenied] = useState(false)
 
@@ -71,9 +78,9 @@ export function App() {
       if (!built || built.clock === null) return
 
       // Nothing is sent until an orientation event has actually arrived. The
-      // resting pose is a level phone, and a level phone rains hard — so
-      // without this the page starts raining on load and never stops on a
-      // machine that has no sensor to say otherwise.
+      // resting pose is a level phone, which plays hard — so without this the
+      // page starts playing on load and never stops on a machine that has no
+      // sensor to say otherwise.
       if (!latest.current.live) return
 
       const next = showerFrom(latest.current)
@@ -87,6 +94,7 @@ export function App() {
     const sending = setInterval(send, 1000 / SEND_HZ)
     const showing = setInterval(() => {
       setMotion(latest.current)
+      setPlot(plotFrom(latest.current))
       setValues(showerFrom(latest.current))
       setDrops(counted.current)
     }, 100)
@@ -103,7 +111,7 @@ export function App() {
     boot()
   }, [boot])
 
-  const raining = values.level >= SILENCE_BELOW
+  const playing = values.level >= SILENCE_BELOW
 
   return (
     <main className="flex min-h-dvh flex-col bg-canvas text-neutral-200">
@@ -111,9 +119,9 @@ export function App() {
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
         <p className="text-sm text-neutral-500">
-          Rain, from AirKit&rsquo;s <code className="text-neutral-400">droplet</code> personality.
-          Tilt up to rain harder and faster, tilt right down to stop. Flick the phone to lengthen
-          the tails; roll it to colour them.
+          Synth droplets, from AirKit&rsquo;s{' '}
+          <code className="text-neutral-400">droplet</code> personality. Hold the phone flat to
+          play, stand it upright to stop. Flick it to lengthen the tails; roll it to colour them.
         </p>
 
         <BootGate
@@ -126,7 +134,7 @@ export function App() {
 
         {denied ? (
           <p className="rounded border border-amber-900 bg-amber-950/40 p-3 text-sm text-amber-300">
-            Motion access was refused, so the rain will not respond. Safari remembers this per site:
+            Motion access was refused, so the droplets will not respond. Safari remembers this per site:
             Settings → Safari → Motion &amp; Orientation Access, then reload.
           </p>
         ) : null}
@@ -141,20 +149,23 @@ export function App() {
         {booted ? (
           <>
             <div
-              data-testid="raining"
+              data-testid="playing"
               className={`rounded border p-3 font-mono text-xs ${
-                raining
+                playing
                   ? 'border-sky-900 bg-sky-950/30 text-sky-300'
                   : 'border-neutral-800 bg-surface text-neutral-600'
               }`}
             >
-              {raining ? `raining — ${drops} drops` : 'stopped — tilt up to start'}
+              {playing ? `${drops} droplets` : 'stopped — lay the phone flat to start'}
             </div>
 
-            <Readout label="tilt" hint="rate and level" value={motion.pitch} />
-            <Readout label="roll" hint="wobble colour" value={motion.roll} />
-            <Readout label="flick" hint="tail length" value={motion.accelY} />
-            <Readout label="shake" hint="reverb size" value={motion.shake * 2 - 1} />
+            {/* What AirKit's ~plot draws: the three numbers the curves are
+                actually fed, rather than the orientation they came from. A
+                gesture that does nothing shows up here and is invisible in
+                roll/pitch/yaw. */}
+            <Readout id="gyroY" label="gyroY" hint="rate, level" value={plot.gyroY} />
+            <Readout id="gyroX" label="gyroX" hint="wobble ceiling" value={plot.gyroX} />
+            <Readout id="side" label="side" hint="tail, wobble travel" value={plot.side * 2 - 1} />
 
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px] text-neutral-600">
               <Value name="dur" value={`${values.dur.toFixed(3)}s`} />
@@ -186,11 +197,21 @@ function Value({ name, value }: { name: string; value: string }) {
   )
 }
 
-function Readout({ label, hint, value }: { label: string; hint: string; value: number }) {
+function Readout({
+  id,
+  label,
+  hint,
+  value,
+}: {
+  id: string
+  label: string
+  hint: string
+  value: number
+}) {
   const position = (Math.min(1, Math.max(-1, value)) + 1) / 2
 
   return (
-    <div data-testid={`axis-${label}`}>
+    <div data-testid={`axis-${id}`}>
       <div className="flex items-baseline justify-between font-mono text-xs">
         <span className="text-neutral-300">{label}</span>
         <span className="text-neutral-600">{hint}</span>
