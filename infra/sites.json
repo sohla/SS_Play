@@ -19,6 +19,13 @@
       "engine": true
     },
     {
+      "app": "droplet",
+      "path": "/droplet/",
+      "title": "droplet",
+      "blurb": "Rain, ported from AirKit. Tilt to change the downpour, flick to lengthen the tails.",
+      "engine": true
+    },
+    {
       "app": "playground",
       "path": "/playground/",
       "title": "scsynth tester",

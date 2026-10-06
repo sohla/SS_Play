@@ -80,7 +80,14 @@ describe.each(manifest.defs.map((def) => [def.name, def] as const))('%s', (_name
   it('declares out and amp, which every page addresses by name', () => {
     const names = def.params.map((p) => p.name)
     expect(names).toContain('out')
-    expect(names).toContain('amp')
+
+    // ssp_drop_clock is the first def that makes no sound: it runs a demand
+    // sequence and reports each event over SendReply, so the page can spawn a
+    // real voice. An amp control on it would be a number nothing reads.
+    //
+    // Narrowed by name rather than dropped, so that the next def without an amp
+    // has to come here and say why.
+    if (def.name !== 'ssp_drop_clock') expect(names).toContain('amp')
   })
 
   it('has finite defaults', () => {
