@@ -149,8 +149,11 @@ ufw enable
 ufw status verbose
 ```
 
-Port 80 is not optional even though the site is HTTPS-only: Let's Encrypt's HTTP-01 challenge is
-served there, and Caddy redirects it to HTTPS afterwards.
+Port 80 is still needed even though the site is HTTPS-only, but not for the reason usually given.
+Caddy prefers the **TLS-ALPN-01** challenge, which is answered on 443 — the issuance log shows
+`"challenge":"tls-alpn-01"`. Port 80 serves the `308` redirect to HTTPS, and is the fallback if
+TLS-ALPN ever fails. Closing it would cost you plain-HTTP visitors and a challenge method, not the
+certificate.
 
 ## 6. Caddy — On the VM
 
