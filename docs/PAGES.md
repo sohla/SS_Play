@@ -70,14 +70,18 @@ each other page under its own path. `deploy` ships that whole tree as one atomic
 ## 4. The server config travels with the release
 
 `npm run infra:gen` regenerates `infra/Caddyfile`, and `npm run deploy` ships it to the VM and
-reloads Caddy — provided the one-time bootstrap below has been done. Caddy validates the config as
-it loads; if it is rejected, the deploy fails and the previous config keeps running.
+reloads Caddy. No root, no manual step. Caddy validates the config as it loads; if it is rejected,
+the deploy fails and the previous config keeps running.
+
+**`caddy reload` needs no privilege.** It posts to the admin API on `localhost:2019`, which Caddy
+opens unauthenticated by default. Writing `/etc/caddy/Caddyfile` needs root; *loading* a config does
+not. That distinction is the whole reason this is automatic.
 
 ### One-time bootstrap, in the LISH console as root
 
-`/etc/caddy` needs root and the `deploy` user has no sudo — deliberately, since a deploy credential
-that can reconfigure the machine is barely a restriction. The way out is to make `/etc/caddy` point
-at a directory `deploy` owns, once:
+Without this, a deploy still corrects the running config — but Caddy re-reads `/etc/caddy/Caddyfile`
+when it restarts or the VM reboots, and reverts. The bootstrap makes the deployed config the one it
+re-reads:
 
 ```sh
 install -d -m 755 -o deploy -g deploy /srv/ssplay/caddy

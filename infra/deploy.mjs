@@ -236,45 +236,31 @@ remote(`printf '%s\\n' ${release} ${commit} > ${releaseDir}/RELEASE`)
 // privilege. Reload rather than restart: the config is swapped without dropping
 // connections or rechecking certificates.
 const CADDY_DIR = `${releaseRoot}/caddy`
-const caddyManaged = remote(`[ -w ${CADDY_DIR} ] && echo yes || true`).trim() === 'yes'
+const persistent = remote(`[ -w ${CADDY_DIR} ] && echo yes || true`).trim() === 'yes'
 
-if (caddyManaged) {
-  console.log('Updating the Caddy config')
-  run('scp', ['-q', join(here, 'Caddyfile'), `${target}:${CADDY_DIR}/site.caddy`])
-  try {
-    remote(`caddy reload --config /etc/caddy/Caddyfile 2>&1`)
-    console.log('Caddy reloaded')
-  } catch (error) {
-    die(
-      `Caddy refused the new config, so nothing was changed on the server:\n\n` +
-        `${error.stdout ?? error.message}\n\n` +
-        `The previous config is still running. Fix infra/Caddyfile and deploy again.`,
-    )
-  }
-} else {
-  console.log(
-    `\n${CADDY_DIR} is not writable, so the Caddy config was not updated.\n` +
-      `If the page list changed, install it by hand — see docs/PAGES.md. One root\n` +
-      `step removes this for good.\n`,
+// Where the config lands decides whether it survives a restart, not whether it
+// takes effect. `caddy reload` posts to the admin API on localhost:2019, which
+// needs no privilege at all — so the deploy can always correct a wrong config,
+// even on a VM where /etc/caddy has never been touched.
+//
+// /srv/ssplay/caddy is what /etc/caddy/Caddyfile imports once the one-time
+// bootstrap in PAGES.md has been run. Without it the config still loads and the
+// site is correct, but Caddy re-reads /etc/caddy on restart and reverts.
+const configPath = persistent ? `${CADDY_DIR}/site.caddy` : '/tmp/ssplay-site.caddy'
+
+console.log('Updating the Caddy config')
+run('scp', [...SSH_OPTS, '-q', join(here, 'Caddyfile'), `${target}:${configPath}`])
+
+try {
+  remote(`caddy reload --config ${configPath} --adapter caddyfile 2>&1`)
+  console.log(persistent ? 'Caddy reloaded' : 'Caddy reloaded — but see the warning below')
+} catch (error) {
+  die(
+    `Caddy refused the new config, so nothing on the server changed:\n\n` +
+      `${error.stdout ?? error.message}\n\n` +
+      `The previous config is still running. Fix infra/Caddyfile and deploy again.`,
   )
 }
-
-// `ln -sfn x current` drops the link *inside* current when current is already a
-// symlink to a directory. Build it beside, then rename over — mv -T replaces
-// the symlink itself atomically.
-console.log('Pointing current at the new release')
-remote(
-  `ln -sfn ${release} ${pageRoot}/.current.new && mv -Tf ${pageRoot}/.current.new ${pageRoot}/current`,
-)
-
-// Keep the newest KEEP_RELEASES, counting the one just made. The name filter is
-// what stops this touching `current`, `_engine` or anything else living here.
-const pruned = remote(
-  `cd ${pageRoot} && ` +
-    `old=$(ls -1 | grep -E '^[0-9]{8}-[0-9]{6}$' | grep -v '^${release}$' | sort -r | tail -n +${KEEP_RELEASES}) && ` +
-    `if [ -n "$old" ]; then echo "$old"; echo "$old" | xargs rm -rf; fi`,
-).trim()
-if (pruned) console.log(`Pruned ${pruned.split('\n').length} old release(s): ${pruned.replace(/\n/g, ' ')}`)
 
 // ------------------------------------------------------------------ confirm
 
@@ -308,6 +294,14 @@ for (const page of pages) {
 
 if (misrouted > 0) process.exitCode = 1
 else console.log(`All ${pages.length + 1} pages serve their own document.`)
+
+if (!persistent) {
+  console.log(
+    `\nThe Caddy config is live but will not survive a restart or a reboot:\n` +
+      `${CADDY_DIR} does not exist, so /etc/caddy/Caddyfile is what gets re-read.\n` +
+      `One root step in docs/PAGES.md fixes that for good.`,
+  )
+}
 
 // The one thing worth asserting from here: isolation survived the trip. Without
 // these two headers SuperSonic silently drops to its slow transport and capture
