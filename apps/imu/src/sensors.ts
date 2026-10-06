@@ -1,7 +1,18 @@
 import { poseFrom, quaternionFromEuler, smooth, type Pose } from './pose.ts'
 
 export interface Motion extends Pose {
-  /** 0..1 from linear acceleration, gravity already removed. Decays on its own. */
+  /**
+   * Linear acceleration per axis, -1..1, gravity already removed.
+   *
+   * Device axes: x is side to side across the screen, y is up and down the
+   * screen, z is toward and away from your face. These are a derivative, not a
+   * position — they read zero whenever the phone is still, however it is held,
+   * which is what makes them useful for accents and useless for steady control.
+   */
+  accelX: number
+  accelY: number
+  accelZ: number
+  /** 0..1, the magnitude of the three. Decays on its own. */
   shake: number
   /** False until an event has actually arrived, which is not the same as permitted. */
   live: boolean
@@ -14,10 +25,28 @@ export const RESTING: Motion = {
   pitch: 0,
   facing: 1,
   yaw: 0,
+  accelX: 0,
+  accelY: 0,
+  accelZ: 0,
   shake: 0,
   live: false,
   hasAcceleration: false,
 }
+
+/**
+ * A rise that is immediate and a fall that is not.
+ *
+ * Acceleration is a transient. A symmetric smoother swallows it — by the time
+ * it has risen the gesture is over — so the attack is instant and only the
+ * decay is smoothed. The same shape a envelope follower has, for the same
+ * reason.
+ */
+function ballistic(previous: number, next: number, decay = 0.9) {
+  return Math.abs(next) > Math.abs(previous) ? next : previous * decay
+}
+
+/** m/s². Roughly the hardest flick of a wrist, used to normalise to -1..1. */
+const FULL_SCALE = 12
 
 type Permission = 'unsupported' | 'prompt' | 'granted' | 'denied'
 
@@ -102,14 +131,16 @@ export function watchMotion({ onMotion }: MotionWatchOptions): () => void {
     // it cannot be used for this without an estimate of which way down is.
     if (!a || (a.x === null && a.y === null && a.z === null)) return
 
-    const magnitude = Math.hypot(a.x ?? 0, a.y ?? 0, a.z ?? 0)
+    const [x, y, z] = [a.x ?? 0, a.y ?? 0, a.z ?? 0]
+    const unit = (value: number) => Math.min(1, Math.max(-1, value / FULL_SCALE))
 
     current = {
       ...current,
       hasAcceleration: true,
-      // Rises immediately and falls slowly: a shake is a transient, and a
-      // symmetric smoother would swallow it before it reached the synth.
-      shake: Math.max(Math.min(magnitude / 12, 1), current.shake * 0.92),
+      accelX: ballistic(current.accelX, unit(x)),
+      accelY: ballistic(current.accelY, unit(y)),
+      accelZ: ballistic(current.accelZ, unit(z)),
+      shake: ballistic(current.shake, Math.min(1, Math.hypot(x, y, z) / FULL_SCALE), 0.92),
     }
 
     onMotion(current)

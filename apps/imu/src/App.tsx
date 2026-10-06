@@ -10,16 +10,25 @@ const DEF = 'ssp_drone'
 /**
  * Which movement drives which control.
  *
+ * Two kinds of input, doing two different jobs. Orientation is a position: it
+ * holds wherever you leave it, so it sets the steady state. Acceleration is a
+ * derivative: it reads zero whenever the phone is still, however it is held, so
+ * it can only ever add movement on top. Mapping a derivative to something that
+ * should hold — the note, say — gives a control that springs back to the middle
+ * the moment you stop moving.
+ *
  * Every value arrives as 0..1 and goes through the SynthDef's own spec, so the
  * ranges and curves are the ones declared beside the UGen graph. A tilt does
  * not know what a cutoff is, and nothing here repeats a number from the def.
  */
 const MAPPING = [
-  { motion: 'roll', param: 'cutoff', gesture: 'tilt left / right', effect: 'brightness' },
-  { motion: 'pitch', param: 'freq', gesture: 'tilt toward / away', effect: 'note' },
-  { motion: 'yaw', param: 'detune', gesture: 'turn around', effect: 'detune' },
-  { motion: 'yaw', param: 'spread', gesture: '', effect: 'stereo width' },
-  { motion: 'shake', param: 'shimmer', gesture: 'shake', effect: 'drift' },
+  { motion: 'roll', param: 'cutoff' },
+  { motion: 'pitch', param: 'freq' },
+  { motion: 'yaw', param: 'detune' },
+  { motion: 'accelX', param: 'spread' },
+  { motion: 'accelY', param: 'amp' },
+  { motion: 'accelZ', param: 'rq' },
+  { motion: 'shake', param: 'shimmer' },
 ] as const
 
 /** OSC updates per second. The sensors run at ~60Hz, which is more than a drone needs. */
@@ -91,16 +100,7 @@ export function App() {
         const spec = specs.get(param)
         if (!spec) continue
 
-        const unit =
-          source === 'roll'
-            ? unipolar(now.roll)
-            : source === 'pitch'
-              ? unipolar(now.pitch)
-              : source === 'yaw'
-                ? now.yaw
-                : now.shake
-
-        values[param] = mapSpec(spec, unit)
+        values[param] = mapSpec(spec, unitFor(source, now))
       }
 
       live.sonic.send('/n_set', id, ...ctl(values))
@@ -157,15 +157,25 @@ export function App() {
 
         {booted ? (
           <>
-            <Axis label="roll" hint="tilt left / right → brightness" value={motion.roll} bipolar />
-            <Axis label="pitch" hint="tilt toward / away → note" value={motion.pitch} bipolar />
-            <Axis label="yaw" hint="turn around → detune, width" value={motion.yaw * 2 - 1} bipolar />
-            <Axis
-              label="shake"
-              hint={motion.hasAcceleration ? 'shake → drift' : 'no linear acceleration reported'}
-              value={motion.shake * 2 - 1}
-              bipolar
-            />
+            <section className="flex flex-col gap-3">
+              <h2 className="font-mono text-[10px] uppercase tracking-wider text-neutral-600">
+                orientation · holds where you leave it
+              </h2>
+              <Axis id="roll" label="roll" hint="tilt left / right → brightness" value={motion.roll} />
+              <Axis id="pitch" label="pitch" hint="tilt toward / away → note" value={motion.pitch} />
+              <Axis id="yaw" label="yaw" hint="turn around → detune" value={motion.yaw * 2 - 1} />
+            </section>
+
+            <section className="flex flex-col gap-3">
+              <h2 className="font-mono text-[10px] uppercase tracking-wider text-neutral-600">
+                acceleration · returns to centre
+                {motion.hasAcceleration ? '' : ' · not reported by this device'}
+              </h2>
+              <Axis id="accelX" label="accel x" hint="side to side → stereo width" value={motion.accelX} />
+              <Axis id="accelY" label="accel y" hint="up / down → level" value={motion.accelY} />
+              <Axis id="accelZ" label="accel z" hint="toward / away → resonance" value={motion.accelZ} />
+              <Axis id="shake" label="shake" hint="any direction → drift" value={motion.shake * 2 - 1} />
+            </section>
           </>
         ) : null}
 
@@ -177,22 +187,42 @@ export function App() {
   )
 }
 
+/** 0..1 for a spec, from whichever axis drives it. */
+function unitFor(source: (typeof MAPPING)[number]['motion'], motion: Motion): number {
+  switch (source) {
+    case 'roll':
+      return unipolar(motion.roll)
+    case 'pitch':
+      return unipolar(motion.pitch)
+    case 'yaw':
+      return motion.yaw
+    case 'accelX':
+      return unipolar(motion.accelX)
+    case 'accelY':
+      return unipolar(motion.accelY)
+    case 'accelZ':
+      return unipolar(motion.accelZ)
+    case 'shake':
+      return motion.shake
+  }
+}
+
 /** A bar that reads at a glance while the phone is moving and you are not looking carefully. */
 function Axis({
+  id,
   label,
   hint,
   value,
-  bipolar,
 }: {
+  id: string
   label: string
   hint: string
   value: number
-  bipolar: boolean
 }) {
-  const position = bipolar ? (value + 1) / 2 : value
+  const position = (value + 1) / 2
 
   return (
-    <div data-testid={`axis-${label}`}>
+    <div data-testid={`axis-${id}`}>
       <div className="flex items-baseline justify-between font-mono text-xs">
         <span className="text-neutral-300">{label}</span>
         <span className="text-neutral-600">{hint}</span>

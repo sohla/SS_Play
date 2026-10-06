@@ -140,3 +140,55 @@ test('says so when there are no sensors rather than looking broken', async ({ pa
   // it is meant to be used.
   await expect(page.getByText(/needs a phone or a tablet/)).toBeVisible()
 })
+
+test('acceleration drives three axes, not one magnitude', async ({ page }) => {
+  await boot(page)
+
+  // Push along one device axis at a time. The three are separate controls:
+  // collapsing them to a magnitude, which is where this started, throws away
+  // the direction and leaves one knob where there are three.
+  const push = (x: number, y: number, z: number) =>
+    page.evaluate(
+      ([ax, ay, az]) => {
+        window.dispatchEvent(
+          new DeviceMotionEvent('devicemotion', { acceleration: { x: ax, y: ay, z: az } }),
+        )
+      },
+      [x, y, z],
+    )
+
+  // Polled: the display reads the sensor ref on a 100ms tick, deliberately,
+  // so that a 60Hz event stream never drives a re-render.
+  await push(11, 0, 0)
+  await expect.poll(() => axis(page, 'accelX'), { timeout: 3_000 }).toBeGreaterThan(0.85)
+  expect(await axis(page, 'accelY')).toBeCloseTo(0.5, 1)
+  expect(await axis(page, 'accelZ')).toBeCloseTo(0.5, 1)
+
+  await push(0, -11, 0)
+  await expect.poll(() => axis(page, 'accelY'), { timeout: 3_000 }).toBeLessThan(0.15)
+
+  await push(0, 0, 11)
+  await expect.poll(() => axis(page, 'accelZ'), { timeout: 3_000 }).toBeGreaterThan(0.85)
+})
+
+test('acceleration returns to centre when the phone is still', async ({ page }) => {
+  await boot(page)
+
+  // A derivative, not a position: still means zero however the phone is held.
+  // A control that did not return would drift away over a performance with no
+  // way to recentre it short of reloading.
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new DeviceMotionEvent('devicemotion', { acceleration: { x: 11, y: 11, z: 11 } }),
+    )
+    for (let n = 0; n < 120; n++) {
+      window.dispatchEvent(
+        new DeviceMotionEvent('devicemotion', { acceleration: { x: 0, y: 0, z: 0 } }),
+      )
+    }
+  })
+
+  for (const name of ['accelX', 'accelY', 'accelZ']) {
+    await expect.poll(() => axis(page, name), { timeout: 3_000 }).toBeCloseTo(0.5, 1)
+  }
+})
