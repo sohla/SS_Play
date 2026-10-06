@@ -5,6 +5,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "touch",
+      "path": "/touch/",
+      "title": "touch",
+      "blurb": "A strip per note. Press anywhere to sound it, slide up for louder, use as many fingers as you have.",
+      "engine": true
+    },
+    {
       "app": "playground",
       "path": "/playground/",
       "title": "scsynth tester",
