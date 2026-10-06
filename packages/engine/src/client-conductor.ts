@@ -16,6 +16,14 @@ export interface ScheduledEvent {
   dur: number
   /** Seconds to hold the gate, if the def has one worth releasing. */
   sustain?: number
+  /**
+   * Take up the time without making a sound.
+   *
+   * sclang spells this `Rest(0.22)` inside a dur pattern, and it is not the
+   * same as an amplitude of zero: the pattern still advances, so a rest in a
+   * six-step figure is a silence in a rhythm rather than a shorter rhythm.
+   */
+  rest?: boolean
 }
 
 export interface ClientConductorOptions {
@@ -113,7 +121,7 @@ export class ClientConductor {
       const event = this.#nextEvent()
       if (!event) break
 
-      this.#emit(this.#nextAt, event)
+      if (!event.rest) this.#emit(this.#nextAt, event)
       this.#nextAt += Math.max(event.dur, 0.005)
     }
 

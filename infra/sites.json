@@ -33,6 +33,20 @@
       "engine": true
     },
     {
+      "app": "trainmelody",
+      "path": "/trainmelody/",
+      "title": "train melody",
+      "blurb": "A five-note figure. Tilt down to raise the octave, roll to sweep the filter against its resonance.",
+      "engine": true
+    },
+    {
+      "app": "trainbass",
+      "path": "/trainbass/",
+      "title": "train bass",
+      "blurb": "A thirty-two step figure over a pad that slides to follow it, with every third beat silent.",
+      "engine": true
+    },
+    {
       "app": "pluck",
       "path": "/pluck/",
       "title": "pluck",

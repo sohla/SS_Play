@@ -123,3 +123,47 @@ test('voices free themselves and the drone remains', async ({ page }) => {
   // nothing has to decide when they end.
   await expect.poll(() => voices(page), { timeout: 10_000 }).toBe(1)
 })
+
+// The other two pages that run their pattern in JavaScript. They share the
+// conductor and the shell, so what is asserted here is what that machinery
+// owes them — not their musical content, which is their own mapping's job.
+const CLIENT_PAGES = [
+  { app: 'trainmelody', heldVoices: 0 },
+  { app: 'trainbass', heldVoices: 1 },
+  { app: 'multibeat', heldVoices: 1 },
+] as const
+
+for (const { app, heldVoices } of CLIENT_PAGES) {
+  const pagePath = sites.pages.find((p) => p.app === app)?.path ?? `/${app}/`
+
+  test(`${app} schedules nothing until it is played`, async ({ page }) => {
+    await page.goto(`${pagePath}?debug=1`)
+    await page.getByRole('button', { name: 'Start audio' }).click()
+    await page.locator('[data-testid=playing]').waitFor({ timeout: 30_000 })
+    await page.waitForTimeout(1500)
+
+    // A client conductor starts scheduling the moment it is told to, and
+    // nothing has played it yet. Starting it on construction spilled a second
+    // of notes before the first sensor reading arrived.
+    await expect(page.locator('[data-testid=playing]')).toContainText('stopped')
+    await expect.poll(() => voices(page), { timeout: 10_000 }).toBe(heldVoices)
+  })
+
+  test(`${app} plays when moved and settles when put down`, async ({ page }) => {
+    await page.goto(`${pagePath}?debug=1`)
+    await page.getByRole('button', { name: 'Start audio' }).click()
+    await page.locator('[data-testid=playing]').waitFor({ timeout: 30_000 })
+
+    await driveFor(page, 2000, 9)
+    expect(await events(page)).toBeGreaterThan(3)
+
+    // Back to whatever is held, with every scheduled voice freed. A conductor
+    // that kept scheduling would show here as a count that never stops.
+    await driveFor(page, 3500, 0)
+    const settled = await events(page)
+    await page.waitForTimeout(1200)
+
+    expect(await events(page)).toBe(settled)
+    await expect.poll(() => voices(page), { timeout: 12_000 }).toBe(heldVoices)
+  })
+}

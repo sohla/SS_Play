@@ -112,6 +112,22 @@ export function switchOn<T>(patterns: readonly Pattern<T>[], index: () => number
   }
 }
 
+/**
+ * A duration that passes without a note, as `Rest(0.22)` does in sclang.
+ *
+ * Carried as a value in the stream rather than signalled out of band, so a
+ * rest sits in a `seq` alongside the durations it shares a bar with.
+ */
+export interface Rest {
+  readonly rest: true
+  readonly dur: number
+}
+
+export const rest = (dur: number): Rest => ({ rest: true, dur })
+
+export const isRest = (value: unknown): value is Rest =>
+  typeof value === 'object' && value !== null && (value as Rest).rest === true
+
 /** Pull one value from each of several streams, as a Pbind does per event. */
 export function bind<T extends Record<string, Stream<unknown>>>(
   streams: T,

@@ -44,14 +44,17 @@ export {
 export {
   bind,
   hold,
+  isRest,
   iwhite,
   pn,
   rand,
   seq,
   series,
+  rest,
   switchOn,
   white,
   type Pattern,
+  type Rest,
   type Stream,
 } from './patterns.ts'
 

@@ -37,9 +37,10 @@ export function App() {
       step.next()
       const thisNote = note.next() ?? 0
 
-      // Silence is a level, not a pause: the pattern keeps its place so the
-      // bar does not restart every time the hand stops.
-      const octave = 4 + Math.floor(Math.random() * 3)
+      // Prand([4, 5, 6]) in the original, taken up an octave: the voice is a
+      // narrow pulse against a sine an octave below it, and down there the sine
+      // does most of the talking.
+      const octave = 5 + Math.floor(Math.random() * 3)
 
       return {
         def: 'ssp_mb_voice',

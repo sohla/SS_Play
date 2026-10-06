@@ -105,11 +105,11 @@ export function MotionInstrument({
 
     const built = (Array.isArray(instrument) ? instrument : [instrument]).map((spec) => {
       if (spec.kind === 'conductor') return new Conductor({ session: engine, ...spec })
-      if (spec.kind === 'client') {
-        const conductor = new ClientConductor({ session: engine, ...spec })
-        conductor.start()
-        return conductor
-      }
+      // Not started here. A client conductor begins scheduling the moment it
+      // is told to, and nothing has played it yet — starting on construction
+      // spills a second of notes before the first reading arrives, which is
+      // the same mistake as a clock whose level defaults to mid-travel.
+      if (spec.kind === 'client') return new ClientConductor({ session: engine, ...spec })
       return new HeldVoice({ session: engine, ...spec })
     })
 
