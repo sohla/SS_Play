@@ -146,10 +146,13 @@ if (!apply) {
       `${dist}/`,
       `${target}:${releaseDir}/`,
     ])
+    // openrsync interleaves status lines with the file list, and they are not
+    // marked as anything. Drop what is not a relative path.
+    const noise = /^(sent |total |Transfer starting:|created directory |building file list)/
     const paths = out
       .split('\n')
       .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('sent ') && !line.endsWith('/'))
+      .filter((line) => line && !noise.test(line) && !line.endsWith('/'))
     console.log(`rsync would transfer ${paths.length} file(s):`)
     for (const path of paths.slice(0, 8)) console.log(`  ${path}`)
     if (paths.length > 8) console.log(`  … and ${paths.length - 8} more`)
