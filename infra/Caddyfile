@@ -4,6 +4,7 @@
 # playground.soh.la
 #   /              landing
 #   /touch/        touch
+#   /imu/          imu
 #   /playground/   scsynth tester
 #   /scratch/      scratch
 
@@ -16,10 +17,10 @@ playground.soh.la {
 		-Server
 	}
 
-	@immutable path /assets/* /touch/assets/* /playground/assets/* /scratch/assets/*
+	@immutable path /assets/* /touch/assets/* /imu/assets/* /playground/assets/* /scratch/assets/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-	@revalidate path / /index.html /touch/ /touch/index.html /touch/vendor/supersonic/manifest.json /touch/vendor/supersonic/wasm/* /touch/vendor/supersonic/workers/* /touch/vendor/supersonic/synthdefs/* /touch/vendor/supersonic/samples/* /playground/ /playground/index.html /playground/vendor/supersonic/manifest.json /playground/vendor/supersonic/wasm/* /playground/vendor/supersonic/workers/* /playground/vendor/supersonic/synthdefs/* /playground/vendor/supersonic/samples/* /scratch/ /scratch/index.html /scratch/vendor/supersonic/manifest.json /scratch/vendor/supersonic/wasm/* /scratch/vendor/supersonic/workers/* /scratch/vendor/supersonic/synthdefs/* /scratch/vendor/supersonic/samples/*
+	@revalidate path / /index.html /touch/ /touch/index.html /touch/vendor/supersonic/manifest.json /touch/vendor/supersonic/wasm/* /touch/vendor/supersonic/workers/* /touch/vendor/supersonic/synthdefs/* /touch/vendor/supersonic/samples/* /imu/ /imu/index.html /imu/vendor/supersonic/manifest.json /imu/vendor/supersonic/wasm/* /imu/vendor/supersonic/workers/* /imu/vendor/supersonic/synthdefs/* /imu/vendor/supersonic/samples/* /playground/ /playground/index.html /playground/vendor/supersonic/manifest.json /playground/vendor/supersonic/wasm/* /playground/vendor/supersonic/workers/* /playground/vendor/supersonic/synthdefs/* /playground/vendor/supersonic/samples/* /scratch/ /scratch/index.html /scratch/vendor/supersonic/manifest.json /scratch/vendor/supersonic/wasm/* /scratch/vendor/supersonic/workers/* /scratch/vendor/supersonic/synthdefs/* /scratch/vendor/supersonic/samples/*
 	header @revalidate Cache-Control "no-cache"
 
 	encode zstd gzip

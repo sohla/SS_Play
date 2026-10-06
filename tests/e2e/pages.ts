@@ -17,3 +17,4 @@ export const LANDING = '/'
 export const PLAYGROUND = pathOf('playground')
 export const SCRATCH = pathOf('scratch')
 export const TOUCH = pathOf('touch')
+export const IMU = pathOf('imu')

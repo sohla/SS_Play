@@ -23,6 +23,12 @@ test('boots on the SharedArrayBuffer transport', async ({ page }) => {
 })
 
 test('generates a control surface from the SynthDef contract', async ({ page }) => {
+  // Named rather than relying on whichever def the picker defaults to. This
+  // test previously leaned on ssp_noise sorting first, and adding ssp_drone to
+  // the library broke it — the assertion was about the contract, not the
+  // ordering.
+  await page.selectOption('select', 'ssp_noise')
+
   // The payoff for the whole contract chain: no range is written in TypeScript.
   // ssp_noise declares eight specs, so eight sliders and no more.
   await expect(page.locator('input[type=range]')).toHaveCount(8)

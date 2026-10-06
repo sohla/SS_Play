@@ -12,6 +12,13 @@
       "engine": true
     },
     {
+      "app": "imu",
+      "path": "/imu/",
+      "title": "imu",
+      "blurb": "A drone that never stops. Tilt, turn and shake the phone to play it.",
+      "engine": true
+    },
+    {
       "app": "playground",
       "path": "/playground/",
       "title": "scsynth tester",
