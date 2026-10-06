@@ -60,7 +60,7 @@ test('the landing page ships no engine', async ({ page, request, baseURL }) => {
   })
 
   await page.goto(LANDING)
-  await expect(page.getByRole('heading', { name: 'SS_Play' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'playground' })).toBeVisible()
 
   expect(engineRequests).toEqual([])
   await expect(page.locator(bootButton)).toHaveCount(0)

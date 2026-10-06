@@ -202,6 +202,35 @@ if (pruned) console.log(`Pruned ${pruned.split('\n').length} old release(s): ${p
 
 console.log(`\nDeployed ${commit} to ${url}\n`)
 
+// Every page must serve its own document, not another page's.
+//
+// The e2e suite cannot see this: it runs against tools/serve.mjs, so a Caddy
+// config that differs from the generated one is invisible to it. A stale
+// Caddyfile with a site-wide `try_files {path} /index.html` rewrote every page
+// path to the landing page — all three URLs returned byte-identical HTML, every
+// link appeared to do nothing, and nothing returned an error.
+//
+// A page's own hashed assets live under its own path, so that is the tell.
+let misrouted = 0
+for (const page of pages) {
+  try {
+    const html = run('curl', ['-sS', '--max-time', '20', `${url}${page.path}`])
+    if (!html.includes(`${page.path}assets/`)) {
+      console.error(
+        `  ${page.path} is serving another page's document — check that /etc/caddy/Caddyfile\n` +
+          `  matches infra/Caddyfile. A site-wide try_files does exactly this.`,
+      )
+      misrouted++
+    }
+  } catch {
+    console.error(`  ${page.path} could not be fetched`)
+    misrouted++
+  }
+}
+
+if (misrouted > 0) process.exitCode = 1
+else console.log(`All ${pages.length + 1} pages serve their own document.`)
+
 // The one thing worth asserting from here: isolation survived the trip. Without
 // these two headers SuperSonic silently drops to its slow transport and capture
 // stops working, and nothing on the page says so.
