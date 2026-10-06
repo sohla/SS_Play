@@ -772,3 +772,82 @@ unchanged file, 1 for a new one. The `_engine/` scheme is dropped.
 - Nothing is deployed yet — steps 1–6 of `PROVISION.md` are untouched.
 - Still no CI workflow.
 - `centre` and `phase` ranges, unchanged from the last entry.
+
+---
+
+## 2026-10-06 — Phase 7 complete: https://playground.soh.la is live
+
+### Done
+
+Provisioned, deployed, and verified. The whole e2e suite — all 24 specs, including the eight audio
+capture tests — passes against the deployed URL, not just the local preview:
+
+```sh
+SS_BASE_URL=https://playground.soh.la npx playwright test
+```
+
+That is the assertion worth having. Capture is SAB-only, so eight audio tests passing against
+production proves the browser actually *granted* cross-origin isolation there, which no amount of
+reading response headers can establish.
+
+| | |
+|---|---|
+| Host | Linode Nanode 1 GB, Ubuntu 24.04.5, 20 GB free |
+| TLS | Let's Encrypt, `tls-alpn-01`, auto-renewing |
+| Caddy | v2.11.7 from the official apt repo |
+| SSH | key-only, no root, no passwords |
+| Release | `/srv/ssplay/playground/<utc-timestamp>/`, `current` symlink |
+
+### Hardening is verified from outside, not from the config
+
+After step 4 the server advertises `publickey` alone where it previously offered
+`publickey,password`, and root is refused by any method. Reading `sshd -T` on the box would have
+proved only that the file parsed.
+
+Worth recording what the initial state actually was, because I described it wrongly at first:
+`PermitRootLogin yes` and `PasswordAuthentication yes` were both set, and root had the password from
+Linode's create form. Root *password* login over the internet was live. I had reported "root SSH is
+not authorised" on the basis of a failed key login, which was true and not the point.
+
+### Headers are stripped on error responses
+
+The first header check ran against a 404 — nothing was deployed yet — and showed no COOP, no COEP,
+and `server: Caddy` despite `-Server`. The config was correct; **Caddy does not apply the `header`
+directive to error responses.** A 17-byte test file turned it into a 200 and all three appeared.
+
+Diagnosed with a throwaway file rather than a deploy, which took seconds and kept the question
+isolated from everything a real deploy changes.
+
+### Verified on the live site
+
+- `/assets/<hash>.js` → `max-age=31536000, immutable`
+- `scsynth-nrt.wasm` → `no-cache`, and `content-type: application/wasm`. A wrong MIME here breaks
+  streaming compile and presents as a generic boot failure.
+- `http://` → `308` to `https://`
+- 284 of 285 files hardlinked between releases; two releases cost 5.4 MB, the same as one. Only
+  `RELEASE` differs, by design.
+
+### Two bugs in deploy.mjs, both found by running it
+
+**The dry run reported 0 files against 284.** openrsync prints no file list at default verbosity, so
+silence read as "nothing to transfer" rather than "not asked". Needs `-v`, and its unmarked status
+lines have to be filtered out of the count.
+
+**`--link-dest` was passed a path that did not exist.** `readlink -f` resolves a dangling symlink to
+its target path regardless, so the first deploy — with no previous release — handed rsync a
+nonexistent directory. rsync only *warns*, so this would not have failed; the dedupe would have
+quietly stopped working. Now tested with `[ -d ]` first.
+
+Both were invisible until the script ran against a real server. Neither would have been caught by
+reading it.
+
+### Open
+
+- `try_files {path} /index.html` applies site-wide, so a missing file under `/vendor/**` returns
+  `200` with `index.html` instead of a `404`. For this project that is the familiar footgun: a
+  missing synthdef would arrive as HTML and surface as an opaque parse error. The matcher should
+  exclude the vendor tree.
+- Engine URL still carries no version, so it cannot honestly be immutable-cached.
+- No CI workflow.
+- Phase 8 — the second page — is what validates the monorepo decision.
+- `centre` and `phase` ranges, unchanged.
