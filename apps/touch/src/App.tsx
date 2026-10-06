@@ -8,7 +8,19 @@ import { DEF, Voices, type VoiceParams } from './voices.ts'
 const SCALE_NAMES = Object.keys(SCALES) as ScaleName[]
 
 /** The controls the surface exposes. The rest of the contract stays at its defaults. */
-const SHOWN = ['cutoff', 'rq', 'detune', 'release']
+const SHOWN = ['attack', 'cutoff', 'rq', 'detune', 'release']
+
+/**
+ * Attack, overridden from the contract's 10ms default for this page only.
+ *
+ * The engine is not what makes a touch instrument feel slow: press to first
+ * rendered sample measures at one render quantum. A 10ms ramp is, though —
+ * the note is audible almost immediately and then takes another 10ms to arrive,
+ * which reads as softness rather than as delay, and is the thing you can
+ * actually hear. The def keeps its own default; patches and patterns want the
+ * gentler one.
+ */
+const TOUCH_ATTACK = 0.002
 
 export function App() {
   const { status, boot, probe, session } = useSuperSonic()
@@ -18,6 +30,7 @@ export function App() {
   const [scale, setScale] = useState<ScaleName>('pentatonic')
   const [params, setParams] = useState<VoiceParams | null>(null)
   const [lit, setLit] = useState<number[]>([])
+  const [latencyMs, setLatencyMs] = useState<number | null>(null)
 
   const surface = useRef<HTMLDivElement>(null)
   const voices = useRef<Voices | null>(null)
@@ -30,14 +43,24 @@ export function App() {
       .then((response) => response.json())
       .then((loaded: SynthDefContract) => {
         setContract(loaded)
-        setParams(Object.fromEntries(loaded.specs.map((spec) => [spec.name, spec.default])))
+        setParams({
+          ...Object.fromEntries(loaded.specs.map((spec) => [spec.name, spec.default])),
+          attack: TOUCH_ATTACK,
+        })
       })
       .catch(() => setContract(null))
   }, [])
 
   useEffect(() => {
     const live = session()
-    if (booted && live && !voices.current) voices.current = new Voices(live)
+    if (!booted || !live) return
+    if (!voices.current) voices.current = new Voices(live)
+
+    // What the device costs, shown because it is almost all of what a player
+    // feels and it cannot be measured from anywhere else. baseLatency is the
+    // render buffer; outputLatency adds the driver and the hardware.
+    const context = (live.sonic as unknown as { audioContext?: AudioContext }).audioContext
+    if (context) setLatencyMs((context.baseLatency + context.outputLatency) * 1000)
   }, [booted, session])
 
   // A finger still down when the page is hidden never gets its pointerup, and
@@ -208,6 +231,16 @@ export function App() {
                     />
                   ))
               : null}
+
+            {latencyMs !== null ? (
+              <span
+                data-testid="latency"
+                title="Output buffer plus driver. The engine adds one render quantum on top."
+                className="font-mono text-[10px] text-neutral-600"
+              >
+                {latencyMs.toFixed(1)}ms out
+              </span>
+            ) : null}
           </div>
         </>
       )}

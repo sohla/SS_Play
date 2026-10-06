@@ -101,8 +101,43 @@ Design notes for when it lands:
 - Playwright can drive this: `page.touchscreen`, and `hasTouch: true` on the context. The drag test
   in `mobile.spec.ts` is the pattern.
 
-### Audio latency on a phone
+## Latency
 
-Not measured. `baseLatency` and `outputLatency` are readable from the AudioContext and worth
-surfacing next to the transport mode, since a page that reports `sab` can still feel slow if the
-device buffer is large.
+Measured on Chrome/macOS, same method before and after, by capturing audio and comparing the first
+sample above threshold against `AudioContext.currentTime` at the press:
+
+| | before | after |
+|---|---|---|
+| `baseLatency` (render buffer) | 5.8 ms | **2.9 ms** |
+| `outputLatency` (driver + hardware) | 32 ms | **24 ms** |
+| press → first rendered sample | 3.0 ms | 2.9 ms |
+| press → half amplitude | ~8 ms | **4.0 ms** |
+
+**The engine is not the problem.** Press to first rendered sample is one render quantum — there is
+no scheduler, no lookahead and no event-system delay between a touch and scsynth. That was worth
+measuring before changing anything, because the obvious suspects were all innocent.
+
+Two things were worth changing:
+
+- **`latencyHint: 0` instead of `'interactive'`.** Chrome serves `'interactive'` with a 256-frame
+  buffer and `0` with 128. It is a hint, not a demand: a device that cannot keep up returns a larger
+  buffer rather than glitching, which is why `createSession` asks for it everywhere. Set in
+  `DEFAULT_AUDIO_CONTEXT_OPTIONS`.
+- **A 2ms attack on the touch page**, against the SynthDef's own 10ms default. The note is audible
+  almost immediately and then takes another 10ms to arrive, which is heard as softness rather than
+  as delay — and is the part a player actually notices. The def keeps its gentler default, because
+  patterns and patches want it; the page overrides for itself.
+
+Roughly 46 ms to 31 ms end to end. The remaining 24 ms is `outputLatency`, which is the OS and the
+hardware and is not reachable from a web page.
+
+`tests/e2e/touch.spec.ts` asserts the buffer stayed small and that a press reaches the output inside
+15 ms, so a scheduler reappearing between press and engine fails a test rather than being noticed
+by ear months later.
+
+### Still unmeasured on a real phone
+
+Every figure above is a desktop browser. iOS Safari's `outputLatency` is typically worse and varies
+with whether anything else holds an audio session. The touch page shows its own measured figure in
+the control bar for exactly that reason — on a device that cannot be instrumented from here, the
+page has to report its own number.

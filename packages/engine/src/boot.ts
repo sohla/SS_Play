@@ -11,6 +11,7 @@ export interface EngineFactoryOptions extends EngineUrls {
   /** Only ever set on the fallback attempt. The happy path omits it. */
   mode?: TransportMode
   scsynthOptions?: Record<string, number>
+  audioContextOptions?: AudioContextOptions
 }
 
 export type EngineFactory<T extends BootableEngine> = (options: EngineFactoryOptions) => T
@@ -35,6 +36,15 @@ export interface BootOptions<T extends BootableEngine> {
    * Keeping the number here makes it visible and ours to change.
    */
   scsynthOptions?: Record<string, number>
+  /**
+   * Passed straight to `new AudioContext`. The library asks for
+   * `latencyHint: 'interactive'`, which Chrome serves with a 256-frame buffer;
+   * a numeric hint of 0 asks for the smallest the device will give, measured
+   * here as 128 frames. Halving the buffer halves the time between a touch and
+   * the sound of it, which on an instrument is the difference between
+   * responsive and sluggish.
+   */
+  audioContextOptions?: AudioContextOptions
   scope?: typeof globalThis
 }
 
@@ -56,7 +66,7 @@ export interface BootOptions<T extends BootableEngine> {
 export async function bootEngine<T extends BootableEngine>(
   options: BootOptions<T>,
 ): Promise<BootResult<T>> {
-  const { create, urls, scsynthOptions, scope = globalThis } = options
+  const { create, urls, scsynthOptions, audioContextOptions, scope = globalThis } = options
   const report = probeCapabilities(scope)
 
   if (report.blocking.length > 0) {
@@ -69,7 +79,11 @@ export async function bootEngine<T extends BootableEngine>(
     }
   }
 
-  const base: EngineFactoryOptions = { ...urls, ...(scsynthOptions ? { scsynthOptions } : {}) }
+  const base: EngineFactoryOptions = {
+    ...urls,
+    ...(scsynthOptions ? { scsynthOptions } : {}),
+    ...(audioContextOptions ? { audioContextOptions } : {}),
+  }
 
   let engine = create(base)
   try {

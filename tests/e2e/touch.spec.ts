@@ -153,3 +153,81 @@ async function nodeCount(page: import('@playwright/test').Page): Promise<number>
     return Math.max(0, tree.nodeCount - 2)
   })
 }
+
+test('the engine asks for a small output buffer and says what it got', async ({ page }) => {
+  await boot(page)
+
+  const context = await page.evaluate(() => {
+    const sonic = (window as never as { __ss: { sonic: Record<string, never> } }).__ss.sonic as never as {
+      audioContext: AudioContext
+    }
+    return {
+      baseLatency: sonic.audioContext.baseLatency * 1000,
+      sampleRate: sonic.audioContext.sampleRate,
+    }
+  })
+
+  // SuperSonic asks for latencyHint 'interactive', which Chrome serves with a
+  // 256-frame buffer — 5.8ms at 48kHz. createSession asks for 0 instead and
+  // gets 128. The threshold is one frame above 128 frames' worth, so a
+  // regression to 'interactive' fails rather than merely reading worse.
+  const quantumMs = (128 / context.sampleRate) * 1000
+  expect(context.baseLatency).toBeLessThan(quantumMs * 1.5)
+
+  await expect(page.locator('[data-testid=latency]')).toContainText('ms out')
+})
+
+test('a press reaches the output within a render quantum or two', async ({ page }) => {
+  await boot(page)
+
+  const surface = await page.locator('[data-testid=surface]').boundingBox()
+  if (!surface) throw new Error('no surface')
+
+  await page.evaluate(() => {
+    const sonic = (window as never as { __ss: { sonic: Record<string, never> } }).__ss.sonic as never as {
+      startCapture(): void
+      audioContext: AudioContext
+    }
+    sonic.startCapture()
+    const stamp = { ctxAtStart: sonic.audioContext.currentTime, pressed: 0 }
+    ;(window as never as { __t: unknown }).__t = stamp
+    document.querySelector('[data-testid=surface]')?.addEventListener(
+      'pointerdown',
+      () => {
+        stamp.pressed = sonic.audioContext.currentTime
+      },
+      { capture: true, once: true },
+    )
+  })
+
+  await page.mouse.move(surface.x + surface.width * 0.5, surface.y + surface.height * 0.2)
+  await page.mouse.down()
+  await page.waitForTimeout(250)
+
+  const onsetMs = await page.evaluate(() => {
+    const sonic = (window as never as { __ss: { sonic: Record<string, never> } }).__ss.sonic as never as {
+      stopCapture(): { sampleRate: number; frames: number; left: Float32Array }
+    }
+    const capture = sonic.stopCapture()
+    const { ctxAtStart, pressed } = (window as never as { __t: { ctxAtStart: number; pressed: number } }).__t
+
+    let peak = 0
+    for (let n = 0; n < capture.frames; n++) peak = Math.max(peak, Math.abs(capture.left[n] as number))
+    for (let n = 0; n < capture.frames; n++) {
+      if (Math.abs(capture.left[n] as number) > peak * 0.02) {
+        return (ctxAtStart + n / capture.sampleRate - pressed) * 1000
+      }
+    }
+    return -1
+  })
+
+  await page.mouse.up()
+
+  // Measured at 2.9ms, which is one 128-frame render quantum. 15ms is generous
+  // enough to survive a loaded machine and still fail if a scheduler or a
+  // lookahead ever gets between the press and the engine — which is the
+  // regression worth catching, since it would be inaudible in a test that only
+  // asked whether a sound happened.
+  expect(onsetMs).toBeGreaterThan(0)
+  expect(onsetMs).toBeLessThan(15)
+})
