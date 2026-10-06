@@ -135,11 +135,24 @@ console.log(`\n${checks.join('\n')}\n`)
 
 if (!apply) {
   console.log('Dry run. Nothing was uploaded. Re-run with --yes to deploy.\n')
-  // --dry-run so the file list is real rather than described.
+  // --dry-run so the file list is real rather than described. -v is required:
+  // openrsync prints nothing at default verbosity, which reads as "no changes"
+  // rather than "not told to say".
   try {
-    const out = run('rsync', [...RSYNC_FLAGS, '--dry-run', `${dist}/`, `${target}:${releaseDir}/`])
-    const lines = out.trim().split('\n').filter(Boolean)
-    console.log(`rsync would transfer ${lines.length} path(s).`)
+    const out = run('rsync', [
+      ...RSYNC_FLAGS,
+      '--dry-run',
+      '-v',
+      `${dist}/`,
+      `${target}:${releaseDir}/`,
+    ])
+    const paths = out
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('sent ') && !line.endsWith('/'))
+    console.log(`rsync would transfer ${paths.length} file(s):`)
+    for (const path of paths.slice(0, 8)) console.log(`  ${path}`)
+    if (paths.length > 8) console.log(`  … and ${paths.length - 8} more`)
   } catch {
     console.log(`Could not reach ${target} to list changes — check SSH before deploying.`)
   }
