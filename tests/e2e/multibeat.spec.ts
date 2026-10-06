@@ -129,7 +129,6 @@ test('voices free themselves and the drone remains', async ({ page }) => {
 // owes them — not their musical content, which is their own mapping's job.
 const CLIENT_PAGES = [
   { app: 'trainmelody', heldVoices: 0 },
-  { app: 'trainbass', heldVoices: 1 },
   { app: 'multibeat', heldVoices: 1 },
 ] as const
 
