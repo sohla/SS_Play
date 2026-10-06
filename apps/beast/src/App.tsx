@@ -16,7 +16,8 @@ export function App() {
           open the filter, tilt and roll for the timbre.
         </>
       }
-      conductor={{
+      instrument={{
+        kind: 'conductor',
         clock: 'ssp_beast_clock',
         voice: 'ssp_beast',
         address: '/ssp_beast',

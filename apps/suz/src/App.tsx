@@ -16,7 +16,8 @@ export function App() {
           phone to play; move it more and it closes up.
         </>
       }
-      conductor={{
+      instrument={{
+        kind: 'conductor',
         clock: 'ssp_suz_clock',
         voice: 'ssp_suz',
         address: '/ssp_suz',

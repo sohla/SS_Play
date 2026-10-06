@@ -1,10 +1,10 @@
 {
-  "name": "@ss/melchair",
+  "name": "@ss/woiworung",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-or-later",
-  "scripts": { "dev": "vite --port 3012", "build": "vite build", "preview": "vite preview" },
+  "scripts": { "dev": "vite --port 3018", "build": "vite build", "preview": "vite preview" },
   "dependencies": {
     "@ss/engine": "*", "@ss/motion": "*", "@ss/react": "*", "@ss/ui": "*",
     "react": "19.3.0", "react-dom": "19.3.0"

@@ -6,7 +6,7 @@ import './index.css'
 
 // Hoisted: a fresh array each render would be a changing dependency of the
 // provider's boot callback.
-const SYNTHDEFS = ['ssp_sine']
+const SYNTHDEFS = ['ssp_moog', 'ssp_moog_clock']
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root missing from index.html')

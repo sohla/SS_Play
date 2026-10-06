@@ -26,10 +26,31 @@
       "engine": true
     },
     {
-      "app": "melchair",
-      "path": "/melchair/",
-      "title": "melchair",
-      "blurb": "AirKit's melChair3. Turn the phone to play a figure on a self-feeding sine.",
+      "app": "woiworung",
+      "path": "/woiworung/",
+      "title": "woiworung",
+      "blurb": "AirKit's woiworung1. One voice phase-modulating itself. Hold still, then move, to step the note.",
+      "engine": true
+    },
+    {
+      "app": "pluck",
+      "path": "/pluck/",
+      "title": "pluck",
+      "blurb": "AirKit's pluck1. A plucked string you knock to pitch and move to play.",
+      "engine": true
+    },
+    {
+      "app": "chime",
+      "path": "/chime/",
+      "title": "chime",
+      "blurb": "AirKit's wingChimes3. Grains of noise through a filter narrow enough to ring.",
+      "engine": true
+    },
+    {
+      "app": "moog",
+      "path": "/moog/",
+      "title": "moog",
+      "blurb": "AirKit's miniMoog. Three detuned oscillators, five against six against two.",
       "engine": true
     },
     {
@@ -52,14 +73,6 @@
       "title": "scsynth tester",
       "blurb": "Boot the engine, play any SynthDef from the library, and watch the OSC traffic and audio thread while it runs.",
       "engine": true
-    },
-    {
-      "app": "scratch",
-      "path": "/scratch/",
-      "title": "scratch",
-      "blurb": "A throwaway page. It exists to prove that adding one costs a directory and a line here, with no DNS record and no certificate.",
-      "engine": true,
-      "temporary": true
     }
   ]
 }

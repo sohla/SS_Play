@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import sites from '../../infra/sites.json' with { type: 'json' }
 import headers from '../../infra/headers.json' with { type: 'json' }
-import { LANDING, SCRATCH } from './pages.ts'
+import { LANDING, TOUCH } from './pages.ts'
 
 // The pages share one origin, which is what makes a landing page possible
 // without a DNS record each. These are the assertions that shape has to hold:
@@ -72,35 +72,31 @@ test('a missing asset is a 404, not the index page', async ({ request, baseURL }
   // surfaces as an opaque parse error rather than a 404. Every bug of that
   // shape in this project so far has presented as silence.
   const missing = await request.get(
-    `${baseURL}${SCRATCH}vendor/supersonic/synthdefs/does-not-exist.scsyndef`,
+    `${baseURL}${TOUCH}vendor/supersonic/synthdefs/does-not-exist.scsyndef`,
   )
   expect(missing.status()).toBe(404)
   expect(missing.headers()['content-type'] ?? '').not.toContain('text/html')
 })
 
 test('a second page boots its own engine and sounds', async ({ page }) => {
-  // The point of the second page: it declares no synthdefs and no samples, and
-  // imports nothing from apps/playground. If it needed either, the preset
-  // would be carrying one page's assumptions instead of being a factory.
-  await page.goto(SCRATCH)
+  // The point: a page that declares its own SynthDefs and imports nothing from
+  // another app. If it needed either, the preset would be carrying one page's
+  // assumptions instead of being a factory.
+  await page.goto(TOUCH)
   await page.click(bootButton)
 
-  await expect(page.getByText(/^sab · \d+ loaded$/)).toBeVisible({ timeout: 30_000 })
-
-  await page.click('[data-testid=play]')
-  await expect(page.getByText('sounding…')).toBeVisible()
-  await expect(page.locator('[data-testid=play]')).toBeEnabled({ timeout: 15_000 })
-
-  // The audio thread ran, rather than the button merely toggling.
-  const blocks = await page.locator('[data-testid=blocks]').innerText()
-  expect(Number(blocks.replace(/\D/g, ''))).toBeGreaterThan(0)
+  // The surface replaces the boot gate entirely once running, so that is what
+  // proves it booted — the mode readout lives in the pre-boot block and is gone
+  // by the time there is anything to assert about.
+  await expect(page.locator('[data-testid=surface]')).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('[data-testid=engine-footer]')).toBeVisible()
 })
 
 test('hashed assets are immutable and the engine is not', async ({ page, request, baseURL }) => {
   // Never immutable-cache a URL that is not content-addressed: a year-long
   // immutable response cannot be revalidated or evicted, so the only remedy is
   // a new URL. The engine's filenames are stable while its bytes are not.
-  await page.goto(SCRATCH)
+  await page.goto(TOUCH)
 
   const asset = await page.locator('script[type=module]').first().getAttribute('src')
   expect(asset, 'no module script on the page').toBeTruthy()
@@ -108,7 +104,7 @@ test('hashed assets are immutable and the engine is not', async ({ page, request
   const hashed = await request.get(new URL(asset as string, baseURL).toString())
   expect(hashed.headers()['cache-control']).toBe(headers.immutable['Cache-Control'])
 
-  const wasm = await request.get(`${baseURL}${SCRATCH}vendor/supersonic/wasm/scsynth-nrt.wasm`)
+  const wasm = await request.get(`${baseURL}${TOUCH}vendor/supersonic/wasm/scsynth-nrt.wasm`)
   expect(wasm.headers()['cache-control']).toBe(headers.revalidate['Cache-Control'])
   expect(wasm.headers()['content-type']).toBe('application/wasm')
 })

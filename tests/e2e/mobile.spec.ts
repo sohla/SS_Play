@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import sites from '../../infra/sites.json' with { type: 'json' }
-import { LANDING, PLAYGROUND, SCRATCH } from './pages.ts'
+import { LANDING, PLAYGROUND, TOUCH } from './pages.ts'
 
 // Mobile is the primary target, so these run at phone width rather than as an
 // afterthought at the end of a desktop suite. The IMU and multitouch work to
@@ -58,7 +58,7 @@ test('the playground does not scroll sideways once it is running', async ({ page
 })
 
 test('the gesture that starts audio is big enough to hit', async ({ page }) => {
-  await page.goto(SCRATCH)
+  await page.goto(TOUCH)
   const box = await page.locator(bootButton).boundingBox()
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(TOUCH_TARGET)
 })

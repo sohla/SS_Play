@@ -8,7 +8,12 @@ import sites from '../../infra/sites.json' with { type: 'json' }
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-const PORTED = ['melchair', 'suz', 'beast'] as const
+// The two shapes a personality takes. A conducted one runs a pattern and
+// spawns a voice per event; a held one opens a single voice and plays it by
+// moving its controls — which is why those have no Pbind at all.
+const CONDUCTED = ['suz', 'beast', 'chime', 'moog'] as const
+const HELD = ['woiworung', 'pluck'] as const
+const PORTED = [...CONDUCTED, ...HELD] as const
 
 const pathOf = (app: string) => {
   const page = sites.pages.find((candidate) => candidate.app === app)
@@ -84,14 +89,37 @@ for (const app of PORTED) {
     // sensor had spoken would play on load and never stop on a desktop.
     await page.waitForTimeout(1500)
     await expect(page.locator('[data-testid=playing]')).toContainText('stopped')
-    expect(await events(page)).toBe(0)
   })
 
   test(`${app} plays when moved`, async ({ page }) => {
     await boot(page, app)
     await shake(page)
 
-    await expect(page.locator('[data-testid=playing]')).toContainText('events', { timeout: 10_000 })
+    // A held page says "sounding"; a conducted one counts its events.
+    await expect(page.locator('[data-testid=playing]')).not.toContainText('stopped', {
+      timeout: 10_000,
+    })
+  })
+}
+
+for (const app of HELD) {
+  test(`${app} holds exactly one voice however long it runs`, async ({ page }) => {
+    await boot(page, app)
+
+    // The whole point of the held shape: no events, no allocation, no way to
+    // exhaust maxNodes. One synth for the life of the page.
+    for (let n = 0; n < 4; n++) {
+      await shake(page)
+      await page.waitForTimeout(700)
+    }
+    expect(await voices(page)).toBe(1)
+  })
+}
+
+for (const app of CONDUCTED) {
+  test(`${app} counts the events it spawns`, async ({ page }) => {
+    await boot(page, app)
+    await shake(page)
     await expect.poll(() => events(page), { timeout: 10_000 }).toBeGreaterThan(3)
   })
 
@@ -129,12 +157,40 @@ for (const app of PORTED) {
   })
 }
 
-test('each ported page reaches its own clock and voice', async ({ page }) => {
+test('each ported page reaches its own SynthDefs', async ({ page }) => {
   // They share MotionInstrument, so a copy-paste of the wrong SynthDef name
   // would still render, still show a footer, and simply never make a sound.
-  for (const app of PORTED) {
+  for (const app of CONDUCTED) {
     await boot(page, app)
     await shake(page)
     await expect.poll(() => events(page), { timeout: 10_000 }).toBeGreaterThan(0)
   }
+  for (const app of HELD) {
+    await boot(page, app)
+    await expect.poll(() => voices(page), { timeout: 10_000 }).toBe(1)
+  }
+})
+
+test('woiworung steps its note on the way out of a rest', async ({ page }) => {
+  await boot(page, 'woiworung')
+
+  const note = () => page.locator('[data-testid=value-note]').innerText()
+
+  // The only event in the personality, and it fires on the rising edge after a
+  // rest rather than on movement itself — going still arms it, moving advances.
+  // A naive reading would advance on every frame of movement, which sounds like
+  // a glissando rather than a step.
+  await hold(page, 600)
+  await page.waitForTimeout(700)
+  const first = await note()
+
+  await shake(page)
+  await page.waitForTimeout(400)
+  const second = await note()
+  expect(second).not.toBe(first)
+
+  // Still moving is not a new event: it steps once per rest, not continuously.
+  await shake(page)
+  await page.waitForTimeout(400)
+  expect(await note()).toBe(second)
 })

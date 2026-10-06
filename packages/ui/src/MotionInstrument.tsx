@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Conductor, type ConductorOptions } from '@ss/engine'
+import { Conductor, HeldVoice, type ConductorOptions, type HeldVoiceOptions } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 import { BootGate } from './BootGate.tsx'
@@ -21,17 +21,29 @@ export interface Mapped {
   level: number
   /** Controls merged into every voice as it is born. */
   voice: Record<string, number>
+  /** Extra controls on the clock itself, beyond dur and level. */
+  clock?: Record<string, number>
   /** What `~plot` would draw. */
   traces: Trace[]
   /** Calculated values worth reading, in order. */
   values: [name: string, text: string][]
 }
 
+/**
+ * The two shapes an AirKit personality takes.
+ *
+ * `conductor` runs a pattern and spawns a voice per event. `held` opens one
+ * voice and plays it by moving its controls — which is why those personalities
+ * have no Pbind at all.
+ */
+export type Instrument =
+  | ({ kind: 'conductor' } & Omit<ConductorOptions, 'session'>)
+  | ({ kind: 'held' } & Omit<HeldVoiceOptions, 'session'>)
+
 export interface MotionInstrumentProps {
   title: string
   blurb: ReactNode
-  /** Everything the conductor needs except the session, which comes from context. */
-  conductor: Omit<ConductorOptions, 'session'>
+  instrument: Instrument
   /** The ported `~next`. Called at send rate and again, separately, for display. */
   map(motion: Motion): Mapped
   /** Matches the comparison inside the clock SynthDef. */
@@ -55,7 +67,7 @@ const SEND_HZ = 30
 export function MotionInstrument({
   title,
   blurb,
-  conductor,
+  instrument,
   map,
   silenceBelow,
 }: MotionInstrumentProps) {
@@ -65,7 +77,7 @@ export function MotionInstrument({
   const [spawned, setSpawned] = useState(0)
   const [denied, setDenied] = useState(false)
 
-  const live = useRef<Conductor | null>(null)
+  const live = useRef<Conductor | HeldVoice | null>(null)
   const latest = useRef<Motion>(RESTING)
 
   const booted = status.phase === 'ready' || status.phase === 'degraded'
@@ -74,15 +86,19 @@ export function MotionInstrument({
     const engine = session()
     if (!booted || !engine || live.current) return
 
-    const built = new Conductor({ session: engine, ...conductor })
+    const built =
+      instrument.kind === 'conductor'
+        ? new Conductor({ session: engine, ...instrument })
+        : new HeldVoice({ session: engine, ...instrument })
+
     live.current = built
     return () => {
       built.dispose()
       live.current = null
     }
-    // conductor is an object literal at the call site, so it is a new reference
-    // every render; depending on it would tear the instrument down and rebuild
-    // it on each one.
+    // instrument is an object literal at the call site, so it is a new
+    // reference every render; depending on it would tear the instrument down
+    // and rebuild it on each one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booted, session])
 
@@ -102,15 +118,21 @@ export function MotionInstrument({
       if (!built || !latest.current.live) return
 
       const next = map(latest.current)
-      built.setVoiceControls(next.voice)
-      built.setClock({ dur: next.dur, level: next.level })
+      if (built instanceof Conductor) {
+        built.setVoiceControls(next.voice)
+        built.setClock({ dur: next.dur, level: next.level, ...next.clock })
+      } else {
+        // A held voice has no step and no events: everything the phone decides
+        // goes straight onto the one synth, continuously.
+        built.set(next.voice)
+      }
     }
 
     const sending = setInterval(send, 1000 / SEND_HZ)
     const showing = setInterval(() => {
       setMotion(latest.current)
       setMapped(map(latest.current))
-      setSpawned(live.current?.spawned ?? 0)
+      setSpawned(live.current instanceof Conductor ? live.current.spawned : 0)
     }, 100)
 
     return () => {
@@ -168,7 +190,11 @@ export function MotionInstrument({
                   : 'border-neutral-800 bg-surface text-neutral-600'
               }`}
             >
-              {playing ? `${spawned} events` : 'stopped — move to start'}
+              {playing
+                ? instrument.kind === 'conductor'
+                  ? `${spawned} events`
+                  : 'sounding'
+                : 'stopped — move to start'}
             </div>
 
             {mapped.traces.map((trace) => (
@@ -184,12 +210,14 @@ export function MotionInstrument({
                   </dd>
                 </div>
               ))}
-              <div className="flex justify-between border-b border-neutral-900 py-0.5">
-                <dt>events</dt>
-                <dd className="text-neutral-400" data-testid="value-events">
-                  {spawned}
-                </dd>
-              </div>
+              {instrument.kind === 'conductor' ? (
+                <div className="flex justify-between border-b border-neutral-900 py-0.5">
+                  <dt>events</dt>
+                  <dd className="text-neutral-400" data-testid="value-events">
+                    {spawned}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </>
         ) : null}
