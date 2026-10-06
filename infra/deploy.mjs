@@ -38,6 +38,31 @@ const RSYNC_FLAGS = ['-rlpt', '--delete', '--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r']
 const KEEP_RELEASES = 3
 const DEPLOY_USER = process.env['SSPLAY_USER'] ?? 'deploy'
 
+// One TCP connection for the whole deploy, shared by every ssh, the scp and
+// rsync. A deploy makes half a dozen connections otherwise, and each one is a
+// chance to fail — which it did: unattended-upgrades restarted sshd mid-run and
+// took the deploy with it, after the files were already in place.
+//
+// ControlPath uses %C, a hash of the connection parameters, because a unix
+// socket path is capped at ~104 characters and a readable one overruns it.
+const SSH_OPTS = [
+  '-o',
+  'ControlMaster=auto',
+  '-o',
+  'ControlPath=~/.ssh/ssplay-%C',
+  '-o',
+  'ControlPersist=120',
+  '-o',
+  'ConnectTimeout=20',
+  '-o',
+  'ServerAliveInterval=15',
+  '-o',
+  'ServerAliveCountMax=4',
+]
+
+/** openrsync takes --rsh as one string, so the options are joined rather than spread. */
+const rsh = () => ['-e', `ssh ${SSH_OPTS.join(' ')}`]
+
 const args = process.argv.slice(2)
 const flag = (name) => args.includes(`--${name}`)
 const value = (name) => {
@@ -80,7 +105,24 @@ function run(command, commandArgs, options = {}) {
 
 /** Run a command on the VM. Quoted as one argv entry so the local shell is never involved. */
 function remote(script) {
-  return run('ssh', [target, script])
+  return retrying(() => run('ssh', [...SSH_OPTS, target, script]))
+}
+
+/**
+ * Retry once on a connection failure, not on a command failure.
+ *
+ * sshd exits 255 for its own errors and passes the remote command's status
+ * through otherwise, so 255 is the one status worth retrying — a failed
+ * `mkdir` should surface immediately rather than being attempted twice.
+ */
+function retrying(attempt) {
+  try {
+    return attempt()
+  } catch (error) {
+    if (error.status !== 255) throw error
+    console.log('  connection dropped, retrying once')
+    return attempt()
+  }
 }
 
 function git(...gitArgs) {
@@ -133,6 +175,7 @@ if (!apply) {
   try {
     const out = run('rsync', [
       ...RSYNC_FLAGS,
+      ...rsh(),
       '--dry-run',
       '-v',
       `${dist}/`,
@@ -173,7 +216,7 @@ const linkDest = previous && previous !== releaseDir ? [`--link-dest=${previous}
 if (linkDest.length > 0) console.log(`Hardlinking unchanged files from ${previous}`)
 
 console.log('Uploading')
-run('rsync', [...RSYNC_FLAGS, ...linkDest, `${dist}/`, `${target}:${releaseDir}/`], {
+run('rsync', [...RSYNC_FLAGS, ...rsh(), ...linkDest, `${dist}/`, `${target}:${releaseDir}/`], {
   stdio: 'inherit',
 })
 
