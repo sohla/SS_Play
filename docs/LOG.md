@@ -694,3 +694,81 @@ those defaults — 0.25, 0.5, 1, 4 — are beat subdivisions, and in Sonic Pi `f
 period in beats. If so, an exponential 0.125–8 would put the useful values under the fingers
 instead of bunched at the bottom. `mod_phase` has the same 0.25 default but was given 0–1, so the
 two are currently inconsistent.
+
+---
+
+## 2026-10-06 — Phase 7: the deploy, and three things the plan had wrong
+
+### Done
+
+VM is up and DNS resolves. `playground.soh.la` → `172.105.161.188` (+ IPv6), Ubuntu 24.04,
+`OpenSSH_9.6p1`. The apex still points at GitHub Pages and was not touched.
+
+- `infra/PROVISION.md` — one-time VM setup, by hand, every block labelled with which machine it
+  runs on.
+- `infra/deploy.mjs` — `npm run deploy -- --page playground [--yes]`. Dry run by default.
+- `docs/DEPLOY.md` — releases, caching, and why a subdomain.
+- Cache globs in `headers.json` corrected, with a test.
+
+### `soh.la/ssplay` was never possible
+
+Asked for, and worth recording why not, because the alternative looks like a workaround and is
+actually the better design.
+
+DNS maps names to addresses and has no concept of paths, so only the machine already answering for
+`soh.la` could route `/ssplay` — and that is GitHub Pages, which can neither reverse-proxy nor set
+COOP/COEP (`curl -sI https://soh.la` returns `server: GitHub.com` and no isolation headers).
+
+The second reason is the one that matters longer term: **COEP applies to an origin, not a path.**
+`soh.la/ssplay` would impose `require-corp` on the whole of `soh.la`, blocking every cross-origin
+font, script and embed on the rest of the site. A subdomain keeps the isolation contained to the
+page that needs it.
+
+### The cache rules matched nothing
+
+`headers.json` named `/engine/*`, `/synthdefs/*` and `/samples/*`. The build emits:
+
+```
+/index.html
+/assets/*                            7 files   1.8M   ← Vite-hashed
+/vendor/supersonic/{wasm,workers,synthdefs,samples}/
+```
+
+So every `Cache-Control` rule but `/assets/*` was dead, and 3.4 MB of engine got no directive at
+all — which means heuristic browser caching, and a rebuilt synthdef served stale with no way to
+force a refresh. **A dead cache rule is invisible**: the site works, slightly worse, indefinitely.
+
+Corrected to `/assets/*` immutable and the vendor subtrees `no-cache`. Subtrees are listed
+individually rather than as `/vendor/*` because Caddy is not installed locally, so its path-matcher
+slash semantics could not be verified here; explicit paths are correct either way.
+
+Guarded by four assertions in `preset.test.ts` that check the globs against the trees the build
+actually produces. Verified they fail: restoring `/engine/*` gives
+`/engine/* matches nothing the build emits`.
+
+`PLAN.md` wanted the engine immutable at `/engine/<version>/**`. **Not implemented** — `VENDOR_DIR`
+is a flat `vendor/supersonic`, so there is no version in the URL and immutable would pin a stale
+wasm forever. The engine revalidates instead: one conditional request per file, `304`, no body.
+Worth doing properly; still open.
+
+### openrsync rejected the plan's own rsync flags
+
+`--chmod=D755,F644`, written into `PLAN.md` as the openrsync-safe form, **is rejected by
+openrsync**. Its manpage is explicit once read: the `D`/`F` prefixes apply only to *relative*
+permissions (`Dg+w`), so a literal mode after them is invalid.
+
+`--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r` means the same thing and both rsyncs accept it. Verified
+end-to-end before committing: files land `644`, directories `755`.
+
+The useful surprise was that **openrsync does support `--link-dest`**, which the plan assumed it
+would not and worked around with a separate `_engine/` tree plus `cp -al`. With `--link-dest` the
+dedupe is free and needs no second tree: unchanged files hardlink into the previous release, so the
+engine is one copy on disk however many releases reference it. Confirmed by link counts — 2 for an
+unchanged file, 1 for a new one. The `_engine/` scheme is dropped.
+
+### Open
+
+- Engine URL carries no version, so it cannot be immutable-cached. See above.
+- Nothing is deployed yet — steps 1–6 of `PROVISION.md` are untouched.
+- Still no CI workflow.
+- `centre` and `phase` ranges, unchanged from the last entry.

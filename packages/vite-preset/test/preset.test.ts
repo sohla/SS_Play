@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import headers from '../../../infra/headers.json' with { type: 'json' }
-import { MAX_SAMPLES_PER_APP, defineSSApp } from '../src/index.ts'
+import { MAX_SAMPLES_PER_APP, VENDOR_DIR, defineSSApp } from '../src/index.ts'
 
 // infra/headers.json is the single source of truth: the Vite servers import it
 // and infra/gen.mjs renders the Caddyfile from it. These tests guard the Vite
@@ -30,6 +30,47 @@ describe('isolation headers', () => {
       'Cross-Origin-Opener-Policy',
       'Cross-Origin-Embedder-Policy',
     ])
+  })
+})
+
+describe('cache rules address paths the build emits', () => {
+  // The build emits exactly two trees: Vite's hashed /assets, and the staged
+  // engine under VENDOR_DIR. The first version of these globs named /engine/*,
+  // /synthdefs/* and /samples/* — none of which exist — so every Cache-Control
+  // rule but one matched nothing. A dead rule is invisible: the site works,
+  // slightly worse, indefinitely.
+  const emitted = ['/assets/', `/${VENDOR_DIR}/`]
+  const documentPaths = ['/', '/index.html']
+
+  const addressable = (path: string) =>
+    documentPaths.includes(path) || emitted.some((prefix) => path.startsWith(prefix))
+
+  it.each([...headers.immutablePaths, ...headers.revalidatePaths])(
+    '%s is under a tree the build produces',
+    (path) => {
+      expect(addressable(path), `${path} matches nothing the build emits`).toBe(true)
+    },
+  )
+
+  it('claims immutable only for content-addressed URLs', () => {
+    // A year-long immutable response cannot be revalidated or evicted; the only
+    // remedy is a new URL. The engine's filenames are stable while its bytes
+    // are not, so immutable there would pin a stale wasm on every return
+    // visitor until the URL changed — which it never would.
+    expect(headers.immutablePaths).toEqual(['/assets/*'])
+  })
+
+  it('revalidates the document that names the hashed assets', () => {
+    for (const path of documentPaths) expect(headers.revalidatePaths).toContain(path)
+  })
+
+  it('revalidates every engine subtree', () => {
+    // Without an explicit directive browsers cache heuristically, which can
+    // serve a rebuilt synthdef from a stale copy with no way to force a refresh.
+    for (const subtree of ['wasm', 'workers', 'synthdefs', 'samples']) {
+      expect(headers.revalidatePaths).toContain(`/${VENDOR_DIR}/${subtree}/*`)
+    }
+    expect(headers.revalidatePaths).toContain(`/${VENDOR_DIR}/manifest.json`)
   })
 })
 

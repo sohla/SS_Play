@@ -10,10 +10,10 @@
 		-Server
 	}
 
-	@immutable path /assets/* /engine/* /synthdefs/* /samples/*
+	@immutable path /assets/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
 
-	@revalidate path / /index.html /synthdefs/manifest.json /samples/manifest.json
+	@revalidate path / /index.html /vendor/supersonic/manifest.json /vendor/supersonic/wasm/* /vendor/supersonic/workers/* /vendor/supersonic/synthdefs/* /vendor/supersonic/samples/*
 	header @revalidate Cache-Control "no-cache"
 }
 

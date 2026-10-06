@@ -31,6 +31,7 @@ library surface this is built against.
 | [`docs/SIDECAR.md`](docs/SIDECAR.md) | Authoring SynthDefs: the live rig, and how to use it |
 | [`docs/SYNTHDEFS.md`](docs/SYNTHDEFS.md) | The parameter contract, the compile pipeline, the binary format |
 | [`docs/CROSS_ORIGIN.md`](docs/CROSS_ORIGIN.md) | Isolation headers, and testing on a phone |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Releases, caching, and why a subdomain rather than a subdirectory |
 | [`docs/API-0.88.0.md`](docs/API-0.88.0.md) | What SuperSonic 0.88 actually does, where it differs from its typings |
 | [`docs/LOG.md`](docs/LOG.md) | What was done, what was verified, what is open |
 
@@ -67,6 +68,20 @@ by `infra/gen.mjs`, so the three can't drift apart.
 
 A consequence worth knowing before you add anything to a page: **no third-party subresources.**
 `require-corp` blocks cross-origin fonts, scripts and embeds unless they opt in. Self-host instead.
+
+It is also why each page gets its own subdomain. COEP applies to an origin, not a path, so serving
+a page at `soh.la/ssplay` would impose `require-corp` on the whole of `soh.la`.
+
+## Deploying
+
+```sh
+npm run deploy -- --page playground          # dry run
+npm run deploy -- --page playground --yes
+```
+
+Atomic timestamped releases on a Linode VM behind Caddy, gated on `npm run verify` and finishing
+with a check that the isolation headers survived the trip. One-time VM setup is
+[`infra/PROVISION.md`](infra/PROVISION.md); the reasoning is [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Licence
 

@@ -26,6 +26,7 @@
     "test:watch": "vitest",
     "infra:gen": "node infra/gen.mjs",
     "infra:check": "node infra/gen.mjs --check",
+    "deploy": "node infra/deploy.mjs",
     "e2e": "playwright test",
     "verify": "npm run infra:check && npm run typecheck && npm test && npm run build && npm run e2e",
     "clean": "rm -rf apps/*/dist packages/*/dist node_modules/.vite sidecar/out",
