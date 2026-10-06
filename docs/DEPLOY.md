@@ -90,9 +90,21 @@ SuperSonic negotiates its transport silently: without isolation it falls back to
 page still boots, audio still plays, and only the low-latency path and `startCapture` are gone.
 Nothing on screen says so. See [CROSS_ORIGIN.md](CROSS_ORIGIN.md).
 
+## The Caddyfile is installed by hand
+
+`infra/Caddyfile` is generated, but `/etc/caddy/` needs root and the `deploy` user has no sudo —
+deliberately, since a deploy credential that can reconfigure the machine is not much of a
+restriction. So installing it is a manual step in the console, needed **only when the page list
+changes**. [PAGES.md](PAGES.md) has the commands.
+
+Skipping it fails silently, which is the real hazard: a stale Caddyfile once served the landing
+page's HTML at every page path, so every link appeared to do nothing and nothing errored. The
+post-deploy check exists because of that, and because `npm run verify` cannot see it — the e2e
+suite runs against `tools/serve.mjs`, never against Caddy.
+
 ## Deploy is local, by decision
 
-`npm run deploy -- --page playground --yes`, from your machine, gated on `npm run verify`.
+`npm run deploy -- --yes`, from your machine, gated on `npm run verify`.
 
 CI does not deploy. This is a **public** repo, so a VM SSH key in Actions secrets would give every
 workflow run on the default branch a path to the server, and workflow injection through a

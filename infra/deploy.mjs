@@ -181,6 +181,41 @@ run('rsync', [...RSYNC_FLAGS, ...linkDest, `${dist}/`, `${target}:${releaseDir}/
 // without needing anything local.
 remote(`printf '%s\\n' ${release} ${commit} > ${releaseDir}/RELEASE`)
 
+// Push the server config too, when the VM is set up for it.
+//
+// /etc/caddy needs root and `deploy` has no sudo, so installing the Caddyfile
+// used to be a manual console step — needed whenever the page list changes, and
+// silently fatal when skipped. If root has pointed /etc/caddy/Caddyfile at a
+// deploy-owned directory (see PAGES.md), the config travels with the release
+// instead.
+//
+// `caddy reload` talks to the admin API on localhost:2019, which needs no
+// privilege. Reload rather than restart: the config is swapped without dropping
+// connections or rechecking certificates.
+const CADDY_DIR = `${releaseRoot}/caddy`
+const caddyManaged = remote(`[ -w ${CADDY_DIR} ] && echo yes || true`).trim() === 'yes'
+
+if (caddyManaged) {
+  console.log('Updating the Caddy config')
+  run('scp', ['-q', join(here, 'Caddyfile'), `${target}:${CADDY_DIR}/site.caddy`])
+  try {
+    remote(`caddy reload --config /etc/caddy/Caddyfile 2>&1`)
+    console.log('Caddy reloaded')
+  } catch (error) {
+    die(
+      `Caddy refused the new config, so nothing was changed on the server:\n\n` +
+        `${error.stdout ?? error.message}\n\n` +
+        `The previous config is still running. Fix infra/Caddyfile and deploy again.`,
+    )
+  }
+} else {
+  console.log(
+    `\n${CADDY_DIR} is not writable, so the Caddy config was not updated.\n` +
+      `If the page list changed, install it by hand — see docs/PAGES.md. One root\n` +
+      `step removes this for good.\n`,
+  )
+}
+
 // `ln -sfn x current` drops the link *inside* current when current is already a
 // symlink to a directory. Build it beside, then rename over — mv -T replaces
 // the symlink itself atomically.

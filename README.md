@@ -25,6 +25,7 @@ library surface this is built against.
 
 | Doc | |
 |---|---|
+| [`docs/PAGES.md`](docs/PAGES.md) | Adding a page: the one source of truth, and the step that fails silently |
 | [`docs/UI.md`](docs/UI.md) | The React layer: hooks, re-render rules, generated controls |
 | [`docs/MOBILE.md`](docs/MOBILE.md) | Mobile first: touch targets, the overflow trap, IMU and multitouch notes |
 | [`docs/TESTING.md`](docs/TESTING.md) | The five tiers, and how the audio assertions stay honest |
@@ -81,8 +82,11 @@ npm run deploy -- --page playground --yes
 ```
 
 Atomic timestamped releases on a Linode VM behind Caddy, gated on `npm run verify` and finishing
-with a check that the isolation headers survived the trip. One-time VM setup is
-[`infra/PROVISION.md`](infra/PROVISION.md); the reasoning is [`docs/DEPLOY.md`](docs/DEPLOY.md).
+with a check that every page serves its own document with the isolation headers intact.
+
+All pages share one origin, so adding one needs no DNS record and no certificate — see
+[`docs/PAGES.md`](docs/PAGES.md). One-time VM setup is [`infra/PROVISION.md`](infra/PROVISION.md);
+the reasoning is [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Licence
 
