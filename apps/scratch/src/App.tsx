@@ -34,7 +34,7 @@ export function App() {
   const booted = status.phase === 'ready' || status.phase === 'degraded'
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-12 text-neutral-200">
+    <main className="pad-safe mx-auto flex max-w-xl flex-col gap-6 pt-8 text-neutral-200 sm:gap-8 sm:pt-12">
       <header>
         <a href="/" className="text-xs text-neutral-500 underline decoration-dotted">
           ← SS_Play
@@ -66,7 +66,7 @@ export function App() {
             onClick={play}
             disabled={playing}
             data-testid="play"
-            className="rounded border border-neutral-700 bg-surface px-4 py-2 text-sm hover:border-neutral-500 disabled:opacity-40"
+            className="min-h-11 rounded border border-neutral-700 bg-surface px-5 text-sm hover:border-neutral-500 disabled:opacity-40"
           >
             {playing ? 'sounding…' : `play ${DEF}`}
           </button>

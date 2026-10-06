@@ -17,10 +17,14 @@ export function MetricsPanel({ metrics, names, zeroIsGood = [] }: MetricsPanelPr
         return (
           <div
             key={name}
-            className="flex items-baseline gap-3 border-b border-neutral-800 py-1 last:border-0"
+            className="flex items-baseline justify-between gap-3 border-b border-neutral-800 py-1.5 last:border-0 sm:justify-start"
           >
-            <span className="min-w-56 font-mono text-xs text-neutral-400">{name}</span>
-            <span className={`font-mono text-xs ${bad ? 'text-rose-300' : 'text-emerald-300'}`}>
+            <span className="min-w-0 truncate font-mono text-xs text-neutral-400 sm:w-56 sm:shrink-0">
+              {name}
+            </span>
+            <span
+              className={`shrink-0 font-mono text-xs ${bad ? 'text-rose-300' : 'text-emerald-300'}`}
+            >
               {value ?? '—'}
             </span>
           </div>

@@ -8,7 +8,7 @@ const { pages } = sites
 
 export function App() {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
+    <main className="pad-safe mx-auto max-w-2xl pt-12 sm:pt-16">
       <h1 className="text-2xl font-semibold text-neutral-100">SS_Play</h1>
       <p className="mt-3 text-neutral-400">
         Web pages running SuperCollider&rsquo;s <code className="text-neutral-300">scsynth</code> in

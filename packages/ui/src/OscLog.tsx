@@ -23,26 +23,31 @@ export function OscLog({ entries, total, dropped, limit = 40 }: OscLogProps) {
   const shown = entries.slice(-limit).reverse()
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-w-0 flex-col">
       <div className="flex justify-between pb-1 font-mono text-xs text-neutral-500">
         <span>{total} messages</span>
         {dropped > 0 ? <span>{dropped} older dropped</span> : null}
       </div>
 
-      <div className="max-h-64 overflow-y-auto font-mono text-xs">
+      {/* pane-scroll pins min-width to 0 and scrolls sideways within itself.
+          A flex item's min-width is auto, so one long OSC address stretched
+          every ancestor and made the page 42,874px wide — off to the right and
+          unnoticed on a desktop, and on a phone it squeezed every other column
+          down to nothing. */}
+      <div className="pane-scroll max-h-64 font-mono text-xs">
         {shown.length === 0 ? (
           <p className="py-2 text-neutral-600">nothing yet</p>
         ) : (
           shown.map((entry, index) => (
-            <div key={`${entry.at}-${index}`} className="flex gap-2 py-0.5">
+            <div key={`${entry.at}-${index}`} className="flex gap-2 py-0.5 whitespace-nowrap">
               <span
                 className={entry.direction === 'in' ? 'text-sky-400' : 'text-amber-400'}
                 aria-label={entry.direction === 'in' ? 'from scsynth' : 'to scsynth'}
               >
                 {entry.direction === 'in' ? '←' : '→'}
               </span>
-              <span className="min-w-40 text-neutral-300">{entry.address}</span>
-              <span className="truncate text-neutral-500">{summarise(entry.args)}</span>
+              <span className="text-neutral-300 sm:min-w-40">{entry.address}</span>
+              <span className="text-neutral-500">{summarise(entry.args)}</span>
             </div>
           ))
         )}

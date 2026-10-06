@@ -29,12 +29,14 @@ export function BootGate({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={onBoot}
           disabled={phase === 'booting' || booted}
-          className="rounded border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm hover:border-neutral-500 disabled:opacity-40"
+          // min-h-11 is the 44px touch target. This is the gesture that
+          // starts audio at all, so a miss reads as "the page is broken".
+          className="min-h-11 shrink-0 rounded border border-neutral-700 bg-neutral-900 px-5 text-sm hover:border-neutral-500 disabled:opacity-40"
         >
           {phase === 'idle'
             ? 'Start audio'

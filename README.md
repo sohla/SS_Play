@@ -26,6 +26,7 @@ library surface this is built against.
 | Doc | |
 |---|---|
 | [`docs/UI.md`](docs/UI.md) | The React layer: hooks, re-render rules, generated controls |
+| [`docs/MOBILE.md`](docs/MOBILE.md) | Mobile first: touch targets, the overflow trap, IMU and multitouch notes |
 | [`docs/TESTING.md`](docs/TESTING.md) | The five tiers, and how the audio assertions stay honest |
 | [`docs/UNKNOWN-PARAMS.md`](docs/UNKNOWN-PARAMS.md) | Vendored parameters still needing a range |
 | [`docs/SIDECAR.md`](docs/SIDECAR.md) | Authoring SynthDefs: the live rig, and how to use it |

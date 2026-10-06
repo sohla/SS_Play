@@ -1,0 +1,125 @@
+/* Shared theme and base styles, imported by every app's index.css.
+   Mobile first: phones are the primary target, with the IMU and multitouch to
+   come, so the base rules assume a touch screen and the sm: breakpoint adds
+   back what a pointer and a wide window allow. */
+
+@theme {
+  --color-surface: oklch(0.16 0.01 260);
+  --color-canvas: oklch(0.12 0.008 260);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+
+    /* Safari enlarges text when a phone rotates to landscape, which reflows a
+       control surface mid-performance. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-neutral-200);
+
+    /* The page is a control surface, not a document: a stray horizontal drag
+       should not pan it, and pulling past the end should not bounce the whole
+       page under your fingers. Vertical scrolling still works normally. */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Removes the ~300ms tap delay Safari keeps for double-tap-to-zoom. On a
+     control surface that delay is the difference between a button feeling
+     connected to the sound and feeling broken. */
+  button,
+  select,
+  input,
+  a,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+
+  /* iOS zooms the page in when focusing an input whose text is under 16px.
+     The typed-value fields are deliberately small, so the fix is to stop the
+     zoom rather than to enlarge every control. */
+  input[type='text'],
+  input[type='number'],
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* A range input big enough to drag with a thumb.
+
+   The visible track stays thin; the input's own box is 44px tall so the whole
+   row is draggable. Without this the hit area is the 4px track, which on a
+   phone means most drags miss.
+
+   The thumb has to be declared explicitly: `appearance: none` removes the
+   platform thumb, and `accent-color` is ignored once it is gone. Chrome happens
+   to still paint one, Safari does not — so without these rules the sliders are
+   invisible on exactly the device this is aimed at. */
+@utility ss-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2.75rem;
+  background: transparent;
+  cursor: pointer;
+
+  &::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: var(--color-neutral-700);
+  }
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: -0.5rem;
+    border-radius: 9999px;
+    background: var(--color-emerald-400);
+  }
+
+  &::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: var(--color-neutral-700);
+  }
+
+  &::-moz-range-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--color-emerald-400);
+  }
+
+  &:focus-visible::-webkit-slider-thumb {
+    outline: 2px solid var(--color-emerald-200);
+    outline-offset: 2px;
+  }
+}
+
+/* Keeps content clear of the notch and the home indicator. Without it a
+   bottom-anchored control sits under the indicator and cannot be tapped. */
+@utility pad-safe {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+/* A scrolling pane that cannot push the page wider than the screen.
+
+   A flex item's min-width is auto, so one long OSC address stretches every
+   ancestor. That is what made the playground 42,874px wide — invisible on a
+   desktop because the overflow is off to the right, and on a phone it shrinks
+   everything else to nothing. */
+@utility pane-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}

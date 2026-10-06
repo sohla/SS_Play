@@ -71,11 +71,11 @@ export function SynthDefBrowser({ manifest, session }: SynthDefBrowserProps) {
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <select
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 font-mono text-xs"
+          className="min-h-11 min-w-0 grow rounded border border-neutral-700 bg-neutral-900 px-2 font-mono sm:grow-0 sm:text-xs"
         >
           <optgroup label={`authored (${manifest.authored.length})`}>
             {manifest.authored.map((entry) => (
@@ -99,7 +99,7 @@ export function SynthDefBrowser({ manifest, session }: SynthDefBrowserProps) {
           type="button"
           onClick={play}
           disabled={!session || !def || sounding}
-          className="rounded border border-emerald-700 bg-emerald-950 px-3 py-1 text-xs text-emerald-200 hover:border-emerald-500 disabled:opacity-40"
+          className="min-h-11 shrink-0 rounded border border-emerald-700 bg-emerald-950 px-4 text-xs text-emerald-200 hover:border-emerald-500 disabled:opacity-40"
         >
           {sounding ? 'sounding…' : 'play'}
         </button>
@@ -143,11 +143,14 @@ function ParamsWithoutRanges({ def }: { def: LoadedDef }) {
         No parameter contract — this def is vendored, not authored here. Names and defaults come
         from the compiled binary; ranges would have to be guessed, so there are no sliders.
       </p>
-      <div className="grid max-h-64 grid-cols-2 gap-x-6 overflow-y-auto">
+      <div className="pane-scroll grid max-h-64 grid-cols-1 gap-x-6 sm:grid-cols-2">
         {def.params.map((param) => (
-          <div key={param.name} className="flex justify-between border-b border-neutral-900 py-0.5">
-            <span className="font-mono text-xs text-neutral-400">{param.name}</span>
-            <span className="font-mono text-xs text-neutral-500">{param.default}</span>
+          <div
+            key={param.name}
+            className="flex min-w-0 justify-between gap-3 border-b border-neutral-900 py-0.5"
+          >
+            <span className="truncate font-mono text-xs text-neutral-400">{param.name}</span>
+            <span className="shrink-0 font-mono text-xs text-neutral-500">{param.default}</span>
           </div>
         ))}
       </div>

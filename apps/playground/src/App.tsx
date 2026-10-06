@@ -23,7 +23,7 @@ export function App() {
   const booted = status.phase === 'ready' || status.phase === 'degraded'
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12 text-neutral-200">
+    <main className="pad-safe mx-auto flex max-w-3xl flex-col gap-6 pt-8 text-neutral-200 sm:gap-8 sm:pt-12">
       <header>
         <h1 className="text-lg font-semibold tracking-tight">SS_Play playground</h1>
         <p className="mt-1 text-sm text-neutral-500">
@@ -53,7 +53,7 @@ export function App() {
             <Metrics />
           </Panel>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid min-w-0 gap-6 md:grid-cols-2">
             <Panel title="OSC">
               <Log />
             </Panel>
@@ -71,7 +71,7 @@ export function App() {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-md border border-neutral-800 bg-surface p-4">
+    <section className="min-w-0 rounded-md border border-neutral-800 bg-surface p-3 sm:p-4">
       <h2 className="pb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">
         {title}
       </h2>

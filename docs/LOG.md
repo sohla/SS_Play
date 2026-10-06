@@ -851,3 +851,60 @@ reading it.
 - No CI workflow.
 - Phase 8 — the second page — is what validates the monorepo decision.
 - `centre` and `phase` ranges, unchanged.
+
+---
+
+## 2026-10-06 — Mobile first, and a page 42,874px wide
+
+### Done
+
+Phones are now the primary target rather than a narrow case checked at the end. Shared theme, base
+and touch rules moved into `packages/ui/src/ui.css` — `index.css` had already been copied into three
+apps, which is how three pages come to disagree about what a slider looks like.
+
+`docs/MOBILE.md` carries the rules and the notes for the IMU and multitouch work to come.
+`tests/e2e/mobile.spec.ts` runs the whole suite's mobile assertions at 375px.
+
+### The page was 42,874px wide
+
+Measured, not suspected: `document.scrollWidth` was 42874 in a 390px viewport. One long OSC address
+in the log. **A flex item's `min-width` is `auto`, not `0`**, so it refuses to shrink below its
+content and pushes every ancestor wider — straight through `max-w-3xl`, which caps a width and does
+nothing about a child demanding more.
+
+Invisible on a desktop, because the overflow is off to the right where nobody scrolls. On a phone
+the viewport scales to the document, so every other column is squeezed to nothing and the values
+were clipped mid-digit. It also crashed the first full-page screenshot, which is how it surfaced.
+
+**The fix is `min-w-0` along the whole chain of flex and grid ancestors, not on the scrolling pane
+alone.** Worth recording precisely because my first attempt to prove the regression test works
+*failed*: removing `pane-scroll` and rebuilding, the test still passed. The containment was coming
+from the `min-w-0` added to the panel and the grid above it. `overflow-x: auto` only helps once
+something further up has agreed to stop growing.
+
+### Sliders had a 4px hit area, and may have had no thumb at all on iOS
+
+The range inputs were `h-1` — a 4px-tall box — with `appearance-none` and `accent-emerald-400`.
+Two problems:
+
+- **The hit area is the input's box, not the painted track.** Dragging meant hitting a 4px band.
+  Now the input is 44px tall and the track is drawn thin through `::-webkit-slider-runnable-track`.
+- **`accent-color` stops applying once `appearance: none` removes the thumb.** Chrome paints one
+  anyway, which is why this looked fine on the build machine. Safari does not. Both thumbs are now
+  declared explicitly, so this may turn out to have been invisible sliders on the target device.
+
+Measured before and after: 129×4px → 317×44px at 375px wide.
+
+### Checked rather than assumed
+
+I expected the thumb to be missing in Chrome too and screenshotted before changing anything — it was
+there. The `appearance-none` concern was real but the symptom was not what I predicted, and the 4px
+hit area turned out to be the bigger problem.
+
+### Open
+
+- Landscape and `100dvh` untested. iOS Safari's toolbars change viewport height mid-scroll.
+- IMU needs `DeviceOrientationEvent.requestPermission()` from inside a tap handler, and a secure
+  context — which is what `npm run dev:lan` and mkcert are already for.
+- Audio latency on a phone unmeasured. `baseLatency` / `outputLatency` are worth showing beside the
+  transport mode: a page can report `sab` and still feel slow if the device buffer is large.

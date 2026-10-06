@@ -91,9 +91,15 @@ function SpecControl({
     onChange(discrete ? Math.round(clamped) : clamped)
   }, [discrete, draft, onChange, spec])
 
+  // On a phone the name and value share the top line and the slider gets the
+  // full width beneath; from sm: up it collapses to one row. Three columns in
+  // 390px leaves the slider about 130px, which is too coarse to set a cutoff
+  // with and too narrow to read the value beside.
   return (
-    <div className="flex items-center gap-3 py-1">
-      <span className="min-w-28 shrink-0 font-mono text-xs text-neutral-400">{spec.name}</span>
+    <div className="flex flex-wrap items-center gap-x-3 py-0.5 sm:flex-nowrap sm:py-1">
+      <span className="order-1 shrink-0 font-mono text-xs text-neutral-400 sm:w-28">
+        {spec.name}
+      </span>
 
       <input
         type="range"
@@ -105,7 +111,7 @@ function SpecControl({
         step={discrete ? 1 / Math.max(1, (spec.max - spec.min) / spec.step) : 0.001}
         value={unit}
         onChange={(event) => handle(Number(event.target.value))}
-        className="h-1 grow cursor-pointer appearance-none rounded bg-neutral-700 accent-emerald-400"
+        className="ss-range order-3 basis-full sm:order-2 sm:min-w-0 sm:basis-auto sm:grow"
         aria-label={spec.name}
       />
 
@@ -113,8 +119,10 @@ function SpecControl({
         <button
           type="button"
           onClick={() => setDraft(String(discrete ? Math.round(value) : round(value)))}
-          title={`${spec.min} to ${spec.max}${spec.units ? ` ${spec.units}` : ''} — click to type`}
-          className="min-w-20 cursor-text text-right font-mono text-xs text-emerald-300 hover:text-emerald-200"
+          title={`${spec.min} to ${spec.max}${spec.units ? ` ${spec.units}` : ''} — tap to type`}
+          // ml-auto pushes the value to the right edge on the wrapped layout,
+          // where there is no slider between it and the name.
+          className="order-2 ml-auto min-w-20 cursor-text py-2 text-right font-mono text-xs text-emerald-300 hover:text-emerald-200 sm:order-3 sm:ml-0 sm:py-0"
         >
           {format(value, spec)}
         </button>
@@ -133,7 +141,7 @@ function SpecControl({
             if (event.key === 'Escape') setDraft(null)
           }}
           aria-label={`${spec.name} value`}
-          className="min-w-20 rounded border border-emerald-700 bg-neutral-900 px-1 text-right font-mono text-xs text-emerald-200 outline-none"
+          className="order-2 ml-auto w-24 rounded border border-emerald-700 bg-neutral-900 px-1 py-1 text-right font-mono text-emerald-200 outline-none sm:order-3 sm:ml-0 sm:w-20 sm:text-xs"
         />
       )}
     </div>
@@ -143,9 +151,9 @@ function SpecControl({
 function PinnedRow({ name, detail, note }: { name: string; detail: string; note: string }) {
   return (
     <div className="flex items-center gap-3 py-1 text-xs text-neutral-600">
-      <span className="min-w-28 shrink-0 font-mono">{name}</span>
-      <span className="grow font-mono">{detail}</span>
-      <span className="min-w-20 text-right italic">{note}</span>
+      <span className="shrink-0 font-mono sm:w-28">{name}</span>
+      <span className="min-w-0 grow truncate font-mono">{detail}</span>
+      <span className="shrink-0 text-right italic">{note}</span>
     </div>
   )
 }
