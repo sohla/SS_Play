@@ -118,8 +118,11 @@ test('three fingers sound three notes at once', async ({ page }) => {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points })
   await expect(page.locator('[data-testid=surface] > div')).toHaveCount(11)
 
-  const before = await nodeCount(page)
-  expect(before).toBe(3)
+  // Polled, not read once: getTree() returns a snapshot refreshed on an
+  // interval, so reading straight after the touch can see the tree as it was
+  // before. This passed only because an assertion above happened to take long
+  // enough, which is the shape of a test that fails later for no visible reason.
+  await expect.poll(() => nodeCount(page), { timeout: 5_000 }).toBe(3)
 
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
 

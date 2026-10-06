@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ctl, i } from '@ss/engine'
 import { useMetrics, useSuperSonic } from '@ss/react'
-import { BootGate, SourceFooter } from '@ss/ui'
+import { BootGate, PageHeader, SourceFooter } from '@ss/ui'
 
 const DEF = 'ssp_sine'
 
@@ -34,13 +34,11 @@ export function App() {
   const booted = status.phase === 'ready' || status.phase === 'degraded'
 
   return (
-    <main className="pad-safe mx-auto flex max-w-xl flex-col gap-6 pt-8 text-neutral-200 sm:gap-8 sm:pt-12">
+    <>
+      <PageHeader title="scratch" />
+      <main className="pad-safe mx-auto flex max-w-xl flex-col gap-6 pt-8 text-neutral-200 sm:gap-8 sm:pt-12">
       <header>
-        <a href="/" className="text-xs text-neutral-500 underline decoration-dotted">
-          ← SS_Play
-        </a>
-        <h1 className="mt-2 text-lg font-semibold tracking-tight">scratch</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500">
           A throwaway second page. It exists to show that adding one costs a directory and a line in{' '}
           <code className="text-neutral-400">infra/sites.json</code> — no DNS record, no
           certificate, no server change.
@@ -77,6 +75,7 @@ export function App() {
       ) : null}
 
       <SourceFooter />
-    </main>
+      </main>
+    </>
   )
 }

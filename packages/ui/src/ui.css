@@ -103,7 +103,16 @@
 }
 
 /* Keeps content clear of the notch and the home indicator. Without it a
-   bottom-anchored control sits under the indicator and cannot be tapped. */
+   bottom-anchored control sits under the indicator and cannot be tapped.
+
+   Split in two because a stack of bars wants the side insets on every row and
+   the bottom inset only on the last one — applying the full set to each would
+   open a gap above every bar. */
+@utility pad-safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
 @utility pad-safe {
   padding-left: max(1rem, env(safe-area-inset-left));
   padding-right: max(1rem, env(safe-area-inset-right));

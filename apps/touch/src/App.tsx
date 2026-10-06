@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mapSpec, unmapSpec, type ControlSpec, type SynthDefContract } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
-import { BootGate } from '@ss/ui'
+import { BootGate, PageHeader } from '@ss/ui'
 import { NOTE_NAMES, SCALES, midiToFreq, noteName, stripHue, stripNotes, type ScaleName } from './scale.ts'
 import { DEF, Voices, type VoiceParams } from './voices.ts'
 
@@ -149,10 +149,11 @@ export function App() {
 
   return (
     <main className="flex h-dvh flex-col bg-canvas text-neutral-200">
+      <PageHeader title="touch" />
+
       {!booted ? (
         <div className="flex flex-1 flex-col justify-center px-6">
-          <h1 className="text-lg font-semibold tracking-tight">touch</h1>
-          <p className="mb-6 mt-1 text-sm text-neutral-500">
+          <p className="mb-6 text-sm text-neutral-500">
             A strip per note. Press anywhere to sound it, slide up for louder, use as many fingers
             as you have.
           </p>
@@ -163,9 +164,6 @@ export function App() {
             sabUnavailable={probe.sabUnavailable}
             onBoot={boot}
           />
-          <a href="/" className="mt-8 text-xs text-neutral-600 underline decoration-dotted">
-            ← playground
-          </a>
         </div>
       ) : (
         <>
@@ -198,7 +196,7 @@ export function App() {
             ))}
           </div>
 
-          <div className="pad-safe flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-800 pt-2">
+          <div className="pad-safe-x flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-800 py-2">
             <Picker label="root" value={String(root)} onChange={(next) => setRoot(Number(next))}>
               {NOTE_NAMES.map((name, index) => (
                 <option key={name} value={index}>
@@ -232,16 +230,20 @@ export function App() {
                   ))
               : null}
 
+          </div>
+
+          {/* Its own row rather than trailing the sliders: a measurement sitting
+              at the end of a control strip reads as another control. */}
+          <footer className="pad-safe flex shrink-0 items-center justify-end pt-1 font-mono text-[10px] text-neutral-600">
             {latencyMs !== null ? (
               <span
                 data-testid="latency"
                 title="Output buffer plus driver. The engine adds one render quantum on top."
-                className="font-mono text-[10px] text-neutral-600"
               >
                 {latencyMs.toFixed(1)}ms out
               </span>
             ) : null}
-          </div>
+          </footer>
         </>
       )}
     </main>

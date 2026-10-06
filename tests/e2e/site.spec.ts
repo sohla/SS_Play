@@ -112,3 +112,18 @@ test('hashed assets are immutable and the engine is not', async ({ page, request
   expect(wasm.headers()['cache-control']).toBe(headers.revalidate['Cache-Control'])
   expect(wasm.headers()['content-type']).toBe('application/wasm')
 })
+
+test('every page has a way back to the index', async ({ page }) => {
+  // These are separate documents on one origin, not a single-page app, so the
+  // browser's back button is the only other way out — and on a phone opened
+  // from a link there may be nothing behind it.
+  for (const declared of sites.pages) {
+    await page.goto(declared.path)
+
+    const back = page.locator('header a[href="/"]')
+    await expect(back, `${declared.path} has no link back`).toBeVisible()
+
+    await back.click()
+    await expect(page).toHaveURL(new RegExp(`${LANDING}$`))
+  }
+})

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMetrics, useNodeTree, useOscLog, useSuperSonic } from '@ss/react'
-import { BootGate, MetricsPanel, NodeTree, OscLog, SourceFooter } from '@ss/ui'
+import { BootGate, MetricsPanel, NodeTree, OscLog, PageHeader, SourceFooter } from '@ss/ui'
 import { SynthDefBrowser } from './SynthDefBrowser.tsx'
 import { fetchManifest, type VendorManifest } from './synthdefs.ts'
 
@@ -23,10 +23,11 @@ export function App() {
   const booted = status.phase === 'ready' || status.phase === 'degraded'
 
   return (
-    <main className="pad-safe mx-auto flex max-w-3xl flex-col gap-6 pt-8 text-neutral-200 sm:gap-8 sm:pt-12">
+    <>
+      <PageHeader title="scsynth tester" />
+      <main className="pad-safe mx-auto flex max-w-3xl flex-col gap-6 pt-8 text-neutral-200 sm:gap-8 sm:pt-12">
       <header>
-        <h1 className="text-lg font-semibold tracking-tight">SS_Play playground</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500">
           scsynth in the browser, with controls generated from each SynthDef's own contract.
         </p>
       </header>
@@ -65,7 +66,8 @@ export function App() {
       ) : null}
 
       <SourceFooter />
-    </main>
+      </main>
+    </>
   )
 }
 
