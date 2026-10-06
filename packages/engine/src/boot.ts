@@ -59,9 +59,10 @@ export interface BootOptions<T extends BootableEngine> {
  * the e2e suite to fail on.
  *
  * A single fallback retry covers the other way SAB can fail: not a missing
- * capability, but `init()` rejecting for a reason specific to shared memory,
- * such as an allocation failure under pressure or a 404 on a worker. Exactly
- * one retry, never a loop.
+ * capability, but the engine failing for a reason specific to shared memory —
+ * an allocation refused under pressure, or a 404 on a worker. That failure
+ * arrives from either the constructor or `init()`, and both are covered.
+ * Exactly one retry, never a loop.
  */
 export async function bootEngine<T extends BootableEngine>(
   options: BootOptions<T>,
@@ -85,21 +86,40 @@ export async function bootEngine<T extends BootableEngine>(
     ...(audioContextOptions ? { audioContextOptions } : {}),
   }
 
-  let engine = create(base)
+  // Constructed inside the try, which is the whole point of this shape.
+  //
+  // The shared WebAssembly.Memory is allocated in the constructor, not in
+  // `init()` — so the one failure this retry exists for, a refused allocation,
+  // throws before `init()` is ever reached. Constructing outside the try let
+  // that exception escape the function entirely: no fallback, no handled error,
+  // just a RangeError about page counts arriving at the UI.
+  //
+  // It is the failure iOS Safari actually produces. 70MB of shared memory is
+  // not negotiable — the layout options that look like they would shrink it
+  // either do nothing or stop scsynth answering — so booting at all on a phone
+  // under pressure depends on this path being reachable.
+  let engine: T | null = null
   try {
+    engine = create(base)
     await engine.init()
     return { ok: true, engine, mode: engine.mode, report }
   } catch (cause) {
-    const attemptedMode = safeMode(engine) ?? report.expectedMode
+    // No engine at all when construction threw, so there is no mode to read
+    // and the capability report is the only evidence of what was attempted.
+    const attemptedMode = (engine && safeMode(engine)) ?? report.expectedMode
 
     if (attemptedMode !== 'sab') {
       return { ok: false, report, error: asError(cause) }
     }
 
-    await destroyQuietly(engine)
+    if (engine) await destroyQuietly(engine)
 
-    engine = create({ ...base, mode: 'postMessage' })
     try {
+      // Inside the try for the same reason as above. The fallback allocates an
+      // ordinary, unshared memory, which the engine can grow on demand instead
+      // of committing up front — which is why it is a plausible rescue from an
+      // allocation refusal rather than the same failure twice.
+      engine = create({ ...base, mode: 'postMessage' })
       await engine.init()
       return {
         ok: true,

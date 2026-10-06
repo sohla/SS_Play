@@ -33,14 +33,39 @@ function scope(overrides: Record<string, unknown> = {}) {
 }
 
 /** A SuperSonic stand-in that mirrors 0.88's own mode negotiation. */
-function fakeEngine(behaviour: { failModes?: Set<string>; isolated?: boolean } = {}) {
-  const { failModes = new Set<string>(), isolated = true } = behaviour
+function fakeEngine(
+  behaviour: {
+    failModes?: Set<string>
+    /**
+     * Modes whose *constructor* throws.
+     *
+     * 0.88 allocates the shared WebAssembly.Memory in the constructor, so a
+     * refused allocation never reaches `init()`. Kept distinct from
+     * `failModes` for exactly that reason: a fallback that only covers a
+     * rejecting `init()` does not cover the failure a phone actually produces.
+     */
+    constructFailModes?: Set<string>
+    isolated?: boolean
+  } = {},
+) {
+  const {
+    failModes = new Set<string>(),
+    constructFailModes = new Set<string>(),
+    isolated = true,
+  } = behaviour
   const created: EngineFactoryOptions[] = []
   const destroyed: string[] = []
 
   const create = (options: EngineFactoryOptions): BootableEngine => {
     created.push(options)
     const mode = options.mode ?? (isolated ? 'sab' : 'postMessage')
+
+    if (constructFailModes.has(mode)) {
+      // The wording Chrome gives, so the test reads like the real failure.
+      throw new RangeError(
+        "WebAssembly.Memory(): Property 'initial': value 1120 is above the upper bound 1000",
+      )
+    }
 
     return {
       mode,
@@ -182,6 +207,60 @@ describe('the bounded fallback', () => {
     // The teardown error must not mask the original cause.
     const booted = expectBooted(result)
     expect((booted.degraded?.cause as Error).message).toBe('shared memory unavailable')
+  })
+})
+
+/**
+ * The failure a phone actually produces, which the fallback used to miss.
+ *
+ * 0.88 allocates its 70MB shared WebAssembly.Memory in the constructor. When
+ * the device refuses that allocation, the constructor throws and `init()` is
+ * never called — so a fallback guarded only around `init()` lets the exception
+ * escape `bootEngine` altogether. No retry, no handled error, just a RangeError
+ * about page counts arriving at the UI as the page's whole content.
+ *
+ * It is not a hypothetical: 70MB of shared memory is what every page here asks
+ * for, the layout options that look like they would shrink it either do nothing
+ * or stop scsynth answering, and iOS Safari is where the refusal happens.
+ */
+describe('an allocation refused in the constructor', () => {
+  it('falls back to postMessage rather than escaping the function', async () => {
+    const fake = fakeEngine({ constructFailModes: new Set(['sab']) })
+    const result = await bootEngine({ create: fake.create, urls, scope: scope() })
+
+    const booted = expectBooted(result)
+    expect(booted.mode).toBe('postMessage')
+    expect(booted.degraded?.from).toBe('sab')
+  })
+
+  it('preserves the allocation error as the cause', async () => {
+    const fake = fakeEngine({ constructFailModes: new Set(['sab']) })
+    const result = await bootEngine({ create: fake.create, urls, scope: scope() })
+
+    const booted = expectBooted(result)
+    expect((booted.degraded?.cause as Error).message).toMatch(/WebAssembly\.Memory/)
+  })
+
+  it('does not try to tear down an engine that was never constructed', async () => {
+    const fake = fakeEngine({ constructFailModes: new Set(['sab']) })
+    await bootEngine({ create: fake.create, urls, scope: scope() })
+
+    // Only the postMessage engine exists, and it succeeded, so nothing is torn
+    // down. Calling destroy on a null engine would throw inside the catch and
+    // lose the original cause.
+    expect(fake.destroyed).toEqual([])
+  })
+
+  it('reports a failure rather than throwing when both attempts are refused', async () => {
+    const fake = fakeEngine({ constructFailModes: new Set(['sab', 'postMessage']) })
+
+    // The assertion is the shape of the result: a device with no memory to
+    // give must still get a rendered error, not an unhandled rejection.
+    const result = await bootEngine({ create: fake.create, urls, scope: scope() })
+
+    expect(result.ok).toBe(false)
+    expect(fake.created).toHaveLength(2)
+    if (!result.ok) expect(result.error.message).toMatch(/WebAssembly\.Memory/)
   })
 })
 
