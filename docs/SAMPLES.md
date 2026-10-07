@@ -97,16 +97,70 @@ Buffer numbers come from `session.buffers` (`BufAllocator`) — the engine
 validates `bufnum` against `numBuffers` but never allocates one, and a collision
 overwrites a loaded sample rather than erroring.
 
-## Size
+## Size — the part that actually bites
 
-A sample is fetched and decoded **whole** before it can sound, so each costs its
-size over the network and roughly twice that in memory as float32. On a page
-that already asks for 70MB of WebAssembly, a 100MB wav is the difference between
-working and being killed. The push warns above 25MB; it does not refuse, because
-it is your store and your bandwidth.
+**File size is the wrong metric.** What costs memory is
+`duration × channels × sampleRate`, because a sample is decoded to float32
+before it can sound. A 5MB FLAC and a 30MB WAV of the same recording cost
+exactly the same once loaded.
 
-Trim and convert before pushing rather than after. FLAC is lossless and roughly
-half the size of the equivalent wav, and every target browser decodes it.
+Decoded size, at 48kHz:
+
+| | per second | 10s | 30s | 60s |
+|---|---|---|---|---|
+| mono | 0.18MB | 1.8MB | 5.5MB | 11MB |
+| stereo | 0.37MB | 3.7MB | 11MB | 22MB |
+
+And then the measured part, which is worse than it looks. Loading a 44MB stereo
+file (120s) cost:
+
+| | memory growth |
+|---|---|
+| into a fresh buffer | **~180MB** |
+| into a buffer already used | **~68MB** |
+
+Four loads into four buffers took the tab from 77MB to **797MB**. Four loads of
+the same file into *one* buffer reached **349MB**.
+
+So reckon on **four times the decoded size** for a first load, and note what
+that implies: a second of 48kHz stereo audio costs roughly **1.5MB of browser
+memory**.
+
+### None of it is ever released
+
+`/b_free` returns nothing — measured at 797MB before and 797MB after freeing all
+four buffers. Overwriting a buffer returns nothing either; it is merely cheaper
+than claiming a new one.
+
+**So the budget is per page visit, not per loaded sample.** Auditioning ten
+samples costs all ten, whatever you free and whatever you overwrite. The only
+levers are loading fewer and loading smaller.
+
+Which is why `/sample/` claims one buffer and reuses it: not tidiness, but the
+difference between auditioning a few files and being killed on the third.
+
+### A working limit
+
+The engine already takes 77MB before a single sample, and iOS Safari is where
+allocations get refused. Against that:
+
+| | |
+|---|---|
+| per sample | **≤ 10s stereo**, or ≤ 20s mono |
+| total per page visit | **≤ 30s of audio** (~11MB decoded, ~45MB of memory) |
+| as a file-size proxy | ≤ 2MB each, ≤ 5MB total |
+
+Three things that halve it, in order of how little you lose:
+
+1. **Mono.** These instruments pan in the synth anyway, so a stereo source is
+   usually two copies of a decision already being made elsewhere.
+2. **Lower the sample rate.** 24kHz halves it again and is often inaudible on
+   percussion and texture.
+3. **Trim hard.** A loop needs the loop, not the tail.
+
+The push warns above 25MB per file. It does not refuse — it is your store and
+your bandwidth — but above that it is worth knowing that one file will cost more
+than the whole engine.
 
 ## The page
 

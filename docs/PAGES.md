@@ -77,19 +77,37 @@ the deploy fails and the previous config keeps running.
 opens unauthenticated by default. Writing `/etc/caddy/Caddyfile` needs root; *loading* a config does
 not. That distinction is the whole reason this is automatic.
 
-### One-time bootstrap, in the LISH console as root
+### One-time bootstrap
 
 Without this, a deploy still corrects the running config — but Caddy re-reads `/etc/caddy/Caddyfile`
 when it restarts or the VM reboots, and reverts. The bootstrap makes the deployed config the one it
-re-reads:
+re-reads.
+
+**Only one of the steps needs root**, and an earlier version of this section said all five did — the
+same mistake made three times in this project about Caddy and privilege. `/srv/ssplay` is owned by
+`deploy`, so the directory and the config are the deploy user's to create over ordinary ssh:
 
 ```sh
-install -d -m 755 -o deploy -g deploy /srv/ssplay/caddy
-install -m 644 -o deploy -g deploy /tmp/Caddyfile /srv/ssplay/caddy/site.caddy
+mkdir -p /srv/ssplay/caddy && chmod 755 /srv/ssplay/caddy
+install -m 644 /tmp/ssplay-site.caddy /srv/ssplay/caddy/site.caddy
+```
+
+`/tmp/ssplay-site.caddy` is where `deploy.mjs` leaves the config while the persistent directory does
+not exist — **not** `/tmp/Caddyfile`, which this section used to name and which is a stale leftover
+from an early deploy. Installing that one would pin a config from before the page list grew, with
+`try_files {path} /index.html` in it and no `/samples/` route.
+
+Then the single root step, in the LISH console:
+
+```sh
 printf 'import /srv/ssplay/caddy/*.caddy\n' > /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile
 systemctl reload caddy
 ```
+
+Validate before reloading. A bad config makes `systemctl reload` a no-op, leaving the previous one
+serving — but a `restart` on a bad config takes the site down, so it is worth knowing which you have
+before you need it.
 
 After this, `/etc/caddy/Caddyfile` is one line that never changes, and the real config is a file the
 deploy owns. `caddy reload` reaches the admin API on `localhost:2019`, which needs no privilege, so

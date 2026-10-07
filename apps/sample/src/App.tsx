@@ -33,6 +33,9 @@ export function App() {
   // to, not something the view renders, and a re-render per /n_set would be a
   // re-render per slider frame.
   const node = useRef<number | null>(null)
+  // Claimed once and reused. See the note in load() for why this matters more
+  // than it looks like it should.
+  const buffer = useRef<number | null>(null)
   const [playing, setPlaying] = useState(false)
 
   const booted = status.phase === 'ready' || status.phase === 'degraded'
@@ -93,10 +96,22 @@ export function App() {
     try {
       stop(session)
 
-      // A fresh buffer per load rather than reusing one. Buffer numbers are
-      // cheap — 1024 of them — and loading over a buffer that a synth is still
-      // reading is how you get a click, or silence, depending on timing.
-      const bufnum = session.buffers.alloc()
+      // One buffer, reused for every load.
+      //
+      // Buffer *numbers* are cheap — there are 1024 — but the memory behind one
+      // is not, and none of it ever comes back. Measured on this page: loading a
+      // 44MB stereo file costs about 180MB of browser memory into a fresh
+      // buffer and about 68MB into one already used, and neither `/b_free` nor
+      // overwriting the buffer returns a single byte. Four loads into four
+      // buffers reached 797MB; four into one reached 349MB.
+      //
+      // So reuse is not a tidiness preference, it is the difference between a
+      // page you can audition a few samples on and one that is killed on the
+      // third. The voice is stopped above, which is what makes overwriting safe
+      // — loading over a buffer a synth is still reading gives a click or
+      // silence depending on timing.
+      const bufnum = buffer.current ?? session.buffers.alloc()
+      buffer.current = bufnum
       const result = await session.sonic.loadSample(bufnum, chosen.url)
 
       setLoaded({
