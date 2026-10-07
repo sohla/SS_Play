@@ -63,6 +63,17 @@ export interface MotionInstrumentProps {
   map(motion: Motion): Mapped
   /** Matches the comparison inside the clock SynthDef. */
   silenceBelow: number
+  /**
+   * Hold the build until the page's own setup is done.
+   *
+   * A sampled instrument cannot be constructed until its buffers are loaded, and
+   * loading needs a booted engine — so the page boots, loads, and only then has
+   * an instrument to hand over. Defaults to true for every page that needs no
+   * setup at all.
+   */
+  ready?: boolean
+  /** Shown while booted and not yet ready. */
+  pending?: ReactNode
 }
 
 /** Control updates per second. The events are spawned by the clock, not by this. */
@@ -85,6 +96,8 @@ export function MotionInstrument({
   instrument,
   map,
   silenceBelow,
+  ready = true,
+  pending,
 }: MotionInstrumentProps) {
   const { status, boot, probe, session } = useSuperSonic()
   const [motion, setMotion] = useState<Motion>(RESTING)
@@ -101,7 +114,7 @@ export function MotionInstrument({
     const engine = session()
     // length, not truthiness: an empty array is truthy, so the obvious guard
     // silently builds nothing and the page renders perfectly in silence.
-    if (!booted || !engine || live.current.length > 0) return
+    if (!booted || !ready || !engine || live.current.length > 0) return
 
     const built = (Array.isArray(instrument) ? instrument : [instrument]).map((spec) => {
       if (spec.kind === 'conductor') return new Conductor({ session: engine, ...spec })
@@ -120,9 +133,11 @@ export function MotionInstrument({
     }
     // instrument is an object literal at the call site, so it is a new
     // reference every render; depending on it would tear the instrument down
-    // and rebuild it on each one.
+    // and rebuild it on each one. `ready` is in the list because a sampled page
+    // flips it once, after loading — without it the build never re-runs and the
+    // page sits silent with every buffer in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booted, session])
+  }, [booted, ready, session])
 
   useEffect(() => {
     if (!booted || denied) return
@@ -219,7 +234,16 @@ export function MotionInstrument({
           </p>
         ) : null}
 
-        {booted ? (
+        {booted && !ready ? (
+          <p
+            data-testid="pending"
+            className="rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-500"
+          >
+            {pending ?? 'Loading…'}
+          </p>
+        ) : null}
+
+        {booted && ready ? (
           <>
             <div
               data-testid="playing"

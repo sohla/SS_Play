@@ -31,6 +31,8 @@ export {
 
 export { BufAllocator } from './buffers.ts'
 
+export { loadSampleSet, type LoadSampleSetOptions, type LoadedSample } from './samples.ts'
+
 export { Conductor, type ConductorOptions } from './conductor.ts'
 
 export { HeldVoice, type HeldVoiceOptions } from './held.ts'

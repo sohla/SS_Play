@@ -91,6 +91,20 @@
       "engine": true
     },
     {
+      "app": "kit",
+      "path": "/kit/",
+      "title": "kit",
+      "blurb": "A half-second bar cut into two, four or eight. Move to change how finely, not how fast.",
+      "engine": true
+    },
+    {
+      "app": "piano",
+      "path": "/piano/",
+      "title": "piano",
+      "blurb": "Six samples, one per octave, and an arpeggio that stretches the wrong one to reach every note.",
+      "engine": true
+    },
+    {
       "app": "sample",
       "path": "/sample/",
       "title": "sample",

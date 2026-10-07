@@ -55,12 +55,13 @@ sources.do { |path|
         // Without a gate the event system never releases a note: sendGate is
         // conditioned on desc.hasGate, so \legato and \sustain do nothing and
         // you cannot hold a note to tune it.
-        ~sspCheck.(name ++ "/has-gate", desc.hasGate,
+        ~sspCheckWaivable.(def, name ++ "/has-gate", 'has-gate', desc.hasGate,
             "no gate — the pattern cannot release a note");
 
         // The event system computes `sustain` as a time and sends it to any
         // argument of that name, overwriting whatever it was meant to be.
-        ~sspCheck.(name ++ "/no-sustain-arg", desc.controlNames.includes(\sustain).not,
+        ~sspCheckWaivable.(def, name ++ "/no-sustain-arg", 'no-sustain-arg',
+            desc.controlNames.includes(\sustain).not,
             "an argument named sustain collides with the event system's own key");
 
         // Only what reaches a bus. desc.outputs counts LocalOut too, so a synth
