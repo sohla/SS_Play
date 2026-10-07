@@ -2,16 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { pn, seq, series, switchOn, type ScheduledEvent } from '@ss/engine'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import {
-  BAR_S,
-  DIVS,
-  DRONE_NOTE,
-  POOL,
-  SILENCE_BELOW,
-  mapMultiBeat,
-  multiBeatFrom,
-  type MultiBeat,
-} from './mapping.ts'
+import { BAR_S, DIVS, DRONE_NOTE, PLOT_LABELS, POOL, SILENCE_BELOW, mapMultiBeat, multiBeatFrom, plotOf, type MultiBeat } from './mapping.ts'
 
 const midiToFreq = (midi: number) => 440 * 2 ** ((midi - 69) / 12)
 
@@ -85,6 +76,8 @@ export function App() {
       )}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
     />
   )
 }

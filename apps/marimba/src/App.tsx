@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { useSampleSet } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { DIVS, SILENCE_BELOW, marimbaFrom, type Marimba } from './mapping.ts'
+import { DIVS, PLOT_LABELS, SILENCE_BELOW, marimbaFrom, plotOf, type Marimba } from './mapping.ts'
 import { arrangeMarimba, marimbaPattern, type MarimbaState } from './pattern.ts'
 
 /**
@@ -34,8 +34,8 @@ export function App() {
     [library],
   )
 
-  const map = useCallback((motion: Motion): Mapped => {
-    const next = marimbaFrom(motion)
+  const map = useCallback((motion: Motion, sensitivity: number): Mapped => {
+    const next = marimbaFrom(motion, sensitivity)
     now.current = next
     const last = state.current.last
 
@@ -72,6 +72,8 @@ export function App() {
       instrument={useMemo(() => ({ kind: 'client' as const, nextEvent }), [nextEvent])}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
       ready={library !== null}
       pending={
         error

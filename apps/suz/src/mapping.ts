@@ -26,8 +26,21 @@ import type { Mapped } from '@ss/ui'
  */
 export const SILENCE_BELOW = 0.015
 
-export function mapSuz(motion: Motion): Mapped {
-  const mass = motion.shake
+export function mapSuz(motion: Motion, sensitivity = 0.5): Mapped {
+  
+  // Sensitivity, AirKit style. Its personalities write
+  // `lincurve(v, 0, TOP * sens, …)`; scaling the input is the same function, and
+  // it is one line here instead of one per curve.
+  //
+  // The factor is `0.5 / sens`, not `1 / sens`, and that matters. The bounds in
+  // this file were ported from a personality that has no `sens` at all, so they
+  // are already the *effective* bounds — the ones the instrument actually used.
+  // Dividing by AirKit's 0.5 default would therefore make every page twice as
+  // hot as the thing it was ported from. 0.5 is the neutral point; the range and
+  // the direction are still AirKit's.
+  //
+  // Clamped away from zero, which would be a division by it.
+  const mass = motion.shake * (0.5 / Math.max(0.05, sensitivity))
   const dur = lincurve(mass, 0, 1, 0.3, 0.02, -3)
   const attack = lincurve(mass, 0, 2, 0.008, 0.002, -1)
   const release = lincurve(mass, 0, 1, 1.8, 0.002, -1)
@@ -53,3 +66,19 @@ export function mapSuz(motion: Motion): Mapped {
     ],
   }
 }
+
+/**
+ * suz3.sc's `~plot`, ported.
+ *
+ *   [m.gyroXFiltered, m.gyroYFiltered, m.gyroZFiltered]
+ *
+ * The plotter polls this at 33Hz and keeps fifty frames, so these are the values
+ * the mapping actually feeds its curves with a second and a half of history —
+ * which is the readout that makes a gesture doing nothing visible.
+ */
+export function plotOf(motion: Motion, sensitivity = 0.5): number[] {
+  return [motion.roll, motion.pitch, motion.yaw * 2 - 1]
+}
+
+/** The series in colour order: yellow, magenta, cyan. */
+export const PLOT_LABELS = ['roll', 'tilt', 'heading']

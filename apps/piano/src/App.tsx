@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { useSampleSet } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { SILENCE_BELOW, pianoFrom, type Piano } from './mapping.ts'
+import { PLOT_LABELS, SILENCE_BELOW, pianoFrom, plotOf, type Piano } from './mapping.ts'
 import { arrangePiano, pianoPattern, type PianoState } from './pattern.ts'
 
 /** Six samples, one per octave, C0 to C5. 10 seconds, about 13MB decoded. */
@@ -36,8 +36,8 @@ export function App() {
     [library],
   )
 
-  const map = useCallback((motion: Motion): Mapped => {
-    const next = pianoFrom(motion)
+  const map = useCallback((motion: Motion, sensitivity: number): Mapped => {
+    const next = pianoFrom(motion, sensitivity)
     now.current = next
     const last = state.current.last
 
@@ -70,6 +70,8 @@ export function App() {
       instrument={useMemo(() => ({ kind: 'client' as const, nextEvent }), [nextEvent])}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
       ready={library !== null}
       pending={
         error

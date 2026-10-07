@@ -15,6 +15,18 @@ export interface Motion extends Pose {
   /** 0..1, the magnitude of the three. Decays on its own. */
   shake: number
   /**
+   * The same magnitude with no filter on it — AirKit's `accelMass` against its
+   * `accelMassFiltered`.
+   *
+   * Nothing maps from this. It exists because `[accelMass, accelMassFiltered]` is
+   * the single most common `~plot` body in the personalities, and the reason is
+   * that the pair is the diagnostic: the raw trace shows what the hand did and
+   * the filtered one shows what the instrument heard, so the distance between
+   * them is the envelope's attack and decay made visible. One trace alone tells
+   * you neither.
+   */
+  shakeRaw: number
+  /**
    * 0..1, how fast the device is turning, in any direction.
    *
    * AirKit calls this `rrateMassFiltered` and several personalities read it
@@ -22,6 +34,8 @@ export interface Motion extends Pose {
    * gestures, and a wrist can do one without the other.
    */
   turn: number
+  /** `rrateMass` — the turn rate with no filter, for the same reason as shakeRaw. */
+  turnRaw: number
   /** False until an event has actually arrived, which is not the same as permitted. */
   live: boolean
   /** Whether the device reports linear acceleration separately from gravity. */
@@ -37,7 +51,9 @@ export const RESTING: Motion = {
   accelY: 0,
   accelZ: 0,
   shake: 0,
+  shakeRaw: 0,
   turn: 0,
+  turnRaw: 0,
   live: false,
   hasAcceleration: false,
 }
@@ -146,13 +162,16 @@ export function watchMotion({ onMotion }: MotionWatchOptions): () => void {
     const [x, y, z] = [a.x ?? 0, a.y ?? 0, a.z ?? 0]
     const unit = (value: number) => Math.min(1, Math.max(-1, value / FULL_SCALE))
 
+    const magnitude = Math.min(1, Math.hypot(x, y, z) / FULL_SCALE)
+
     current = {
       ...current,
       hasAcceleration: true,
       accelX: ballistic(current.accelX, unit(x)),
       accelY: ballistic(current.accelY, unit(y)),
       accelZ: ballistic(current.accelZ, unit(z)),
-      shake: ballistic(current.shake, Math.min(1, Math.hypot(x, y, z) / FULL_SCALE), 0.92),
+      shake: ballistic(current.shake, magnitude, 0.92),
+      shakeRaw: magnitude,
     }
 
     // rotationRate is reported separately from acceleration and is often absent
@@ -160,10 +179,11 @@ export function watchMotion({ onMotion }: MotionWatchOptions): () => void {
     // being folded into the same guard.
     const r = event.rotationRate
     if (r) {
-      const speed = Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0)
+      const speed = Math.min(1, Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0) / FULL_TURN)
       current = {
         ...current,
-        turn: ballistic(current.turn, Math.min(1, speed / FULL_TURN), 0.9),
+        turn: ballistic(current.turn, speed, 0.9),
+        turnRaw: speed,
       }
     }
 

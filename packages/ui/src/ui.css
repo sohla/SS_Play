@@ -177,3 +177,52 @@
     animation: none;
   }
 }
+
+/* AirKit's palette, for the pages that port its personalities.
+
+   Taken from code3.0/: 28 uses of Color.black, 12 of Color.yellow, 12 of
+   Color.white, 6 each of Color.grey and Color.gray(0.5). Black panels, grey
+   labels at 12px, yellow as the one accent. No blues — the sky tones the rest of
+   this site uses are not in it anywhere.
+
+   Scoped to a class rather than changed in @theme, because the landing page, the
+   def browser and the touch surface are not AirKit and should not become it. A
+   page opts in by being a MotionInstrument.
+
+   Yellow is #ffff00 rather than an amber: Color.yellow in SuperCollider is pure,
+   and against pure black an amber reads as brown. It is also the plotter's first
+   trace colour, so the accent and the first series match by construction. */
+@utility ak {
+  --ak-bg: #000000;
+  --ak-panel: #0a0a0a;
+  --ak-line: #333333;
+  --ak-label: #808080;
+  --ak-text: #d4d4d4;
+  --ak-accent: #ffff00;
+
+  background-color: var(--ak-bg);
+  color: var(--ak-text);
+}
+
+@utility ak-panel {
+  background-color: var(--ak-panel);
+  border-color: var(--ak-line);
+}
+
+@utility ak-label {
+  color: var(--ak-label);
+}
+
+@utility ak-accent {
+  color: var(--ak-accent);
+}
+
+/* The sounding state. AirKit signals a live device by filling its title button
+   with the device colour behind black text; this is the same idea at panel
+   scale — yellow on near-black rather than a tint of it, because a 30% tint of
+   pure yellow on pure black is indistinguishable from grey. */
+@utility ak-live {
+  border-color: var(--ak-accent);
+  color: var(--ak-accent);
+  background-color: #141400;
+}

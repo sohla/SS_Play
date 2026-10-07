@@ -1,10 +1,10 @@
 import { useCallback } from 'react'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { mapGendy, midiToFreq, NOTES, SILENCE_BELOW } from './mapping.ts'
+import { NOTES, PLOT_LABELS, SILENCE_BELOW, mapGendy, midiToFreq, plotOf } from './mapping.ts'
 
 export function App() {
-  const map = useCallback((motion: Motion) => mapGendy(motion), [])
+  const map = useCallback((motion: Motion, sensitivity: number) => mapGendy(motion, sensitivity), [])
 
   return (
     <MotionInstrument
@@ -23,6 +23,8 @@ export function App() {
       }}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
     />
   )
 }

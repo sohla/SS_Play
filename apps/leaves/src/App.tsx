@@ -1,10 +1,10 @@
 import { useCallback } from 'react'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { mapLeaves, SILENCE_BELOW } from './mapping.ts'
+import { PLOT_LABELS, SILENCE_BELOW, mapLeaves, plotOf } from './mapping.ts'
 
 export function App() {
-  const map = useCallback((motion: Motion) => mapLeaves(motion), [])
+  const map = useCallback((motion: Motion, sensitivity: number) => mapLeaves(motion, sensitivity), [])
 
   return (
     <MotionInstrument
@@ -19,6 +19,8 @@ export function App() {
       instrument={{ kind: 'held', def: 'ssp_leaf', initial: { gate: 1, amp: 0 } }}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
     />
   )
 }

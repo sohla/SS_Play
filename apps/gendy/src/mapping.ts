@@ -35,8 +35,21 @@ export interface Gendy {
   index: number
 }
 
-export function gendyFrom(motion: Motion): Gendy {
-  const mass = motion.shake * 2.5
+export function gendyFrom(motion: Motion, sensitivity = 0.5): Gendy {
+  
+  // Sensitivity, AirKit style. Its personalities write
+  // `lincurve(v, 0, TOP * sens, …)`; scaling the input is the same function, and
+  // it is one line here instead of one per curve.
+  //
+  // The factor is `0.5 / sens`, not `1 / sens`, and that matters. The bounds in
+  // this file were ported from a personality that has no `sens` at all, so they
+  // are already the *effective* bounds — the ones the instrument actually used.
+  // Dividing by AirKit's 0.5 default would therefore make every page twice as
+  // hot as the thing it was ported from. 0.5 is the neutral point; the range and
+  // the direction are still AirKit's.
+  //
+  // Clamped away from zero, which would be a division by it.
+  const mass = motion.shake * 2.5 * (0.5 / Math.max(0.05, sensitivity))
 
   let amp = linlin(mass, 0, 1.5, 0.001, 1.0) * 1.5
   if (amp < 0.02) amp = 0
@@ -56,8 +69,8 @@ export function gendyFrom(motion: Motion): Gendy {
   }
 }
 
-export function mapGendy(motion: Motion): Mapped {
-  const now = gendyFrom(motion)
+export function mapGendy(motion: Motion, sensitivity = 0.5): Mapped {
+  const now = gendyFrom(motion, sensitivity)
 
   return {
     dur: 0,
@@ -77,3 +90,19 @@ export function mapGendy(motion: Motion): Mapped {
     ],
   }
 }
+
+/**
+ * gendy2.sc's `~plot`, ported.
+ *
+ *   [d.sensors.gyroEvent.y]
+ *
+ * The plotter polls this at 33Hz and keeps fifty frames, so these are the values
+ * the mapping actually feeds its curves with a second and a half of history —
+ * which is the readout that makes a gesture doing nothing visible.
+ */
+export function plotOf(motion: Motion, sensitivity = 0.5): number[] {
+  return [motion.pitch]
+}
+
+/** The series in colour order: yellow, magenta, cyan. */
+export const PLOT_LABELS = ['tilt']

@@ -10,10 +10,18 @@ import {
 import { useSuperSonic } from '@ss/react'
 import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 import { BootGate } from './BootGate.tsx'
+import { Plotter } from './Plotter.tsx'
 import { EngineFooter } from './EngineFooter.tsx'
 import { PageHeader } from './PageHeader.tsx'
 
-/** One trace of AirKit's `~plot`: a value the mapping reads, and what it does. */
+/**
+ * One trace of AirKit's `~plot`: a value the mapping reads, and what it does.
+ *
+ * Superseded by the plotter, which shows the same values with a second and a half
+ * of history instead of a single position. Kept because two pages that do not use
+ * `MotionInstrument` still render these, and because a page mid-port may have
+ * traces and no `plot` yet.
+ */
 export interface Trace {
   label: string
   hint: string
@@ -32,7 +40,7 @@ export interface Mapped {
   clock?: Record<string, number>
   /** Controls for a held voice, when a page has one alongside a sequence. */
   held?: Record<string, number>
-  /** What `~plot` would draw. */
+  /** What `~plot` would draw, as single positions. Superseded by `plot`. */
   traces: Trace[]
   /** Calculated values worth reading, in order. */
   values: [name: string, text: string][]
@@ -60,9 +68,26 @@ export interface MotionInstrumentProps {
   blurb: ReactNode
   instrument: Instrument | Instrument[]
   /** The ported `~next`. Called at send rate and again, separately, for display. */
-  map(motion: Motion): Mapped
+  map(motion: Motion, sensitivity: number): Mapped
   /** Matches the comparison inside the clock SynthDef. */
   silenceBelow: number
+  /**
+   * The page's `~plot`, ported.
+   *
+   * Given one, the page shows AirKit's scrolling plotter instead of a row of
+   * static bars — fifty frames of every value the mapping feeds its curves, in
+   * AirKit's colour order. This is the readout that makes a gesture doing nothing
+   * visible, which a single position cannot.
+   *
+   * Polled at frame rate by the plotter itself, so it must be cheap and must not
+   * touch React.
+   */
+  plot?: (motion: Motion, sensitivity: number) => number[]
+  /** `~plotMin` / `~plotMax`. */
+  plotMin?: number
+  plotMax?: number
+  /** What each series is, in colour order — the p-file's own comment, as a legend. */
+  plotLabels?: string[]
   /**
    * Hold the build until the page's own setup is done.
    *
@@ -107,12 +132,37 @@ export function MotionInstrument({
   ready = true,
   pending,
   pendingFailed = false,
+  plot,
+  plotMin = -1,
+  plotMax = 1,
+  plotLabels,
 }: MotionInstrumentProps) {
   const { status, boot, probe, session } = useSuperSonic()
   const [motion, setMotion] = useState<Motion>(RESTING)
-  const [mapped, setMapped] = useState<Mapped>(() => map(RESTING))
+  const [mapped, setMapped] = useState<Mapped>(() => map(RESTING, 0.5))
   const [spawned, setSpawned] = useState(0)
   const [denied, setDenied] = useState(false)
+
+  /**
+   * AirKit's `sensitivity` device param, 0..1, default 0.5.
+   *
+   * It scales the *input span* of every curve the mapping runs — in the
+   * personalities that have it, `lincurve(v, 0, 2.5 * sens, …)`. Which is the same
+   * thing as dividing the input by it, and that is how the mappings here apply it:
+   * one line, at the point where the reading is already being scaled to AirKit's
+   * range.
+   *
+   * So a *smaller* number shrinks the span and the instrument saturates with less
+   * movement. The word and the number point opposite ways, which is AirKit's and
+   * worth keeping rather than quietly inverting — a value that means the same
+   * thing on both rigs is more use than one that reads better on this one. The
+   * label says so.
+   *
+   * A ref as well as state: the OSC loop runs at 30Hz off refs and must not wait
+   * for a render to see a change.
+   */
+  const [sensitivity, setSensitivity] = useState(0.5)
+  const sens = useRef(0.5)
 
   const live = useRef<(Conductor | ClientConductor | HeldVoice)[]>([])
   const latest = useRef<Motion>(RESTING)
@@ -162,7 +212,7 @@ export function MotionInstrument({
       // never stops on a machine with nothing to tilt.
       if (live.current.length === 0 || !latest.current.live) return
 
-      const next = map(latest.current)
+      const next = map(latest.current, sens.current)
       for (const one of live.current) {
         if (one instanceof Conductor) {
           one.setVoiceControls(next.voice)
@@ -188,7 +238,7 @@ export function MotionInstrument({
     const sending = setInterval(send, 1000 / SEND_HZ)
     const showing = setInterval(() => {
       setMotion(latest.current)
-      setMapped(map(latest.current))
+      setMapped(map(latest.current, sens.current))
       setSpawned(
         live.current.reduce(
           (total, one) =>
@@ -215,11 +265,11 @@ export function MotionInstrument({
   const playing = mapped.level >= silenceBelow
 
   return (
-    <main className="flex min-h-dvh flex-col bg-canvas text-neutral-200">
+    <main className="ak flex min-h-dvh flex-col">
       <PageHeader title={title} />
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
-        <p className="text-sm text-neutral-500">{blurb}</p>
+        <p className="ak-label text-sm">{blurb}</p>
 
         <BootGate
           phase={status.phase}
@@ -237,7 +287,7 @@ export function MotionInstrument({
         ) : null}
 
         {booted && !motion.live && !denied ? (
-          <p className="rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-500">
+          <p className="ak-panel ak-label rounded border p-3 text-sm">
             Running, but no orientation events have arrived. This page needs a phone or a tablet
             &mdash; on a desktop browser there is nothing to tilt.
           </p>
@@ -250,7 +300,7 @@ export function MotionInstrument({
             className={
               pendingFailed
                 ? 'rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-300'
-                : 'ss-waiting rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-400'
+                : 'ss-waiting ak-panel rounded border p-3 text-sm'
             }
           >
             {pending ?? 'Loading…'}
@@ -263,8 +313,8 @@ export function MotionInstrument({
               data-testid="playing"
               className={`rounded border p-3 font-mono text-xs ${
                 playing
-                  ? 'border-sky-900 bg-sky-950/30 text-sky-300'
-                  : 'border-neutral-800 bg-surface text-neutral-600'
+                  ? 'ak-live'
+                  : 'ak-panel ak-label'
               }`}
             >
               {playing
@@ -274,23 +324,62 @@ export function MotionInstrument({
                 : 'stopped — move to start'}
             </div>
 
-            {mapped.traces.map((trace) => (
-              <Trace key={trace.label} {...trace} />
-            ))}
+            {plot ? (
+              <Plotter
+                sample={() => plot(latest.current, sens.current)}
+                min={plotMin}
+                max={plotMax}
+                {...(plotLabels ? { labels: plotLabels } : {})}
+                // A plot that keeps moving while nothing sounds is worth having —
+                // it is how you find the threshold. Idle only before any sensor
+                // has spoken, where the values are a resting pose rather than a
+                // reading.
+                idle={!motion.live}
+              />
+            ) : (
+              mapped.traces.map((trace) => <Trace key={trace.label} {...trace} />)
+            )}
 
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px] text-neutral-600">
+            <label className="flex flex-wrap items-center gap-x-3">
+              <span className="ak-label font-mono text-xs sm:w-28">sensitivity</span>
+              <input
+                type="range"
+                data-testid="sensitivity"
+                min={0.05}
+                max={1}
+                step={0.01}
+                value={sensitivity}
+                onChange={(event) => {
+                  const next = Number(event.target.value)
+                  // The ref first: the 30Hz loop reads it, and it must not wait
+                  // for a render.
+                  sens.current = next
+                  setSensitivity(next)
+                }}
+                className="ss-range order-3 basis-full sm:order-2 sm:min-w-0 sm:basis-auto sm:grow"
+                aria-label="sensitivity"
+              />
+              <span className="ak-accent ml-auto min-w-20 py-2 text-right font-mono text-xs sm:ml-0 sm:py-0">
+                {sensitivity.toFixed(2)}
+              </span>
+              <span className="ak-label order-4 basis-full font-mono text-[11px]">
+                AirKit's number: lower saturates sooner
+              </span>
+            </label>
+
+            <dl className="ak-label grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px]">
               {mapped.values.map(([name, text]) => (
-                <div key={name} className="flex justify-between border-b border-neutral-900 py-0.5">
+                <div key={name} className="flex justify-between border-b border-[var(--ak-line)] py-0.5">
                   <dt>{name}</dt>
-                  <dd className="text-neutral-400" data-testid={`value-${name}`}>
+                  <dd className="ak-accent" data-testid={`value-${name}`}>
                     {text}
                   </dd>
                 </div>
               ))}
               {spawned > 0 ? (
-                <div className="flex justify-between border-b border-neutral-900 py-0.5">
+                <div className="flex justify-between border-b border-[var(--ak-line)] py-0.5">
                   <dt>events</dt>
-                  <dd className="text-neutral-400" data-testid="value-events">
+                  <dd className="ak-accent" data-testid="value-events">
                     {spawned}
                   </dd>
                 </div>

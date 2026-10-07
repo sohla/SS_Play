@@ -47,8 +47,21 @@ export interface MultiBeat {
   droneFfreq: number
 }
 
-export function multiBeatFrom(motion: Motion): MultiBeat {
-  const mass = motion.shake * 2
+export function multiBeatFrom(motion: Motion, sensitivity = 0.5): MultiBeat {
+  
+  // Sensitivity, AirKit style. Its personalities write
+  // `lincurve(v, 0, TOP * sens, …)`; scaling the input is the same function, and
+  // it is one line here instead of one per curve.
+  //
+  // The factor is `0.5 / sens`, not `1 / sens`, and that matters. The bounds in
+  // this file were ported from a personality that has no `sens` at all, so they
+  // are already the *effective* bounds — the ones the instrument actually used.
+  // Dividing by AirKit's 0.5 default would therefore make every page twice as
+  // hot as the thing it was ported from. 0.5 is the neutral point; the range and
+  // the direction are still AirKit's.
+  //
+  // Clamped away from zero, which would be a division by it.
+  const mass = motion.shake * 2 * (0.5 / Math.max(0.05, sensitivity))
 
   let ampDb = lincurve(mass, 0, 1, -40, -10, -1)
   let droneDb = lincurve(mass, 0, 2, -32, -10, -1)
@@ -67,8 +80,8 @@ export function multiBeatFrom(motion: Motion): MultiBeat {
   }
 }
 
-export function mapMultiBeat(motion: Motion): Mapped {
-  const now = multiBeatFrom(motion)
+export function mapMultiBeat(motion: Motion, sensitivity = 0.5): Mapped {
+  const now = multiBeatFrom(motion, sensitivity)
 
   return {
     // The pattern decides its own step, so this is only here for the display.
@@ -89,3 +102,19 @@ export function mapMultiBeat(motion: Motion): Mapped {
     ],
   }
 }
+
+/**
+ * multiBeatSynth1.sc's `~plot`, ported.
+ *
+ *   [m.accelMass, m.accelMassFiltered, accelMassFiltered.lincurve(0, 2.0, -32, -10, -1).dbamp]
+ *
+ * The plotter polls this at 33Hz and keeps fifty frames, so these are the values
+ * the mapping actually feeds its curves with a second and a half of history —
+ * which is the readout that makes a gesture doing nothing visible.
+ */
+export function plotOf(motion: Motion, sensitivity = 0.5): number[] {
+  return [motion.shakeRaw, motion.shake, multiBeatFrom(motion, sensitivity).droneAmp]
+}
+
+/** The series in colour order: yellow, magenta, cyan. */
+export const PLOT_LABELS = ['move, raw', 'move, filtered', 'drone level']

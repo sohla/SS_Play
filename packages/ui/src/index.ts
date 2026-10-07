@@ -9,6 +9,7 @@ export {
   type MotionInstrumentProps,
   type Trace,
 } from './MotionInstrument.tsx'
+export { Plotter, PLOT_COLOURS, PLOT_FRAMES, type PlotterProps } from './Plotter.tsx'
 export { OscLog, type OscLogEntry, type OscLogProps } from './OscLog.tsx'
 export { PageHeader, type PageHeaderProps } from './PageHeader.tsx'
 export { SourceFooter } from './SourceFooter.tsx'

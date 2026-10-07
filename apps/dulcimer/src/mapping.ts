@@ -32,11 +32,24 @@ export interface Dulcimer {
   amp: number
 }
 
-export function dulcimerFrom(motion: Motion): Dulcimer {
+export function dulcimerFrom(motion: Motion, sensitivity = 0.5): Dulcimer {
   // accelMassFiltered against a curve that saturates at 0.3; shake is 0..1 and
   // is passed through, so the top of the curve is reached early — as it is in
   // the original.
-  const mass = motion.shake
+  
+  // Sensitivity, AirKit style. Its personalities write
+  // `lincurve(v, 0, TOP * sens, …)`; scaling the input is the same function, and
+  // it is one line here instead of one per curve.
+  //
+  // The factor is `0.5 / sens`, not `1 / sens`, and that matters. The bounds in
+  // this file were ported from a personality that has no `sens` at all, so they
+  // are already the *effective* bounds — the ones the instrument actually used.
+  // Dividing by AirKit's 0.5 default would therefore make every page twice as
+  // hot as the thing it was ported from. 0.5 is the neutral point; the range and
+  // the direction are still AirKit's.
+  //
+  // Clamped away from zero, which would be a division by it.
+  const mass = motion.shake * (0.5 / Math.max(0.05, sensitivity))
 
   let db = lincurve(mass, 0, 0.3, -40, -10, -2)
   // The original's dead zone: below -39dB it goes to -120, which is silence.
@@ -50,3 +63,19 @@ export function dulcimerFrom(motion: Motion): Dulcimer {
     amp: dbamp(db),
   }
 }
+
+/**
+ * dulcimer1.sc's `~plot`, ported.
+ *
+ *   [m.accelMass, m.accelMassFiltered]
+ *
+ * The plotter polls this at 33Hz and keeps fifty frames, so these are the values
+ * the mapping actually feeds its curves with a second and a half of history —
+ * which is the readout that makes a gesture doing nothing visible.
+ */
+export function plotOf(motion: Motion, sensitivity = 0.5): number[] {
+  return [motion.shakeRaw, motion.shake]
+}
+
+/** The series in colour order: yellow, magenta, cyan. */
+export const PLOT_LABELS = ['move, raw', 'move, filtered']

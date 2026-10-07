@@ -2,15 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { seq, white, type ScheduledEvent } from '@ss/engine'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import {
-  NOTES,
-  ROOT,
-  SILENCE_BELOW,
-  STEP_S,
-  mapTrainMelody,
-  trainMelodyFrom,
-  type TrainMelody,
-} from './mapping.ts'
+import { NOTES, PLOT_LABELS, ROOT, SILENCE_BELOW, STEP_S, mapTrainMelody, plotOf, trainMelodyFrom, type TrainMelody } from './mapping.ts'
 
 const midiToFreq = (midi: number) => 440 * 2 ** ((midi - 69) / 12)
 
@@ -63,6 +55,8 @@ export function App() {
       instrument={useMemo(() => ({ kind: 'client' as const, nextEvent }), [nextEvent])}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
     />
   )
 }

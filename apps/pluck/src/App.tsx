@@ -1,10 +1,10 @@
 import { useCallback } from 'react'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { mapPluck, SILENCE_BELOW } from './mapping.ts'
+import { PLOT_LABELS, SILENCE_BELOW, mapPluck, plotOf } from './mapping.ts'
 
 export function App() {
-  const map = useCallback((motion: Motion) => mapPluck(motion), [])
+  const map = useCallback((motion: Motion, sensitivity: number) => mapPluck(motion, sensitivity), [])
 
   return (
     <MotionInstrument
@@ -20,6 +20,8 @@ export function App() {
       instrument={{ kind: 'held', def: 'ssp_pluck', initial: { gate: 1, amp: 0 } }}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
     />
   )
 }

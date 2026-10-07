@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { useSampleSet } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { DIVS, SILENCE_BELOW, kitFrom, type Kit } from './mapping.ts'
+import { DIVS, PLOT_LABELS, SILENCE_BELOW, kitFrom, plotOf, type Kit } from './mapping.ts'
 import { arrangeKit, kitPattern } from './pattern.ts'
 
 /**
@@ -48,9 +48,9 @@ export function App() {
   )
 
   const map = useCallback(
-    (motion: Motion): Mapped => {
+    (motion: Motion, sensitivity: number): Mapped => {
       const buffers = kit?.buffers.length ?? 1
-      const next = kitFrom(motion, buffers)
+      const next = kitFrom(motion, buffers, sensitivity)
       now.current = next
 
       return {
@@ -86,6 +86,8 @@ export function App() {
       instrument={useMemo(() => ({ kind: 'client' as const, nextEvent }), [nextEvent])}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
       ready={kit !== null}
       pending={
         error

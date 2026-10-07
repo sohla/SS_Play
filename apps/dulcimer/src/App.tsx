@@ -3,7 +3,7 @@ import { ctl, i } from '@ss/engine'
 import { useSampleSet, useSession } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
-import { DIVS, SILENCE_BELOW, dulcimerFrom, type Dulcimer } from './mapping.ts'
+import { DIVS, PLOT_LABELS, SILENCE_BELOW, dulcimerFrom, plotOf, type Dulcimer } from './mapping.ts'
 import { arrangeDulcimer, dulcimerPattern, type DulcimerState } from './pattern.ts'
 
 /**
@@ -76,8 +76,8 @@ export function App() {
     [library, session],
   )
 
-  const map = useCallback((motion: Motion): Mapped => {
-    const next = dulcimerFrom(motion)
+  const map = useCallback((motion: Motion, sensitivity: number): Mapped => {
+    const next = dulcimerFrom(motion, sensitivity)
     now.current = next
     const last = state.current.last
 
@@ -111,6 +111,8 @@ export function App() {
       instrument={useMemo(() => ({ kind: 'client' as const, nextEvent }), [nextEvent])}
       map={map}
       silenceBelow={SILENCE_BELOW}
+      plot={plotOf}
+      plotLabels={PLOT_LABELS}
       ready={library !== null}
       pending={
         error
