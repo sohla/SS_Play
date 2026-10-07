@@ -12,6 +12,8 @@ export interface EngineFactoryOptions extends EngineUrls {
   mode?: TransportMode
   scsynthOptions?: Record<string, number>
   audioContextOptions?: AudioContextOptions
+  /** WebAssembly memory layout. Runtime-only; absent from the shipped .d.ts. */
+  memory?: Record<string, number>
 }
 
 export type EngineFactory<T extends BootableEngine> = (options: EngineFactoryOptions) => T
@@ -45,6 +47,8 @@ export interface BootOptions<T extends BootableEngine> {
    * responsive and sluggish.
    */
   audioContextOptions?: AudioContextOptions
+  /** See DEFAULT_MEMORY in session.ts. */
+  memory?: Record<string, number>
   scope?: typeof globalThis
 }
 
@@ -67,7 +71,7 @@ export interface BootOptions<T extends BootableEngine> {
 export async function bootEngine<T extends BootableEngine>(
   options: BootOptions<T>,
 ): Promise<BootResult<T>> {
-  const { create, urls, scsynthOptions, audioContextOptions, scope = globalThis } = options
+  const { create, urls, scsynthOptions, audioContextOptions, memory, scope = globalThis } = options
   const report = probeCapabilities(scope)
 
   if (report.blocking.length > 0) {
@@ -84,6 +88,7 @@ export async function bootEngine<T extends BootableEngine>(
     ...urls,
     ...(scsynthOptions ? { scsynthOptions } : {}),
     ...(audioContextOptions ? { audioContextOptions } : {}),
+    ...(memory ? { memory } : {}),
   }
 
   // Constructed inside the try, which is the whole point of this shape.

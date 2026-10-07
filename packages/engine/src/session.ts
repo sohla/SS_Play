@@ -41,6 +41,8 @@ export interface SessionOptions {
    * a silent `/s_new` rather than an error.
    */
   scsynthOptions?: { maxNodes: number; numBuffers: number }
+  /** Overrides DEFAULT_MEMORY. */
+  memory?: Record<string, number>
   /**
    * Passed to `new AudioContext`. Defaults to the smallest buffer the device
    * will give; see DEFAULT_AUDIO_CONTEXT_OPTIONS.
@@ -58,6 +60,34 @@ const DEFAULT_SCSYNTH_OPTIONS = { maxNodes: 1024, numBuffers: 1024 }
  * correct without pinning values nothing else needs.
  */
 const HARDWARE_CHANNELS = { out: 2, in: 2 }
+
+/**
+ * The WebAssembly memory layout, left at the engine's own defaults.
+ *
+ * Plumbed through but unset, because it is the knob behind a real failure and
+ * the next person to look will want it reachable without re-deriving that it
+ * exists. Runtime-only: read from the constructor options and absent from the
+ * shipped `.d.ts`, so the runtime is the authority.
+ *
+ *   wasmHeapSize        24MB   scsynth's own heap
+ *   memArenaSize        32MB   sample buffer pool
+ *   ringBufferReserved   2MB
+ *   outboxSize           4MB   guest to host
+ *   guestMemorySize      4MB
+ *   inboxSize            4MB   host to guest — synthdefs, sample data, OSC
+ *   ----------------------------------
+ *   totalMemory         70MB   and `initial` == `maximum`, so it cannot grow
+ *
+ * Two of these are not worth touching. `memArenaSize` boots the worklet and then
+ * never answers `/notify`. `maxInboxSize` changes nothing at all, because the
+ * allocation uses `totalMemory` for both bounds.
+ *
+ * `inboxSize` is the one that matters, and raising it is still the wrong fix for
+ * the hang it causes — see loadSampleSet. A bigger ring buys slack on a device
+ * that is already refusing a 70MB allocation; draining the one we have costs
+ * nothing.
+ */
+const DEFAULT_MEMORY: Record<string, number> | undefined = undefined
 
 /**
  * Ask for the smallest output buffer the device will give.
@@ -87,6 +117,7 @@ export async function createSession(options: SessionOptions): Promise<SessionRes
     synthdefs = [],
     scsynthOptions = DEFAULT_SCSYNTH_OPTIONS,
     audioContextOptions = DEFAULT_AUDIO_CONTEXT_OPTIONS,
+    memory = DEFAULT_MEMORY,
   } = options
   const urls = resolveEngineUrls({ base })
 
@@ -95,6 +126,7 @@ export async function createSession(options: SessionOptions): Promise<SessionRes
     urls,
     scsynthOptions,
     audioContextOptions,
+    ...(memory ? { memory } : {}),
   })
 
   if (!result.ok) return { ok: false, error: result.error }

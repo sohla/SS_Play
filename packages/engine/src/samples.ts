@@ -43,11 +43,25 @@ export interface LoadSampleSetOptions {
  * count to check, the name to parse a pitch out of. `loadSample` returns all of
  * that per call; this just does them together and keeps the order.
  *
- * Sequential rather than parallel, deliberately. Each load fetches and decodes a
- * whole file, and four concurrent decodes of a few megabytes each is a spike in
- * memory on exactly the device least able to absorb one. The cost is a slower
- * boot, which is visible and survivable; the alternative is a crash that is
- * neither.
+ * Sequential, and each load waits for the engine to catch up before the next is
+ * queued. Both parts matter, and the second one was learned the hard way.
+ *
+ * Sequential because each load fetches and decodes a whole file, and four
+ * concurrent decodes of a few megabytes each is a memory spike on exactly the
+ * device least able to absorb one.
+ *
+ * And `sync()` between loads because `loadSample` resolving means the audio has
+ * been *queued* for the engine, not consumed by it. The host-to-guest channel is
+ * a 4MB ring buffer; a loop that queues faster than the engine drains fills it,
+ * and a write with nowhere to go waits forever rather than failing. On desktop
+ * Chrome the engine keeps up and this is invisible — a 1MB inbox still loads
+ * 3.7MB of audio without complaint. On an iPhone it did not: `/marimba/` stalled
+ * at 3 of 10 and `/dulcimer/` at 3 of 9, both at the point where cumulative
+ * decoded audio crossed 4MB, while `/piano/` at 3.7MB total and `/kit/` at 2.5MB
+ * completed. Four observations, one threshold.
+ *
+ * `sync()` is a round trip, so it cannot return until everything queued ahead of
+ * it has been processed. That is precisely "the channel has drained".
  *
  * Nothing here frees anything, because nothing can: measured on this project, a
  * loaded sample is never released — not by `/b_free`, not by overwriting the
@@ -81,6 +95,11 @@ export async function loadSampleSet({
         cause,
       })
     }
+
+    // Before the next load, not after the last: the point is to leave the
+    // channel empty for whatever is queued next, and after the final one there
+    // is nothing waiting.
+    await session.sonic.sync()
 
     loaded.push({
       name,

@@ -154,9 +154,12 @@ Three things that halve it, in order of how little you lose:
 
 1. **Mono.** These instruments pan in the synth anyway, so a stereo source is
    usually two copies of a decision already being made elsewhere.
-2. **Lower the sample rate.** 24kHz halves it again and is often inaudible on
-   percussion and texture.
-3. **Trim hard.** A loop needs the loop, not the tail.
+2. **Trim hard.** A loop needs the loop, not the tail.
+
+**Lowering the file's sample rate does nothing.** `decodeAudioData` resamples to
+the AudioContext's rate, so a 24kHz file becomes the same number of 48kHz
+samples as a 48kHz one. An earlier version of this page recommended it as a way
+to halve memory; it is not. Duration and channels are the only two levers.
 
 The push warns above 25MB per file. It does not refuse — it is your store and
 your bandwidth — but above that it is worth knowing that one file will cost more
@@ -217,11 +220,44 @@ with a 60ms fade so the cut is not a click.
 This is why "trimming a hammered dulcimer's ring removes the instrument" was wrong when I first said
 it: the ring past 2.6 seconds was never reaching the output.
 
-### Only then, mono and sample rate
+### Only then, mono
 
-Both halve memory and both change the sound. Worth it on the kit, where the drums were already mono,
-and worth considering on mallet instruments that get panned in the synth anyway. Not needed on any
-page here once the two subtractions above are applied.
+Halves memory and changes the sound. Worth considering on mallet instruments that get panned in the
+synth anyway, where a stereo source is largely a second copy of a decision made elsewhere.
+
+**Not the sample rate**, though — `decodeAudioData` resamples to the context's rate, so a 24kHz file
+decodes to exactly as many samples as a 48kHz one. Duration and channels are the only two levers
+that exist.
+
+### And the hard wall: 4MB of decoded audio per page
+
+Separate from the memory budget above, and much tighter. The host-to-guest channel is a 4MB ring
+buffer, and `loadSample` resolving means the audio is *queued* for the engine rather than consumed by
+it. A loop that queues faster than the engine drains fills the ring, and a write with nowhere to go
+waits forever instead of failing.
+
+Desktop Chrome keeps up and never shows it — a 1MB inbox still loads 3.7MB of audio without
+complaint. An iPhone did not:
+
+| page | decoded at 48kHz | result |
+|---|---|---|
+| `/kit/` | 2.47MB | loads |
+| `/piano/` | 3.68MB | loads |
+| `/marimba/` | 6.78MB | **stalled at 3 of 10** |
+| `/dulcimer/` | 9.89MB | **stalled at 3 of 9** |
+
+Both stalls land exactly where cumulative decoded audio crosses 4MB. Four observations, one
+threshold.
+
+`loadSampleSet` now awaits `sonic.sync()` between loads, which is a round trip and so cannot return
+until everything queued ahead of it has been processed — precisely "the channel has drained". It
+costs nothing measurable: nine samples in about a second including boot.
+
+Raising `inboxSize` would also work and is the wrong fix: a bigger ring buys slack on the device
+that is already refusing the engine's 70MB allocation.
+
+Note the **48kHz**, not the file's rate. A 44.1kHz file is resampled on decode, so it costs 8.8% more
+than its own duration suggests.
 
 ## The pages
 
