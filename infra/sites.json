@@ -105,6 +105,13 @@
       "engine": true
     },
     {
+      "app": "dulcimer",
+      "path": "/dulcimer/",
+      "title": "dulcimer",
+      "blurb": "A hammered string walking down three octaves. A finer bar reaches further down the pool.",
+      "engine": true
+    },
+    {
       "app": "sample",
       "path": "/sample/",
       "title": "sample",

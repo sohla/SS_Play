@@ -14,6 +14,15 @@ export interface Session {
   dispatcher: Dispatcher
   buffers: BufAllocator
   metrics: MetricsPoller
+  /**
+   * The first audio bus that is not hardware.
+   *
+   * scsynth lays its buses out as outputs, then inputs, then private — so this
+   * is `numOutputBusChannels + numInputBusChannels`. Derived here rather than
+   * written as 4 in a page, because a page that guesses it wrong routes into the
+   * hardware input and plays nothing, with no error to say why.
+   */
+  firstPrivateBus: number
   /** The transport actually achieved, not the one asked for. */
   mode: TransportMode
   degraded?: Degradation
@@ -42,6 +51,13 @@ export interface SessionOptions {
 export type SessionResult = { ok: true; session: Session } | { ok: false; error: Error }
 
 const DEFAULT_SCSYNTH_OPTIONS = { maxNodes: 1024, numBuffers: 1024 }
+
+/**
+ * The engine's own defaults for the two bus counts that decide where private
+ * buses begin. Not passed to the engine — read here so firstPrivateBus is
+ * correct without pinning values nothing else needs.
+ */
+const HARDWARE_CHANNELS = { out: 2, in: 2 }
 
 /**
  * Ask for the smallest output buffer the device will give.
@@ -114,6 +130,7 @@ export async function createSession(options: SessionOptions): Promise<SessionRes
       sonic,
       dispatcher,
       buffers: new BufAllocator(scsynthOptions.numBuffers),
+      firstPrivateBus: HARDWARE_CHANNELS.out + HARDWARE_CHANNELS.in,
       metrics,
       mode: result.mode,
       ...(result.degraded ? { degraded: result.degraded } : {}),

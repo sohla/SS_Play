@@ -1,9 +1,14 @@
 import { expect, test } from '@playwright/test'
 
-// The two sampled instruments. What is worth asserting here is the part the
-// synth pages cannot exercise: that a page which must load buffers before it can
-// play anything actually waits, and that the lookups deciding *which* buffer
-// land on the right one.
+// The sampled instruments. What is worth asserting here is the part the synth
+// pages cannot exercise: that a page which must load buffers before it can play
+// anything actually waits, that the lookups deciding *which* buffer land on the
+// right one, and — for the dulcimer — that a voice routed through a private bus
+// reaches the output at all.
+//
+// The dulcimer's nine-of-twenty-six library is argued for in
+// apps/dulcimer/test/library.test.ts, which checks the reduction against the
+// full pitch list rather than trusting it.
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
@@ -40,7 +45,7 @@ const value = (page: import('@playwright/test').Page, name: string) =>
 const events = (page: import('@playwright/test').Page) =>
   page.locator('[data-testid=value-events]').innerText().then(Number)
 
-for (const app of ['kit', 'piano']) {
+for (const app of ['kit', 'piano', 'dulcimer']) {
   test(`${app} waits for its samples before claiming to be an instrument`, async ({ page }) => {
     await page.goto(`/${app}/?debug=1`)
     await page.getByRole('button', { name: 'Start audio' }).click()
@@ -164,4 +169,63 @@ test('the piano plays faster and louder from the same gesture', async ({ page })
 
   // 2/s at rest to 20/s flat out, both from one number.
   expect(fast, `${slow}/s gentle, ${fast}/s hard`).toBeGreaterThan(slow * 1.5)
+})
+
+test('the dulcimer reaches the output through a private bus, not directly', async ({ page }) => {
+  await boot(page, 'dulcimer')
+  await shake(page, 6000)
+  await page.waitForTimeout(1200)
+
+  // Every voice writes to a private bus and an fx synth at the root group's tail
+  // reads it. Three ways that silently produces nothing: the wrong bus number,
+  // the fx synth missing, or the fx synth executing before the voices. None of
+  // them raises anything — the page looks alive and plays nothing — so the only
+  // real check is that audio arrives.
+  const heard = await page.evaluate(async () => {
+    const sonic = (
+      window as unknown as {
+        __ss: {
+          sonic: {
+            startCapture(): void
+            stopCapture(): { frames: number; left: Float32Array }
+            getCaptureFrames(): number
+          }
+        }
+      }
+    ).__ss.sonic
+
+    sonic.startCapture()
+    const deadline = performance.now() + 4000
+    while (sonic.getCaptureFrames() < 0.5 * 48_000 && performance.now() < deadline) {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    const taken = sonic.stopCapture()
+
+    let sumSquares = 0
+    const from = Math.floor(taken.frames * 0.1)
+    const to = Math.floor(taken.frames * 0.9)
+    for (let at = from; at < to; at++) sumSquares += (taken.left[at] ?? 0) ** 2
+    return Math.sqrt(sumSquares / Math.max(1, to - from))
+  })
+
+  expect(heard, 'silent — the fx routing is wrong somewhere').toBeGreaterThan(0.002)
+})
+
+test('the dulcimer plays more notes per bar as it is moved, not faster ones', async ({ page }) => {
+  await boot(page, 'dulcimer')
+
+  // `pool.keep(div)`: a finer bar reaches further down the note pool. Both
+  // readouts move together, which is the distinction worth pinning — the figure
+  // gains notes rather than tempo.
+  await shake(page, 2500, 1)
+  await page.waitForTimeout(600)
+  const gentle = await value(page, 'notes')
+
+  await shake(page, 3000, 12)
+  await page.waitForTimeout(600)
+  const hard = await value(page, 'notes')
+
+  const count = (text: string) => Number(text.split(' ')[0])
+  expect(count(hard), `gentle ${gentle}, hard ${hard}`).toBeGreaterThan(count(gentle))
+  expect(count(hard)).toBe(6)
 })
