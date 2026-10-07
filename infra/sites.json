@@ -119,6 +119,13 @@
       "engine": true
     },
     {
+      "app": "combo",
+      "path": "/combo/",
+      "title": "combo",
+      "blurb": "Kit, moog bass and piano on one bar. Turn to widen the pitch set, shake to step the rhythm, flick to move the root.",
+      "engine": true
+    },
+    {
       "app": "sample",
       "path": "/sample/",
       "title": "sample",
