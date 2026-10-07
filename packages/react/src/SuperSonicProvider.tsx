@@ -119,27 +119,66 @@ export function SuperSonicProvider({ base, synthdefs = [], children }: SuperSoni
    * Both hooks are needed and neither is sufficient. React unmount covers a
    * component going away while the page stays; `pagehide` covers navigating
    * between pages, which on this site is a full document load and never
-   * unmounts anything. `pagehide` rather than `unload`, because Safari does not
-   * fire `unload` reliably and treats a page with one as ineligible for the
-   * back/forward cache.
+   * unmounts anything.
    *
    * dispose() stops the metrics poller, drops every OSC subscription and
-   * destroys the engine, in that order — the poller must stop before the
-   * engine it reads from goes.
+   * destroys the engine, in that order — the poller must stop before the engine
+   * it reads from goes.
+   *
+   * **The AudioContext is closed first, synchronously.** `dispose()` closes it
+   * too, but it is a promise and `pagehide` hands out no time to finish one —
+   * and the context is what owns the worklet, which is where the 70MB lives. So
+   * the biggest thing is started by hand before the orderly teardown is handed
+   * to a microtask that may never run.
+   *
+   * This is the second attempt at the same problem. The first released the
+   * engine on `pagehide` and measured flat memory across thirteen navigations on
+   * a desktop — but an iPhone still ran out after leaving a sampled page for
+   * another one, which is two engines at 70MB. The reason is in the comment this
+   * replaces: `pagehide` was chosen over `unload` partly to stay eligible for
+   * the back/forward cache, and a page held in that cache keeps everything it
+   * had. Eligibility was the bug.
    */
   useEffect(() => {
     const release = () => {
       const live = session.current
       session.current = null
-      // Deliberately not awaited: `pagehide` gives no time for a promise, and
-      // the teardown's first act is to stop the pollers, which is the part that
-      // has to happen before the document goes.
-      void live?.dispose()
+      if (!live) return
+
+      try {
+        // Synchronous, and first. Everything else can be late.
+        void live.sonic.audioContext?.close()
+      } catch {
+        // Already closed, or never opened. Either is fine; the point was to try
+        // before anything asynchronous got in the way.
+      }
+
+      // Not awaited: `pagehide` gives no time for a promise, and the teardown's
+      // first act is to stop the pollers, which is the part that has to happen
+      // before the document goes.
+      void live.dispose()
+    }
+
+    /**
+     * A page restored from the back/forward cache has no engine left.
+     *
+     * Releasing on `pagehide` is right for memory and wrong for a restore: the
+     * page comes back looking alive with a closed AudioContext behind it, which
+     * is worse than a reload because every control still responds and nothing
+     * sounds. So a restored page reloads itself.
+     *
+     * Memory wins over a seamless back button here, and not by much of a
+     * margin — the cost is one reload on a gesture people expect to be cheap.
+     */
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) location.reload()
     }
 
     window.addEventListener('pagehide', release)
+    window.addEventListener('pageshow', onShow)
     return () => {
       window.removeEventListener('pagehide', release)
+      window.removeEventListener('pageshow', onShow)
       release()
     }
   }, [])
