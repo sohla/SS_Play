@@ -116,11 +116,20 @@ export function dulcimerPattern(
     state.last = { midi: target, shift: pick.shift, sample: pick.midi }
 
     step += 1
-    if (step >= div) {
-      step = 0
-      // The octave advances per bar, not per note.
-      octaveAt = (octaveAt + 1) % OCTAVES.length
-    }
+    if (step >= div) step = 0
+
+    // Per event, not per bar.
+    //
+    // `\octave` is an ordinary Pbind key, and a Pbind advances every one of its
+    // streams once per event — so `Pseq([4, 3, 2].stutter(2), inf)` moves on each
+    // note rather than each bar. At six steps that walks all three octaves
+    // *within* a single bar, which is the figure the file plays; one octave per
+    // bar is a quite different and much flatter thing.
+    //
+    // Only `\div`, `\step` and `\note` are bar-scoped, and they are not scoped
+    // that way by the Pbind either — it is `Pswitch` embedding a whole
+    // sub-pattern before re-reading the index that makes them so.
+    octaveAt = (octaveAt + 1) % OCTAVES.length
 
     return {
       def: 'ssp_dulcimer',

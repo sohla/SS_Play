@@ -112,6 +112,13 @@
       "engine": true
     },
     {
+      "app": "marimba",
+      "path": "/marimba/",
+      "title": "marimba",
+      "blurb": "Struck bars over a bar cut four ways. The octave walks per note, so the figure changes shape with it.",
+      "engine": true
+    },
+    {
       "app": "sample",
       "path": "/sample/",
       "title": "sample",

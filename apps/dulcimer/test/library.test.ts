@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { OCTAVES, POOL, DIVS } from '../src/mapping.ts'
+import { OCTAVES, POOL, DIVS, dulcimerFrom } from '../src/mapping.ts'
 import {
   arrangeDulcimer,
+  dulcimerPattern,
   midiratio,
   nearest,
   reachableTargets,
   type DulcimerSample,
+  type DulcimerState,
 } from '../src/pattern.ts'
+import type { Motion } from '@ss/motion'
 
 /**
  * The claim this file exists to defend: shipping nine samples instead of
@@ -122,5 +125,41 @@ describe('the stretch', () => {
       { midi: 26, bufnum: 3 },
       { midi: 60, bufnum: 7 },
     ])
+  })
+})
+
+describe('the octave sequence', () => {
+  const library = asLibrary(SHIPPED)
+
+  const run = (shake: number, events: number) => {
+    const state: DulcimerState = { last: { midi: 0, shift: 0, sample: 0 } }
+    const read = () => dulcimerFrom({ shake } as Motion)
+    const next = dulcimerPattern(library, read, state, 4)
+    const seen: number[] = []
+    for (let n = 0; n < events; n++) {
+      next()
+      seen.push(state.last.midi)
+    }
+    return seen
+  }
+
+  it('advances on every event, not every bar', () => {
+    // The bug this is here for. `\octave` is an ordinary Pbind key over
+    // Pseq([4, 3, 2].stutter(2), inf), and a Pbind advances every stream once
+    // per event — so it moves per note. The first port held it for a whole bar,
+    // which at six steps turned a figure that descends two octaves *inside* one
+    // bar into one that holds an octave per bar and descends across six. Flatter,
+    // and not what the file plays.
+    const notes = run(1, OCTAVES.length)
+    const octaves = notes.map((midi) => Math.floor(midi / 12))
+
+    expect(new Set(octaves).size, `stayed in one octave: ${notes.join(',')}`).toBeGreaterThan(1)
+  })
+
+  it('covers the whole six-event cycle however the bar is cut', () => {
+    for (const shake of [0, 0.2, 1]) {
+      const spread = new Set(run(shake, OCTAVES.length).map((midi) => Math.floor(midi / 12)))
+      expect(spread.size, `shake ${shake} stayed in one octave`).toBeGreaterThan(1)
+    }
   })
 })

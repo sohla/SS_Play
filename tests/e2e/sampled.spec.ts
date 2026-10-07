@@ -45,7 +45,7 @@ const value = (page: import('@playwright/test').Page, name: string) =>
 const events = (page: import('@playwright/test').Page) =>
   page.locator('[data-testid=value-events]').innerText().then(Number)
 
-for (const app of ['kit', 'piano', 'dulcimer']) {
+for (const app of ['kit', 'piano', 'dulcimer', 'marimba']) {
   test(`${app} waits for its samples before claiming to be an instrument`, async ({ page }) => {
     await page.goto(`/${app}/?debug=1`)
     await page.getByRole('button', { name: 'Start audio' }).click()
@@ -228,4 +228,44 @@ test('the dulcimer plays more notes per bar as it is moved, not faster ones', as
   const count = (text: string) => Number(text.split(' ')[0])
   expect(count(hard), `gentle ${gentle}, hard ${hard}`).toBeGreaterThan(count(gentle))
   expect(count(hard)).toBe(6)
+})
+
+test('the marimba divides the bar four ways and reaches further down the pool', async ({ page }) => {
+  await boot(page, 'marimba')
+
+  await shake(page, 2500, 1)
+  await page.waitForTimeout(600)
+  const gentle = { bar: await value(page, 'bar'), notes: await value(page, 'notes') }
+
+  await shake(page, 3000, 14)
+  await page.waitForTimeout(600)
+  const hard = { bar: await value(page, 'bar'), notes: await value(page, 'notes') }
+
+  const steps = (text: string) => Number(text.replace(/\D/g, ''))
+  expect(steps(hard.bar), `gentle ${gentle.bar}, hard ${hard.bar}`).toBeGreaterThan(
+    steps(gentle.bar),
+  )
+  // `pool.keep(div)` — a finer bar plays more different notes, not the same ones
+  // faster. The two readouts move together by construction.
+  expect(Number(hard.notes.split(' ')[0])).toBe(steps(hard.bar))
+  expect([1, 2, 4, 8]).toContain(steps(hard.bar))
+})
+
+test('the marimba never stretches a bar more than two semitones', async ({ page }) => {
+  await boot(page, 'marimba')
+  await shake(page, 10_000, 12)
+  await page.waitForTimeout(1200)
+
+  // Four pitches per octave in the library, so a neighbour is always within two
+  // semitones. A larger shift would mean the lookup is reaching for a sample
+  // that is not there — which is what shipping the wrong ten would cause.
+  const shifts = new Set<number>()
+  for (let n = 0; n < 40; n++) {
+    shifts.add(Number(await value(page, 'shift')))
+    await page.waitForTimeout(150)
+  }
+
+  const seen = [...shifts].filter(Number.isFinite)
+  expect(seen.length).toBeGreaterThan(1)
+  expect(Math.max(...seen.map(Math.abs)), `saw shifts ${seen.join(',')}`).toBeLessThanOrEqual(2)
 })
