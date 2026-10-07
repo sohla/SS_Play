@@ -72,6 +72,9 @@ const SERIES: Record<string, number> = {
   moog: 2, // miniMoog: raw turn, scaled turn
   gendy: 1, // gendy2: tilt alone
   leaves: 1, // leaves: filtered turn alone
+  // The two pages with hand-rolled shells, which predate MotionInstrument.
+  droplet: 3, // droplet: folded roll, tilt, side movement
+  imu: 3, // not a port — roll, tilt and turn, chosen rather than carried over
 }
 
 for (const [app, count] of Object.entries(SERIES)) {
@@ -111,7 +114,7 @@ test('sensitivity is on every instrument page and defaults to AirKit s midpoint'
   expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
 })
 
-for (const app of ['marimba', 'suz', 'pluck']) {
+for (const app of ['marimba', 'suz', 'pluck', 'droplet']) {
   test(`${app} responds to sensitivity in AirKit's direction`, async ({ page }) => {
     await boot(page, app)
 
@@ -147,3 +150,12 @@ for (const app of ['marimba', 'suz', 'pluck']) {
     expect(hot, `sensitivity did nothing: ${dull}`).not.toBe(dull)
   })
 }
+
+test('imu leaves the compass bearing alone', async ({ page }) => {
+  // Sensitivity means nothing on a wrapping heading, so it is not applied there
+  // rather than given a plausible-looking behaviour. The slider is still present,
+  // and the page says which axis it skips.
+  await boot(page, 'imu')
+  await expect(page.locator('[data-testid=sensitivity]')).toBeVisible()
+  await expect(page.getByText('a compass bearing has no sensitivity')).toBeVisible()
+})

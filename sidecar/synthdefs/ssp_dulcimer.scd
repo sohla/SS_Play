@@ -40,7 +40,7 @@ SynthDef(\ssp_dulcimer, { |out = 0, bufnum = 0, amp = 0.2, rate = 1, start = 0, 
     // iPhone at the fourth sample. Mono alone was still 4.94MB, hence the trim,
     // which takes about half a second off the end of a 2.6s release.
     sig = PlayBuf.ar(1, bufnum,
-        rate: rate * BufRateScale.kr(bufnum),
+        rate: rate * BufRateScale.kr(bufnum) * [1.03, 1.0],
         startPos: start * BufFrames.kr(bufnum), loop: 0);
 
     // Two octaves up, a cent or so apart, FM'd by a sub-audio cub whose rate and

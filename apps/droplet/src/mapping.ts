@@ -64,6 +64,24 @@ const SIDE_SCALE = 1.2
 /** The original reads accelMassFiltered over roughly 0..2.5; `shake` is 0..1. */
 const MASS_SCALE = 2.5
 
+/**
+ * AirKit's sensitivity, applied the way its personalities apply it — scaling the
+ * input span of every curve, which is the same as scaling the input.
+ *
+ * `droplet.sc` has no `sens` of its own, so this is an addition rather than a
+ * port. It goes on the two acceleration-derived inputs and not on the
+ * orientation ones, which is a line worth drawing: AirKit only ever scales a
+ * *unipolar* span (`lincurve(v, 0, TOP * sens, …)`), and a tilt here runs -1..1.
+ * Scaling a bipolar span has no obvious meaning, and a tilt of thirty degrees is
+ * thirty degrees whatever the knob says — orientation is absolute in a way that
+ * a flick is not.
+ *
+ * `0.5 / sens`, not `1 / sens`: MASS_SCALE is already the effective bound, so
+ * AirKit's 0.5 default has to be the neutral point or the page would become
+ * twice as hot as the thing it was ported from.
+ */
+const sensScale = (sensitivity: number) => 0.5 / Math.max(0.05, sensitivity)
+
 /** The three traces, before any curve is applied to them. */
 export function plotFrom(motion: Motion): Plot {
   return {
@@ -77,7 +95,25 @@ export function plotFrom(motion: Motion): Plot {
   }
 }
 
-export function showerFrom(motion: Motion): Shower {
+/**
+ * droplet.sc's `~plot`, as the plotter wants it.
+ *
+ *   [(gyroX / pi).fold(-0.5, 0.5) * 2, gyroYFiltered,
+ *    (accelY.abs + accelZ.abs) * 0.1]
+ *
+ * Same three values `plotFrom` already returns — this is only the order AirKit
+ * draws them in, so yellow is the folded roll, magenta the tilt and cyan the
+ * movement in the plane of the screen.
+ */
+export function plotOf(motion: Motion): number[] {
+  const plot = plotFrom(motion)
+  return [plot.gyroX, plot.gyroY, plot.side]
+}
+
+/** The series in colour order: yellow, magenta, cyan. */
+export const PLOT_LABELS = ['roll, folded', 'tilt', 'side movement']
+
+export function showerFrom(motion: Motion, sensitivity = 0.5): Shower {
   const plot = plotFrom(motion)
 
   // Roll sets the ceiling the wobble can reach; the flick then travels toward
@@ -87,13 +123,17 @@ export function showerFrom(motion: Motion): Shower {
 
   const amp = lincurve(plot.gyroY, -1, 1, 0, 1, -2)
 
+  // The flick, scaled. Both of the curves it feeds are 0..1 spans, so this is
+  // the shape AirKit's sensitivity has.
+  const side = plot.side * sensScale(sensitivity)
+
   return {
     dur: lincurve(plot.gyroY, -1, 1, 0.5, 0.075),
     level: amp,
     amp,
-    decay: lincurve(plot.side, 0, 1, 0.05, 3, -1),
-    wobble: lincurve(plot.side, 0, 1, 1, wobbleCeiling, -2),
-    room: lincurve(motion.shake * MASS_SCALE, 0, 2.5, 0.53, 0.95, 2),
+    decay: lincurve(side, 0, 1, 0.05, 3, -1),
+    wobble: lincurve(side, 0, 1, 1, wobbleCeiling, -2),
+    room: lincurve(motion.shake * MASS_SCALE * sensScale(sensitivity), 0, 2.5, 0.53, 0.95, 2),
     attack: ATTACK,
   }
 }

@@ -35,7 +35,10 @@ async function hold(
 /** Where a bar sits, 0..1 across its track. */
 async function axis(page: import('@playwright/test').Page, name: string): Promise<number> {
   return page.evaluate((key) => {
-    const marker = document.querySelector(`[data-testid=axis-${key}] .bg-emerald-400`)
+    // By testid, not by colour class: the bars were emerald and are now AirKit's
+    // yellow, and a selector that depends on the palette breaks every time the
+    // palette changes.
+    const marker = document.querySelector(`[data-testid=axis-${key}] [data-testid=axis-marker]`)
     const track = marker?.parentElement
     if (!marker || !track) return -1
     const a = marker.getBoundingClientRect()

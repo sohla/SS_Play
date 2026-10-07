@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ctl } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
-import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader, Plotter } from '@ss/ui'
 import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 import {
-  plotFrom,
+  PLOT_LABELS,
+  plotOf,
   showerFrom,
   SILENCE_BELOW,
-  type Plot,
   type Shower as ShowerValues,
 } from './mapping.ts'
 import { Shower } from './shower.ts'
@@ -18,12 +18,21 @@ const SEND_HZ = 30
 export function App() {
   const { status, boot, probe, session } = useSuperSonic()
   const [motion, setMotion] = useState<Motion>(RESTING)
-  const [values, setValues] = useState<ShowerValues>(() => showerFrom(RESTING))
-  const [plot, setPlot] = useState<Plot>(() => plotFrom(RESTING))
+  const [values, setValues] = useState<ShowerValues>(() => showerFrom(RESTING, 0.5))
   const [drops, setDrops] = useState(0)
   const [denied, setDenied] = useState(false)
 
   const shower = useRef<Shower | null>(null)
+
+  /**
+   * AirKit's sensitivity. See the note on it in mapping.ts — it scales the two
+   * acceleration-derived inputs and leaves the orientation ones absolute.
+   *
+   * A ref beside the state because the 30Hz send loop reads it and must not wait
+   * for a render.
+   */
+  const [sensitivity, setSensitivity] = useState(0.5)
+  const sens = useRef(0.5)
   const latest = useRef<Motion>(RESTING)
   const counted = useRef(0)
 
@@ -35,7 +44,7 @@ export function App() {
     const live = session()
     if (!booted || !live || shower.current) return
 
-    const built = new Shower(live, showerFrom(RESTING))
+    const built = new Shower(live, showerFrom(RESTING, 0.5))
     shower.current = built
 
     // Each event the clock emits becomes a real synth. This is the whole point
@@ -83,7 +92,7 @@ export function App() {
       // sensor to say otherwise.
       if (!latest.current.live) return
 
-      const next = showerFrom(latest.current)
+      const next = showerFrom(latest.current, sens.current)
       built.setControls(next)
       built.setVerbRoom(next.room)
       // dur and level are already in the def's own units — the mapping ported
@@ -94,8 +103,7 @@ export function App() {
     const sending = setInterval(send, 1000 / SEND_HZ)
     const showing = setInterval(() => {
       setMotion(latest.current)
-      setPlot(plotFrom(latest.current))
-      setValues(showerFrom(latest.current))
+      setValues(showerFrom(latest.current, sens.current))
       setDrops(counted.current)
     }, 100)
 
@@ -114,11 +122,11 @@ export function App() {
   const playing = values.level >= SILENCE_BELOW
 
   return (
-    <main className="flex min-h-dvh flex-col bg-canvas text-neutral-200">
+    <main className="ak flex min-h-dvh flex-col">
       <PageHeader title="droplet" />
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
-        <p className="text-sm text-neutral-500">
+        <p className="ak-label text-sm">
           Synth droplets. Hold the phone flat to play, stand it upright to stop. Flick it to
           lengthen the tails; roll it to colour them.
         </p>
@@ -139,7 +147,7 @@ export function App() {
         ) : null}
 
         {booted && !motion.live && !denied ? (
-          <p className="rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-500">
+          <p className="ak-panel ak-label rounded border p-3 text-sm">
             Running, but no orientation events have arrived. This page needs a phone or a tablet
             &mdash; on a desktop browser there is nothing to tilt.
           </p>
@@ -151,22 +159,48 @@ export function App() {
               data-testid="playing"
               className={`rounded border p-3 font-mono text-xs ${
                 playing
-                  ? 'border-sky-900 bg-sky-950/30 text-sky-300'
-                  : 'border-neutral-800 bg-surface text-neutral-600'
+                  ? 'ak-live'
+                  : 'ak-panel ak-label'
               }`}
             >
               {playing ? `${drops} droplets` : 'stopped — lay the phone flat to start'}
             </div>
 
-            {/* The three numbers the curves are actually fed, which is what the
-                original plots too — rather than the orientation they came from.
-                A gesture that does nothing shows up here and is invisible in
-                roll/pitch/yaw. */}
-            <Readout id="gyroY" label="gyroY" hint="rate, level" value={plot.gyroY} />
-            <Readout id="gyroX" label="gyroX" hint="wobble ceiling" value={plot.gyroX} />
-            <Readout id="side" label="side" hint="tail, wobble travel" value={plot.side * 2 - 1} />
+            {/* AirKit's plotter over the three numbers the curves are actually
+                fed — rather than the orientation they came from. A gesture that
+                does nothing shows up here and is invisible in roll/pitch/yaw. */}
+            <Plotter
+              sample={() => plotOf(latest.current)}
+              labels={PLOT_LABELS}
+              idle={!motion.live}
+            />
 
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px] text-neutral-600">
+            <label className="flex flex-wrap items-center gap-x-3">
+              <span className="ak-label font-mono text-xs sm:w-28">sensitivity</span>
+              <input
+                type="range"
+                data-testid="sensitivity"
+                min={0.05}
+                max={1}
+                step={0.01}
+                value={sensitivity}
+                onChange={(event) => {
+                  const next = Number(event.target.value)
+                  sens.current = next
+                  setSensitivity(next)
+                }}
+                className="ss-range order-3 basis-full sm:order-2 sm:min-w-0 sm:basis-auto sm:grow"
+                aria-label="sensitivity"
+              />
+              <span className="ak-accent ml-auto min-w-20 py-2 text-right font-mono text-xs sm:ml-0 sm:py-0">
+                {sensitivity.toFixed(2)}
+              </span>
+              <span className="ak-label order-4 basis-full font-mono text-[11px]">
+                AirKit's number: lower saturates sooner
+              </span>
+            </label>
+
+            <dl className="ak-label grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px]">
               <Value name="dur" value={`${values.dur.toFixed(3)}s`} />
               <Value name="level" value={values.level.toFixed(3)} />
               <Value name="decay" value={`${values.decay.toFixed(2)}s`} />
@@ -196,32 +230,3 @@ function Value({ name, value }: { name: string; value: string }) {
   )
 }
 
-function Readout({
-  id,
-  label,
-  hint,
-  value,
-}: {
-  id: string
-  label: string
-  hint: string
-  value: number
-}) {
-  const position = (Math.min(1, Math.max(-1, value)) + 1) / 2
-
-  return (
-    <div data-testid={`axis-${id}`}>
-      <div className="flex items-baseline justify-between font-mono text-xs">
-        <span className="text-neutral-300">{label}</span>
-        <span className="text-neutral-600">{hint}</span>
-      </div>
-      <div className="relative mt-1 h-2 rounded bg-neutral-800">
-        <div className="absolute inset-y-0 left-1/2 w-px bg-neutral-700" />
-        <div
-          className="absolute inset-y-0 w-2 rounded bg-sky-400"
-          style={{ left: `calc(${(position * 100).toFixed(1)}% - 4px)` }}
-        />
-      </div>
-    </div>
-  )
-}

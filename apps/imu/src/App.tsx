@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ctl, mapSpec, type SynthDefContract } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
-import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader, Plotter } from '@ss/ui'
 import { unipolar } from '@ss/motion'
 import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 
@@ -31,6 +31,44 @@ const MAPPING = [
   { motion: 'shake', param: 'shimmer' },
 ] as const
 
+/**
+ * What the plotter draws, and why these three.
+ *
+ * This page is not a port — there is no p-file behind it, so there is no `~plot`
+ * to carry over and the choice is mine. The three orientation axes are the ones
+ * worth watching: they are slow, absolute, and they drive the three parameters
+ * you can hear moving. The four acceleration axes are transients that read better
+ * as a change in the sound than as a line.
+ */
+const PLOT_LABELS = ['roll → cutoff', 'tilt → note', 'turn → detune']
+
+/**
+ * Sensitivity, applied three different ways because the inputs are three
+ * different shapes. AirKit scales the input span of a curve; what that means
+ * depends on where the span's neutral point is.
+ *
+ *   roll, pitch, accelX/Y/Z — `unipolar()` puts the centre at 0.5, so the
+ *     *deviation* from centre is scaled. A flat phone has to keep reading 0.5
+ *     whatever the knob says, or the drone detunes itself when you put it down.
+ *
+ *   shake — genuinely 0..1 from zero, so it scales directly, as AirKit does.
+ *
+ *   yaw — a compass bearing that wraps. Sensitivity has no meaning on it, so it
+ *     is left alone rather than given a plausible-looking one.
+ */
+const sensScale = (sensitivity: number) => 0.5 / Math.max(0.05, sensitivity)
+
+const withSensitivity = (
+  source: (typeof MAPPING)[number]['motion'],
+  unit: number,
+  sensitivity: number,
+) => {
+  if (source === 'yaw') return unit
+  const scale = sensScale(sensitivity)
+  if (source === 'shake') return Math.min(1, unit * scale)
+  return Math.min(1, Math.max(0, 0.5 + (unit - 0.5) * scale))
+}
+
 /** OSC updates per second. The sensors run at ~60Hz, which is more than a drone needs. */
 const SEND_HZ = 30
 
@@ -42,6 +80,11 @@ export function App() {
 
   const node = useRef<number | null>(null)
   const latest = useRef<Motion>(RESTING)
+
+  // A ref beside the state: the 30Hz send loop reads it and must not wait for a
+  // render to see a change.
+  const [sensitivity, setSensitivity] = useState(0.5)
+  const sens = useRef(0.5)
 
   const booted = status.phase === 'ready' || status.phase === 'degraded'
 
@@ -100,7 +143,7 @@ export function App() {
         const spec = specs.get(param)
         if (!spec) continue
 
-        values[param] = mapSpec(spec, unitFor(source, now))
+        values[param] = mapSpec(spec, withSensitivity(source, unitFor(source, now), sens.current))
       }
 
       live.sonic.send('/n_set', id, ...ctl(values))
@@ -124,11 +167,11 @@ export function App() {
   }, [boot])
 
   return (
-    <main className="flex min-h-dvh flex-col bg-canvas text-neutral-200">
+    <main className="ak flex min-h-dvh flex-col">
       <PageHeader title="imu" />
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-6 pt-6">
-        <p className="text-sm text-neutral-500">
+        <p className="ak-label text-sm">
           A drone that never stops. The phone&rsquo;s orientation is the instrument &mdash; tilt it,
           turn it, shake it.
         </p>
@@ -149,7 +192,7 @@ export function App() {
         ) : null}
 
         {booted && !motion.live && !denied ? (
-          <p className="rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-500">
+          <p className="ak-panel ak-label rounded border p-3 text-sm">
             Sounding, but no orientation events have arrived. This page needs a phone or a tablet
             with motion sensors &mdash; on a desktop browser there is nothing to tilt.
           </p>
@@ -161,6 +204,41 @@ export function App() {
               <h2 className="font-mono text-[10px] uppercase tracking-wider text-neutral-600">
                 orientation · holds where you leave it
               </h2>
+              <Plotter
+                sample={() => {
+                  const now = latest.current
+                  return [now.roll, now.pitch, now.yaw * 2 - 1]
+                }}
+                labels={PLOT_LABELS}
+                idle={!motion.live}
+              />
+
+              <label className="flex flex-wrap items-center gap-x-3">
+                <span className="ak-label font-mono text-xs sm:w-28">sensitivity</span>
+                <input
+                  type="range"
+                  data-testid="sensitivity"
+                  min={0.05}
+                  max={1}
+                  step={0.01}
+                  value={sensitivity}
+                  onChange={(event) => {
+                    const next = Number(event.target.value)
+                    sens.current = next
+                    setSensitivity(next)
+                  }}
+                  className="ss-range order-3 basis-full sm:order-2 sm:min-w-0 sm:basis-auto sm:grow"
+                  aria-label="sensitivity"
+                />
+                <span className="ak-accent ml-auto min-w-20 py-2 text-right font-mono text-xs sm:ml-0 sm:py-0">
+                  {sensitivity.toFixed(2)}
+                </span>
+                <span className="ak-label order-4 basis-full font-mono text-[11px]">
+                  AirKit's number: lower saturates sooner. Turn is left alone — a
+                  compass bearing has no sensitivity.
+                </span>
+              </label>
+
               <Axis id="roll" label="roll" hint="tilt left / right → brightness" value={motion.roll} />
               <Axis id="pitch" label="pitch" hint="tilt toward / away → note" value={motion.pitch} />
               <Axis id="yaw" label="yaw" hint="turn around → detune" value={motion.yaw * 2 - 1} />
@@ -233,7 +311,8 @@ function Axis({
             is neutral — and on a bipolar axis that is the thing you aim for. */}
         <div className="absolute inset-y-0 left-1/2 w-px bg-neutral-700" />
         <div
-          className="absolute inset-y-0 w-2 rounded bg-emerald-400"
+          data-testid="axis-marker"
+          className="absolute inset-y-0 w-2 rounded bg-[var(--ak-accent)]"
           style={{ left: `calc(${(Math.min(1, Math.max(0, position)) * 100).toFixed(1)}% - 4px)` }}
         />
       </div>
