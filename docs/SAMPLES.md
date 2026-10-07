@@ -162,6 +162,98 @@ The push warns above 25MB per file. It does not refuse — it is your store and
 your bandwidth — but above that it is worth knowing that one file will cost more
 than the whole engine.
 
+## Making a sampled library fit
+
+Trimming is the obvious lever and it is rarely the first one. Two others come before it, both
+subtractions that cost nothing audible, and on the dulcimer they together turned **322 seconds and
+~433MB into 27 seconds and ~36MB**.
+
+### Ship only what the lookup can reach
+
+A multisample instrument picks a buffer per note, usually by nearest pitch. The set of notes a
+pattern can *produce* is finite and computable — pool crossed with octaves — so the set of samples
+it can ever *select* is computable too. Everything else is loaded, held for the life of the page,
+and unreachable.
+
+| | library | distinct pitches | notes the pattern reaches | ever selected |
+|---|---|---|---|---|
+| dulcimer | 26 files | 13 | 16 | **9** |
+| marimba | 18 files | 18 | 13 | **10** |
+| piano | 6 files | 6 | 16 | 6 |
+
+Two separate causes, and they are worth telling apart.
+
+**Round-robin takes** — the dulcimer ships two recordings of each pitch, and `minItem` returns the
+first match, so one of each pair already never sounds. That alone halves it, 26 to 13, before any
+argument about range.
+
+**Spacing against range** — a pattern that reaches thirteen notes needs at most thirteen samples, and
+fewer when two notes share a nearest neighbour. The marimba has no duplicate takes at all; its
+eighteen are eighteen pitches, and the pattern simply cannot reach eight of them. The piano shows the
+other end: six samples an octave apart, all six reachable, nothing to drop.
+
+**Check it, do not judge it.** Both pages have a unit test that runs the lookup over the full pitch
+list and the shipped one for every reachable note, asserting the same sample and the same shift —
+plus that each omitted pitch is one the *full* library never selects either. That turns "I think
+these nine are enough" into something that fails if it stops being true.
+
+### Trim to the envelope, not to taste
+
+A voice cannot play more of a buffer than its envelope holds open. Work out the longest the envelope
+can last and cut there:
+
+```
+dulcimer:  attack 0.4   + sustain ≤0.2  + release 2.0  = 2.6s
+marimba:   attack 0.004 + sustain ≤0.4  + release 2.2  = 2.6s
+```
+
+Against files averaging **12.4s** and **1.8s** respectively. The dulcimer was loading ten seconds
+per file it could not play; the marimba barely benefits, which is itself the useful finding.
+
+Then allow for rate. A sample pitched *up* is consumed faster than real time, so the audio needed is
+`envelope × midiratio(largest upward shift)` — 2.6 × `midiratio(2)` = 2.92s for both, cut at 3.0s
+with a 60ms fade so the cut is not a click.
+
+This is why "trimming a hammered dulcimer's ring removes the instrument" was wrong when I first said
+it: the ring past 2.6 seconds was never reaching the output.
+
+### Only then, mono and sample rate
+
+Both halve memory and both change the sound. Worth it on the kit, where the drums were already mono,
+and worth considering on mallet instruments that get panned in the synth anyway. Not needed on any
+page here once the two subtractions above are applied.
+
+## The pages
+
+| page | samples | audio | memory | shape |
+|---|---|---|---|---|
+| `/sample/` | 1 at a time | — | ~13MB | loads any file, loops it |
+| `/kit/` | 12 | 13.5s mono | ~9MB | 3-way subdivision, kick on the downbeat |
+| `/piano/` | 6 | 10.0s | ~13MB | nearest-sample, stretched up to 11 semitones |
+| `/dulcimer/` | 9 | 27.0s | ~36MB | 3-way subdivision, fx tail on a private bus |
+| `/marimba/` | 10 | 18.5s | ~24MB | 4-way subdivision, octave walks per event |
+
+### One buffer per page, reused
+
+Every one of these claims a buffer set once at boot and never reloads. The `/sample/` page, which
+*does* reload, reuses a single buffer — because nothing is ever released and a fresh buffer costs
+about 2.6× what an overwrite does.
+
+### Bar-scoped and event-scoped keys
+
+Three of these pages run a `Pswitch` on a live index, and porting one means knowing which keys move
+per bar and which per note. Getting it backwards is audible and does not look like a bug:
+
+- **`Pswitch(…, Pkey(\divIdx))` is bar-scoped** — it embeds a whole sub-pattern before re-reading
+  the index, so a subdivision change lands on the beat rather than halfway through one.
+- **Every other Pbind key is event-scoped.** A Pbind advances all of its streams once per event. So
+  `\octave, Pseq([4, 3, 2].stutter(2), inf)` moves on every *note*, and at six steps a single bar
+  walks all three octaves.
+
+The dulcimer shipped with the second one wrong — one octave per bar instead of per note, which
+flattened a figure that descends two octaves inside a bar into one that descends across six. Both
+pages now have a test pinning it.
+
 ## The page
 
 `/sample/` loads a file into a buffer and loops it with `ssp_loop` — `PlayBuf`

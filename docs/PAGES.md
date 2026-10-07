@@ -4,7 +4,20 @@ Every page is its own app under `apps/`, served from a path on the one shared or
 DNS record, no certificate and no new site block — that was the point of putting the pages on one
 origin rather than one subdomain each.
 
-Use `apps/scratch` as the template. It is the smallest thing that still boots a real engine.
+There is no bare template — `apps/scratch` was deleted once it had served its purpose. Copy whichever
+existing page is the same *shape* as the one you want:
+
+| shape | copy | what it is |
+|---|---|---|
+| held voice | `apps/gendy` | one synth, controls moved by the phone. The smallest engine page. |
+| sequence in the server | `apps/suz` | a Demand clock, `SendReply`, a voice spawned per event |
+| sequence in JS | `apps/multibeat` | `ClientConductor` with OSC timetags, for a pattern whose shape changes while it plays |
+| sampled | `apps/marimba` | the above plus a buffer set loaded before anything can play |
+| bespoke UI | `apps/touch` | no `MotionInstrument`; its own layout and gestures |
+
+The three instrument shapes are described in
+[UI.md](UI.md#the-three-shapes-an-instrument-takes); which one you need is decided by whether the
+pattern's *shape* changes at runtime, not by taste.
 
 ## 1. Declare it
 
@@ -35,9 +48,12 @@ can import from `tests/e2e/pages.ts`.
 ## 2. Create the app
 
 ```sh
-cp -r apps/scratch apps/drone
+cp -r apps/gendy apps/drone
 rm -rf apps/drone/dist apps/drone/public
 ```
+
+`public/` is generated — `stageVendor` writes the engine into it on every build — so copying it over
+carries a stale vendor tree that the new page's `basePath` does not match.
 
 Then edit four things:
 
@@ -126,6 +142,30 @@ see the server actually serving the site**.
 that page's own hashed asset path. That check stays regardless: it is what catches the config being
 right and the content being wrong, or either one drifting.
 
+## Pages that load samples
+
+A sampled instrument cannot be built until its buffers are loaded, and loading needs a booted
+engine — so the order is boot, then load, then build. `MotionInstrument` takes two props for that:
+
+```tsx
+<MotionInstrument
+  ready={library !== null}
+  pending={error ? `The library did not load: ${error}` : 'Loading 10 bars — about 24MB.'}
+  …
+/>
+```
+
+`ready` is in the build effect's dependency list. Leave it out and the effect never re-runs, so the
+page sits silent with every buffer in place — which looks exactly like a page that works.
+
+The loading itself is `loadSampleSet` from `@ss/engine`, which takes filenames in the shared store
+and returns a bufnum, frame count, channel count and sample rate for each. Sequential rather than
+parallel: four concurrent decodes of a few megabytes each is a memory spike on the device least able
+to absorb one, and a slower boot is visible and survivable where a crash is neither.
+
+See [SAMPLES.md](SAMPLES.md) for the store, the per-page budget, and how to work out which samples a
+pattern can actually reach.
+
 ## Pages that boot nothing
 
 Set `engine: false` in `sites.json` **and** in `vite.config.ts`. The SuperSonic runtime is 1.8 MB of
@@ -138,8 +178,13 @@ would load them.
 ## Removing a page
 
 Delete its entry from `sites.json`, delete `apps/<name>/`, then `npm install`, `npm run infra:gen`,
-`npm run verify` and deploy. `apps/scratch` exists to be deleted this way
-once it has served its purpose.
+`npm run verify` and deploy. If the page was the only one using a SynthDef, delete that too and
+re-run `npm run sc:build && npm run sc:test && npm run sc:promote` — an orphaned def is staged into
+every page for nothing.
+
+Samples are *not* removed by this: they live in the store outside the repo, and the next
+`npm run samples -- --yes` mirrors whatever is there. Delete the files locally to take them off the
+site.
 
 The old release stays on the VM, so a page removed by mistake is one symlink away:
 

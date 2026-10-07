@@ -908,3 +908,103 @@ hit area turned out to be the bigger problem.
   context — which is what `npm run dev:lan` and mkcert are already for.
 - Audio latency on a phone unmeasured. `baseLatency` / `outputLatency` are worth showing beside the
   transport mode: a page can report `sab` and still feel slow if the device buffer is large.
+
+---
+
+## 2026-10-07 — Samples: a store, five pages, and what a sample actually costs
+
+### Done
+
+- **A sample store outside the repo**, pushed by `npm run samples` to `/srv/ssplay/samples/` —
+  outside the release tree, so audio survives every deploy, is never re-sent as part of one, and is
+  not pruned with old releases. Caddy serves it from a second root in the same site block via
+  `handle_path`, same origin because a subdomain would make every sample a cross-origin subresource
+  under `COEP: require-corp`. `tools/serve.mjs` serves the same URL from the same store locally and
+  synthesises `index.json` per request, so the e2e suite exercises the real URL shape.
+- The ssh and rsync conventions moved to `infra/remote.mjs` so the push and the deploy cannot drift
+  about them. `deploy.mjs` is behaviour-unchanged; dry-run end to end to confirm.
+- **Five sampled pages**: `/sample/` (load any file, loop it), `/kit/` (multiBeat4), `/piano/`
+  (piano1), `/dulcimer/` (dulcimer1), `/marimba/` (multiBeat5). Four are `ClientConductor` pages —
+  a `Pswitch` on a live index cannot be a Demand graph.
+- `MotionInstrument` grew `ready` / `pending`; `@ss/engine` grew `loadSampleSet` and
+  `session.firstPrivateBus`.
+- The authoring suite's `has-gate` and `no-sustain-arg` rules are now **waivable**, since both
+  protect against sclang's event system and neither reaches a def driven by the JS conductor. A
+  waiver needs a reason of real length, a waiver on a passing check is itself a failure, and waived
+  checks print their reason and are counted. Seven waivers across four defs.
+- The Caddy bootstrap's unprivileged half is done: `/srv/ssplay/caddy/site.caddy` exists and the
+  deploy writes there every run.
+
+### Measured
+
+- **A loaded sample costs about 4× its decoded size, and none of it is ever released.** A 44MB
+  stereo file grows the tab ~180MB into a fresh buffer and ~68MB into one already used. Four loads
+  into four buffers: 77MB → **797MB**. `/b_free` returns **nothing**. So the budget is per page
+  *visit*, not per live sample, and the working limit is ≤10s stereo per sample and ≤30s per visit.
+- **The engine's own 70MB is irreducible.** `initial == maximum` on a shared `WebAssembly.Memory`;
+  the layout option that looks like it would shrink it either does nothing (`maxInboxSize`) or stops
+  scsynth answering `/notify` (`memArenaSize`). The 768MB reservation inferred from the bundle does
+  not happen.
+- **There is no memory leak.** Revisiting one page fourteen times is flat at 4.1MB; across thirteen
+  pages the WASM heap holds at 79.9MB, so the provider's `dispose` works. What looked like a leak is
+  retained compiled code, ~1MB per distinct bundle, bounded.
+- **Format buys download speed and nothing else.** On the kit: AIFF 1725KB → FLAC 606KB → AAC 64k
+  179KB → Opus 64k 124KB, all decoding to the same 3.3MB of float32. FLAC chosen: Opus-in-Ogg is
+  smallest but has the shakiest Safari support on the list, on the browser already refusing
+  allocations.
+
+### Fixed
+
+- **A refused memory allocation escaped `bootEngine` entirely.** 0.88 allocates the shared
+  `WebAssembly.Memory` in the *constructor*, which sat on the line before the `try` — so the one
+  failure the postMessage retry exists for never reached it, and arrived at the UI as a raw
+  `RangeError` about page counts. This is the iOS boot failure. Four tests, all of which fail
+  without the change.
+- **The kit never freed a voice** — 100 alive at 102 events. An adsr frees on the gate *falling* and
+  the scheduled events carried no gate-off.
+- **The dulcimer's octave advanced per bar instead of per event.** A Pbind advances every stream
+  once per event, so `Pseq([4,3,2].stutter(2), inf)` moves per note — at six steps a bar walks all
+  three octaves. Shipped wrong, caught while porting the marimba, regression test checked against
+  the old code.
+- **The marimba's silence threshold sat below its own dead zone** (−90dB = 3.2e-5 against 1e-5), so
+  a still phone reported itself as sounding.
+- `multibeat`'s drone was MIDI 24, putting its loudest component — `SinOsc.ar(freq / 2)` at 0.6
+  against the pulse's 0.5 — at 16.3Hz, below hearing. Raised an octave.
+- `ssp_gendy` was 4 channels: `GVerb` takes mono in and returns stereo, so a stereo input expands
+  into two reverbs.
+
+### Found in the sources, reported rather than corrected
+
+- **Five AirKit defs write more channels than their output carries**, losing roughly half the signal
+  each. Tabulated in [SYNTHDEFS.md](SYNTHDEFS.md#the-channel-count-nobody-checks). `ssp_marimba` is
+  folded to two channels on request, which makes a previously inaudible detune audible; the others
+  reproduce what was heard.
+- `gendy2.sc` never plays its Gendy voice — `~init` instantiates a miniMoog, and the mapping sets
+  `detune` and `rtime`, which only mean something to the swarm.
+- `leaves.sc` maps only `amp` and `pan`, and its dead zone is unreachable because the level curve
+  floors two orders of magnitude above the threshold.
+- `multiBeat5`'s `oct` is computed, sent, and overridden — the Pbind binds `\octave` itself, and a
+  Pbind's own keys beat the prototype `Pdef.set` fills in. So tilt does nothing. `ptch` has its send
+  line commented out.
+- `dulcimer1`'s `FreeVerb2` is commented out, so the group-tail reverb architecture is structurally
+  present and currently only blocking DC.
+
+### Open
+
+- **One root command left in LISH**, and it now matters more: eighteen pages and a 39-file sample
+  store ride on a Caddy config that reverts on reboot.
+  `printf 'import /srv/ssplay/caddy/*.caddy\n' > /etc/caddy/Caddyfile && caddy validate --config
+  /etc/caddy/Caddyfile && systemctl reload caddy`
+- **An unexplained flake.** One deploy gate reported 124 passed where the same commit gives 132 in
+  four other runs. No cause identified, which by this project's own rule is the least satisfying
+  outcome available. The kit and dulcimer subdivision comparisons are the first place to look.
+- `sidecar/dist/` is still caught by a blanket `dist/` in `.gitignore`, so the 27 compiled defs are
+  not committed — which the plan wanted specifically so a build never needs SuperCollider.
+- Every page still stages all 27 authored synthdefs, not the ones it declares.
+- **Two answers to the private-bus question.** `droplet` hardcodes `FX_BUS = 8`; `dulcimer` uses
+  `session.firstPrivateBus`, which is 4. Both work. They should be one thing, and changing
+  `droplet` is a behaviour change to a working page rather than a tidy-up.
+- `droplet` and `imu` predate `MotionInstrument` and roll the shell by hand. `droplet` is
+  `conductor`-shaped with its own `Shower` class, written before `Conductor` existed.
+- iOS unverified since the boot fix. The page will now show a handled error rather than a
+  `RangeError`; what it says is the next thing worth knowing.

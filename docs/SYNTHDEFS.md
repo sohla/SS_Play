@@ -146,10 +146,75 @@ Four rules the build enforces:
   through a performance, with new notes silently failing to start.
 - **Every def must have a `gate`.** The event system only sends gate-off when `desc.hasGate` is
   true (`sendGate = ~sendGate ? ~hasGate`), so without one `\legato` and `\sustain` do nothing,
-  the pattern cannot release a note, and you cannot hold a drone while tuning it.
+  the pattern cannot release a note, and you cannot hold a drone while tuning it. *Waivable — see
+  below.*
 - **No argument may be called `sustain`.** The event system computes `sustain` as a *time*
   (`dur * legato * stretch`) and sends it to any argument of that name, which silently overwrites
-  whatever it was meant to mean. Use `susLevel` for an envelope level.
+  whatever it was meant to mean. Use `susLevel` for an envelope level. *Waivable — see below.*
+
+### Waiving a rule
+
+The last two rules protect against **sclang's event system**, and a def driven from the JS
+conductor is not reached by any of it: `ClientConductor` sends only the controls it is given, so
+nothing computes a `sustain` behind the def's back, and a fixed-length envelope with
+`doneAction: 2` has nothing for a gate to release.
+
+Rather than weaken the checks for everything, a def declares the exception and says why:
+
+```supercollider
+metadata: (
+    specs: (...),
+    frozen: (out: 0),
+    supplied: (bufnum: 0),
+    waives: (
+        'has-gate':
+            "A fixed-length one-shot. Env.new with doneAction: 2 frees the node "
+            "itself, so there is nothing for a gate to release.",
+        'no-sustain-arg':
+            "Load-bearing, not accidental: the Pbind sets legato 1.6 and no "
+            "sustain, so the event system's computed dur * legato becomes this "
+            "envelope's middle segment length. The port sends it explicitly."
+    )
+)
+```
+
+Three things keep this from becoming a way to silence the suite:
+
+- **A waiver needs a reason.** Under twenty characters fails. The point is that somebody had to
+  write down why.
+- **A waiver on a check that passes is itself a failure.** Otherwise a def changes, the rule starts
+  being satisfied, and a stale note stays behind claiming otherwise.
+- **Waived checks print their reason and are counted.** `SSP_TEST waived <name> -- <reason>` and a
+  `SSP_TEST_WAIVED n` line in the summary, so they are visible in every run rather than absent
+  from it.
+
+Currently seven waivers across four defs, all on these two rules, all on sampled one-shots driven
+by a JS conductor.
+
+A note on the symbol: `\has-gate` does not parse — a backslash symbol cannot contain a hyphen, so
+sclang reads it as subtraction. Quote them: `'has-gate'`. Getting this wrong makes the whole test
+file produce *no output at all* rather than an error.
+
+### The channel count nobody checks
+
+Five of the ported AirKit defs wrote more channels than their output could carry, and in every case
+roughly half the signal went to a bus nothing reads:
+
+| def | the expansion | what was lost |
+|---|---|---|
+| `ssp_mel` | `SinOsc.ar(freq, li, 0.5) ! 2` where `li` was already stereo | 4ch: half the voice |
+| `miniMoog` | `Pan2` on an already-stereo pair | 4ch: half the voice |
+| `ssp_gendy` | `GVerb` given a stereo input, returning two reverbs | 4ch: the reverb of the right side |
+| `ssp_dulcimer` | `rate: [1, 1.007]` on `PlayBuf.ar(2, …)` | 4ch: a detuned copy, never heard |
+| `ssp_marimba` | the same | 4ch: a detuned copy, never heard |
+
+The pattern is always a multichannel expansion one level deeper than intended — an array where a
+scalar was meant, or a UGen that returns more channels than it was handed. It is silent, it looks
+correct, and it halves the instrument.
+
+`stereo` in the test suite catches it now, counting only outputs whose `startingChannel` is `\out`
+so a `LocalOut` does not make a mono def look stereo. Any def whose channel count surprises you is
+worth checking against this list first.
 
 Then classify every argument in the `metadata` block above. The build refuses a def with an
 argument in no category, so a control cannot be added to the graph and silently reach neither the

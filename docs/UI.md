@@ -106,3 +106,101 @@ loads a def when you select it. Worth remembering for any page that picks defs a
 
 `BootGate` and `SourceFooter` are in the shared kit specifically because every page needs them and
 none should write them twice — the source link is a licence obligation, not decoration.
+
+## The three shapes an instrument takes
+
+`MotionInstrument` takes an `Instrument`, or an array of them, and there are exactly three kinds.
+Which one a page needs is decided by one question — **does the pattern's shape change while it
+plays?** — not by preference.
+
+### `held`
+
+One synth, opened at boot, played by moving its controls. No events, no allocation, no way to exhaust
+`maxNodes`.
+
+```tsx
+{ kind: 'held', def: 'ssp_gendy', initial: { gate: 1, amp: 0 } }
+```
+
+Right whenever the instrument is continuous: a drone, a texture, a filter being swept. `gendy`,
+`leaves` and `pluck` are this.
+
+### `conductor`
+
+The pattern is a **Demand graph in the server**. A clock synth runs it and reports each event with
+`SendReply`; the dispatcher spawns a voice per report.
+
+```tsx
+{
+  kind: 'conductor',
+  clock: 'ssp_suz_clock',
+  voice: 'ssp_suz',
+  address: '/ssp_suz',
+  controls: ([freq]) => ({ freq: freq ?? 440 }),
+  sustainS: ([, dur]) => dur,
+}
+```
+
+`controls` and `sustainS` both read the `SendReply` arguments, so the clock decides the note *and*
+how long to hold it — the values arrive together and cannot disagree.
+
+Keeps perfect time, because it *is* the audio clock — a JavaScript timer's jitter cannot reach it.
+Right for a fixed sequence. `suz`, `beast` and `moog` are this.
+
+Two things it cannot do: allocate a node (hence the report-and-spawn), and read a value that changes
+the pattern's *structure*. And a clock must send a sustain time for every event, because an `adsr`
+only frees when its gate falls — without it every note holds a node forever, which surfaces as
+`maxNodes` exhaustion partway through a performance.
+
+### `client`
+
+The pattern runs in **JavaScript** and each event is scheduled ahead with an OSC bundle timetag.
+
+```tsx
+{ kind: 'client', nextEvent }
+```
+
+Slower to reason about, and the only option when the pattern's shape changes at runtime. The case
+that forces it is `Pswitch(list, Pkey(\divIdx))`: three streams switching on one live index, which
+have to agree about which bar they are in. As three independent Demand streams reading the same bus
+they drift apart on any bar where the hand moved; here it is one counter and a lookup.
+
+Timing is bought back with timetags rather than lost: a bundle asked for 400ms ahead sounds 400ms
+ahead. The timer decides *when to post*, never when to play. The lookahead — 120ms — is the one
+number that matters: too short and a stalled main thread leaves a gap, too long and the phone's
+movement stops reaching the sound because events are already committed.
+
+`multibeat`, `trainmelody`, `kit`, `piano`, `dulcimer` and `marimba` are this.
+
+### Mixing them
+
+A page may use several — `multibeat` is a `client` sequence over a `held` drone. The shell starts and
+stops `client` conductors from the mapped level; `held` voices get every control continuously; and
+`conductor` clocks get `dur` and `level`.
+
+### Pages that are none of these
+
+`droplet`, `imu`, `touch`, `playground` and `sample` do not use `MotionInstrument` at all. The first
+two predate it and roll the shell by hand; the last three are genuinely different — a multitouch
+surface, a def browser, and a loader.
+
+`droplet` is worth knowing about because it is `conductor`-shaped and hand-rolled: its own `Shower`
+class drives a Demand clock and spawns voices, written before `Conductor` existed. It also picks its
+own private bus — `FX_BUS = 8`, with a comment reasoning about headroom — where `dulcimer` uses
+`session.firstPrivateBus`, which resolves to 4. Two answers to one question in the same codebase,
+which is the kind of drift this project usually keeps in a single file. Both work; neither is wrong;
+they should be the same thing.
+
+### Bar-scoped and event-scoped
+
+Porting a `Pbind` to a `client` conductor means knowing which keys move per bar and which per note,
+and getting it backwards is audible without looking like a bug:
+
+- **`Pswitch(…, Pkey(\divIdx))` is bar-scoped.** It embeds a whole sub-pattern before re-reading the
+  index, so a subdivision change lands on the beat rather than halfway through one.
+- **Every other Pbind key is event-scoped.** A Pbind advances all of its streams once per event. So
+  `\octave, Pseq([4, 3, 2].stutter(2), inf)` moves on every *note* — at six steps a single bar walks
+  all three octaves.
+
+The `dulcimer` shipped with the second one wrong, holding an octave per bar. Both it and `marimba`
+now have unit tests pinning it.
