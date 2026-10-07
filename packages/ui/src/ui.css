@@ -151,7 +151,11 @@
 @utility ss-waiting {
   background-image: repeating-linear-gradient(
     45deg,
-    oklch(0.92 0.12 95 / 0.08) 0 8px,
+    /* Pure yellow, matching --ak-accent, rather than a desaturated one: these
+       panels sit on the near-black AirKit background where anything softer
+       reads as grey. Hardcoded rather than var(--ak-accent) because the
+       utility should not depend on being inside an `ak` scope. */
+    rgb(255 255 0 / 0.26) 0 8px,
     transparent 8px 24px
   );
   background-size: 34px 34px;
