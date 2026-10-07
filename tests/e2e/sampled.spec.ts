@@ -118,16 +118,24 @@ test('the kit widens its palette with energy and keeps the kick on the downbeat'
 
 test('the piano reports which sample it stretched and by how much', async ({ page }) => {
   await boot(page, 'piano')
-  await shake(page, 6000)
+  await shake(page, 14_000, 12)
+
+  // Let the ballistic envelope reach the top of its travel before sampling. At
+  // rest the pattern runs at two notes a second, so a window opened immediately
+  // covers only a few of the sixteen notes in the cycle — and the four with the
+  // largest stretch are the last quarter of it. That was the whole of an earlier
+  // flake against the live site: nothing to do with the page, everything to do
+  // with reading a 10Hz display before the gesture had ramped.
+  await page.waitForTimeout(1500)
 
   // The arpeggio climbs four octaves against six samples an octave apart, so the
   // shift has to move — a constant shift would mean the lookup is not running.
   const seen = new Set<string>()
   const samples = new Set<string>()
-  for (let n = 0; n < 24; n++) {
+  for (let n = 0; n < 50; n++) {
     seen.add(await value(page, 'shift'))
     samples.add(await value(page, 'sample'))
-    await page.waitForTimeout(120)
+    await page.waitForTimeout(150)
   }
 
   expect(seen.size, `only ever reported shift ${[...seen].join(',')}`).toBeGreaterThan(2)
