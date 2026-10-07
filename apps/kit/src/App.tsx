@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadSampleSet, type LoadedSample } from '@ss/engine'
-import { useSession } from '@ss/react'
+import { useCallback, useMemo, useRef } from 'react'
+import { useSampleSet } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
 import { DIVS, SILENCE_BELOW, kitFrom, type Kit } from './mapping.ts'
@@ -36,28 +35,10 @@ const KIT = [
 const RESTING_KIT: Kit = { divIdx: 0, palette: 1, energy: 0, roll: 1, cutoff: 50 }
 
 export function App() {
-  const session = useSession()
-  const [samples, setSamples] = useState<LoadedSample[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { samples, progress, error } = useSampleSet(KIT)
 
   const now = useRef<Kit>(RESTING_KIT)
 
-  useEffect(() => {
-    if (!session || samples) return
-    let cancelled = false
-
-    loadSampleSet({ session, names: KIT })
-      .then((loaded) => {
-        if (!cancelled) setSamples(loaded)
-      })
-      .catch((cause: Error) => {
-        if (!cancelled) setError(cause.message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [session, samples])
 
   const kit = useMemo(() => (samples ? arrangeKit(samples) : null), [samples])
 
@@ -108,9 +89,10 @@ export function App() {
       ready={kit !== null}
       pending={
         error
-          ? `The kit did not load: ${error}`
-          : `Loading ${KIT.length} drums — about 9MB once decoded.`
+          ? `Could not load ${error}`
+          : `Loading 12 drums — about 9MB. ${progress.done} of ${progress.total}.`
       }
+      pendingFailed={error !== null}
     />
   )
 }

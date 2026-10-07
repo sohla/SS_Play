@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadSampleSet, type LoadedSample } from '@ss/engine'
-import { useSession } from '@ss/react'
+import { useCallback, useMemo, useRef } from 'react'
+import { useSampleSet } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
 import { SILENCE_BELOW, pianoFrom, type Piano } from './mapping.ts'
@@ -19,9 +18,7 @@ const LIBRARY = [
 const RESTING: Piano = { amp: 0, dur: 0.5 }
 
 export function App() {
-  const session = useSession()
-  const [samples, setSamples] = useState<LoadedSample[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { samples, progress, error } = useSampleSet(LIBRARY)
 
   const now = useRef<Piano>(RESTING)
   // The last note's lookup, written by the pattern and read by the display. A
@@ -31,22 +28,6 @@ export function App() {
     last: { bufnum: 0, shift: 0, index: 0, name: '', midi: 0 },
   })
 
-  useEffect(() => {
-    if (!session || samples) return
-    let cancelled = false
-
-    loadSampleSet({ session, names: LIBRARY })
-      .then((loaded) => {
-        if (!cancelled) setSamples(loaded)
-      })
-      .catch((cause: Error) => {
-        if (!cancelled) setError(cause.message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [session, samples])
 
   const library = useMemo(() => (samples ? arrangePiano(samples) : null), [samples])
 
@@ -91,8 +72,11 @@ export function App() {
       silenceBelow={SILENCE_BELOW}
       ready={library !== null}
       pending={
-        error ? `The library did not load: ${error}` : `Loading 6 piano samples — about 13MB.`
+        error
+          ? `Could not load ${error}`
+          : `Loading 6 piano samples — about 13MB. ${progress.done} of ${progress.total}.`
       }
+      pendingFailed={error !== null}
     />
   )
 }

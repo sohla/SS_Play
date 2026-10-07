@@ -269,3 +269,83 @@ test('the marimba never stretches a bar more than two semitones', async ({ page 
   expect(seen.length).toBeGreaterThan(1)
   expect(Math.max(...seen.map(Math.abs)), `saw shifts ${seen.join(',')}`).toBeLessThanOrEqual(2)
 })
+
+// The loading panel. A sampled page waits on a fetch and a decode per buffer,
+// which is quick enough locally that the panel is almost never seen here — and
+// long enough on a phone over mobile data to look like a page that has died.
+// Throttled on purpose, because the condition the panel exists for is the one a
+// fast local load never reaches.
+
+test('the loading panel counts its way through the set', async ({ page }) => {
+  await page.route('**/samples/*.flac', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await route.continue()
+  })
+
+  await page.goto('/marimba/?debug=1')
+  await page.getByRole('button', { name: 'Start audio' }).click()
+  await page.locator('[data-testid=pending]').waitFor({ timeout: 30_000 })
+
+  // A count is the difference between a slow load and a dead one, which is not
+  // otherwise visible to whoever is holding the phone.
+  const counts = new Set<string>()
+  for (let n = 0; n < 8; n++) {
+    if ((await page.locator('[data-testid=pending]').count()) === 0) break
+    const text = await page.locator('[data-testid=pending]').innerText()
+    const match = /(\d+) of (\d+)/.exec(text)
+    if (match) counts.add(match[1] as string)
+    await page.waitForTimeout(400)
+  }
+
+  expect(counts.size, `the count never moved: ${[...counts].join(',')}`).toBeGreaterThan(1)
+})
+
+test('the loading panel is animated, and stops when it fails', async ({ page }) => {
+  await page.route('**/samples/*.flac', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await route.continue()
+  })
+
+  await page.goto('/marimba/?debug=1')
+  await page.getByRole('button', { name: 'Start audio' }).click()
+  await page.locator('[data-testid=pending]').waitFor({ timeout: 30_000 })
+
+  const waiting = await page.evaluate(() => {
+    const panel = document.querySelector('[data-testid=pending]')
+    const style = panel ? getComputedStyle(panel) : null
+    return { name: style?.animationName ?? 'none', image: style?.backgroundImage ?? '' }
+  })
+
+  // Asserted through the computed style rather than the class name, because a
+  // class that Tailwind did not generate is still on the element and still
+  // looks right in the markup.
+  expect(waiting.name).toBe('ss-stripe-scroll')
+  expect(waiting.image).toContain('repeating-linear-gradient')
+})
+
+test('a failed load names the file and stops looking busy', async ({ page }) => {
+  // By filename, not by request count: each file is fetched more than once, so
+  // counting requests fails a duplicate the engine has already satisfied.
+  await page.route('**/samples/mar_65.flac', (route) =>
+    route.fulfill({ status: 404, body: 'nope' }),
+  )
+
+  await page.goto('/marimba/?debug=1')
+  await page.getByRole('button', { name: 'Start audio' }).click()
+  await page.locator('[data-testid=pending][data-failed=true]').waitFor({ timeout: 30_000 })
+
+  // Which file it was is the whole diagnosis: a 404 is a store that was not
+  // pushed, a decode error is a format the browser will not take, and a failure
+  // partway through a set that started fine is memory.
+  const text = await page.locator('[data-testid=pending]').innerText()
+  expect(text).toContain('mar_65.flac')
+  expect(text).toMatch(/\d+ of \d+ loaded/)
+
+  // Moving stripes behind an error message say the page is still working on it,
+  // which is the one thing an error must not say.
+  expect(
+    await page.evaluate(
+      () => getComputedStyle(document.querySelector('[data-testid=pending]')!).animationName,
+    ),
+  ).toBe('none')
+})

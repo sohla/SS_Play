@@ -74,6 +74,14 @@ export interface MotionInstrumentProps {
   ready?: boolean
   /** Shown while booted and not yet ready. */
   pending?: ReactNode
+  /**
+   * Set when the wait has failed, so the panel stops pretending to be busy.
+   *
+   * Separate from `pending` rather than folded into it: moving stripes behind an
+   * error message says the page is still working on it, which is the one thing
+   * an error must not say.
+   */
+  pendingFailed?: boolean
 }
 
 /** Control updates per second. The events are spawned by the clock, not by this. */
@@ -98,6 +106,7 @@ export function MotionInstrument({
   silenceBelow,
   ready = true,
   pending,
+  pendingFailed = false,
 }: MotionInstrumentProps) {
   const { status, boot, probe, session } = useSuperSonic()
   const [motion, setMotion] = useState<Motion>(RESTING)
@@ -237,7 +246,12 @@ export function MotionInstrument({
         {booted && !ready ? (
           <p
             data-testid="pending"
-            className="rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-500"
+            data-failed={pendingFailed ? 'true' : undefined}
+            className={
+              pendingFailed
+                ? 'rounded border border-red-900 bg-red-950/40 p-3 text-sm text-red-300'
+                : 'ss-waiting rounded border border-neutral-800 bg-surface p-3 text-sm text-neutral-400'
+            }
           >
             {pending ?? 'Loading…'}
           </p>

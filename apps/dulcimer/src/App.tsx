@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ctl, i, loadSampleSet, type LoadedSample, type Session } from '@ss/engine'
-import { useSession } from '@ss/react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { ctl, i } from '@ss/engine'
+import { useSampleSet, useSession } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
 import { DIVS, SILENCE_BELOW, dulcimerFrom, type Dulcimer } from './mapping.ts'
@@ -20,28 +20,11 @@ const RESTING: Dulcimer = { divIdx: 0, amp: 0 }
 
 export function App() {
   const session = useSession()
-  const [samples, setSamples] = useState<LoadedSample[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { samples, progress, error } = useSampleSet(LIBRARY)
 
   const now = useRef<Dulcimer>(RESTING)
   const state = useRef<DulcimerState>({ last: { midi: 0, shift: 0, sample: 0 } })
 
-  useEffect(() => {
-    if (!session || samples) return
-    let cancelled = false
-
-    loadSampleSet({ session, names: LIBRARY })
-      .then((loaded) => {
-        if (!cancelled) setSamples(loaded)
-      })
-      .catch((cause: Error) => {
-        if (!cancelled) setError(cause.message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [session, samples])
 
   const library = useMemo(() => (samples ? arrangeDulcimer(samples) : null), [samples])
 
@@ -126,8 +109,11 @@ export function App() {
       silenceBelow={SILENCE_BELOW}
       ready={library !== null}
       pending={
-        error ? `The library did not load: ${error}` : `Loading 9 dulcimer samples — about 36MB.`
+        error
+          ? `Could not load ${error}`
+          : `Loading 9 dulcimer samples — about 36MB. ${progress.done} of ${progress.total}.`
       }
+      pendingFailed={error !== null}
     />
   )
 }

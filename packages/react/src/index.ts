@@ -13,6 +13,8 @@ export {
   type OscLog,
 } from './hooks.ts'
 
+export { useSampleSet, type SampleSet } from './useSampleSet.ts'
+
 export {
   createLogStore,
   createMetricsStore,

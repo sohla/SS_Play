@@ -9,12 +9,30 @@ export interface LoadedSample {
   sampleRate: number
 }
 
+export interface LoadProgress {
+  /** How many have finished. */
+  done: number
+  total: number
+  /** The one being fetched and decoded right now, or null when finished. */
+  loading: string | null
+}
+
 export interface LoadSampleSetOptions {
   session: Session
   /** Filenames in the shared store, without a path. */
   names: readonly string[]
   /** Where the store is served. */
   base?: string
+  /**
+   * Called before each load and once after the last.
+   *
+   * Worth wiring up rather than skipping: the loads are sequential, so a page
+   * that stalls stalls on one identifiable file, and without this the only
+   * symptom is a panel that sits there. A count is also the difference between
+   * a slow load and a dead one, which is not otherwise visible to whoever is
+   * holding the phone.
+   */
+  onProgress?: (progress: LoadProgress) => void
 }
 
 /**
@@ -40,14 +58,29 @@ export async function loadSampleSet({
   session,
   names,
   base = '/samples/',
+  onProgress,
 }: LoadSampleSetOptions): Promise<LoadedSample[]> {
   const loaded: LoadedSample[] = []
+  const total = names.length
 
   for (const name of names) {
+    onProgress?.({ done: loaded.length, total, loading: name })
+
     const bufnum = session.buffers.alloc()
     // encodeURIComponent, not raw: a filename with a space or a # would
     // otherwise truncate at the fragment and 404 on the rest.
-    const result = await session.sonic.loadSample(bufnum, `${base}${encodeURIComponent(name)}`)
+    let result
+    try {
+      result = await session.sonic.loadSample(bufnum, `${base}${encodeURIComponent(name)}`)
+    } catch (cause) {
+      // Named, because the generic message says only that a load failed. Which
+      // file it was is the whole diagnosis: a 404 is a store that was not
+      // pushed, a decode error is a format the browser will not take, and a
+      // failure partway through a set that started fine is memory.
+      throw new Error(`${name} (${loaded.length} of ${total} loaded): ${message(cause)}`, {
+        cause,
+      })
+    }
 
     loaded.push({
       name,
@@ -58,5 +91,8 @@ export async function loadSampleSet({
     })
   }
 
+  onProgress?.({ done: total, total, loading: null })
   return loaded
 }
+
+const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))

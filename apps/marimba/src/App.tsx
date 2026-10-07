@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadSampleSet, type LoadedSample } from '@ss/engine'
-import { useSession } from '@ss/react'
+import { useCallback, useMemo, useRef } from 'react'
+import { useSampleSet } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
 import { DIVS, SILENCE_BELOW, marimbaFrom, type Marimba } from './mapping.ts'
@@ -18,29 +17,11 @@ const LIBRARY = [47, 53, 59, 62, 65, 71, 74, 77, 83, 86].map((midi) => `mar_${mi
 const RESTING: Marimba = { divIdx: 0, energy: 0, panBias: 0 }
 
 export function App() {
-  const session = useSession()
-  const [samples, setSamples] = useState<LoadedSample[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { samples, progress, error } = useSampleSet(LIBRARY)
 
   const now = useRef<Marimba>(RESTING)
   const state = useRef<MarimbaState>({ last: { midi: 0, shift: 0, sample: 0, div: 1 } })
 
-  useEffect(() => {
-    if (!session || samples) return
-    let cancelled = false
-
-    loadSampleSet({ session, names: LIBRARY })
-      .then((loaded) => {
-        if (!cancelled) setSamples(loaded)
-      })
-      .catch((cause: Error) => {
-        if (!cancelled) setError(cause.message)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [session, samples])
 
   const library = useMemo(() => (samples ? arrangeMarimba(samples) : null), [samples])
 
@@ -89,8 +70,11 @@ export function App() {
       silenceBelow={SILENCE_BELOW}
       ready={library !== null}
       pending={
-        error ? `The library did not load: ${error}` : `Loading 10 marimba bars — about 24MB.`
+        error
+          ? `Could not load ${error}`
+          : `Loading 10 marimba bars — about 24MB. ${progress.done} of ${progress.total}.`
       }
+      pendingFailed={error !== null}
     />
   )
 }
