@@ -323,6 +323,51 @@ test('the loading panel is animated, and stops when it fails', async ({ page }) 
   expect(waiting.image).toContain('repeating-linear-gradient')
 })
 
+test('the panel reports how much audio has been accepted', async ({ page }) => {
+  await page.route('**/samples/*.flac', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await route.continue()
+  })
+
+  await page.goto('/marimba/?debug=1')
+  await page.getByRole('button', { name: 'Start audio' }).click()
+  await page.locator('[data-testid=pending]').waitFor({ timeout: 30_000 })
+
+  // The number that matters, because the wall is a total rather than a count:
+  // every page under about 3.7MB of decoded audio loads on an iPhone, and the
+  // two that went past 4MB stalled at the sample that crossed it.
+  const totals = new Set<string>()
+  for (let n = 0; n < 8; n++) {
+    if ((await page.locator('[data-testid=pending]').count()) === 0) break
+    const match = /([\d.]+)MB decoded/.exec(await page.locator('[data-testid=pending]').innerText())
+    if (match) totals.add(match[1] as string)
+    await page.waitForTimeout(400)
+  }
+
+  expect(totals.size, `the decoded total never moved: ${[...totals].join(',')}`).toBeGreaterThan(1)
+  expect([...totals].some((mb) => Number(mb) > 0)).toBe(true)
+})
+
+test('a load that never answers times out instead of hanging', async ({ page }) => {
+  // Swallow one request entirely — no response, no failure. This is the shape
+  // of the iPhone stall: `loadSample` ends in `await allocationComplete`, and
+  // when the engine cannot satisfy the allocation nothing is sent and that
+  // promise never settles. Before the timeout the page waited forever with
+  // nothing to show.
+  await page.route('**/samples/mar_62.flac', () => {
+    /* deliberately never answered */
+  })
+
+  await page.goto('/marimba/?debug=1')
+  await page.getByRole('button', { name: 'Start audio' }).click()
+  await page.locator('[data-testid=pending][data-failed=true]').waitFor({ timeout: 60_000 })
+
+  const text = await page.locator('[data-testid=pending]').innerText()
+  expect(text).toContain('mar_62.flac')
+  // The decoded total at the point of failure is the diagnosis, not decoration.
+  expect(text).toMatch(/MB of decoded audio already accepted/)
+})
+
 test('a failed load names the file and stops looking busy', async ({ page }) => {
   // By filename, not by request count: each file is fetched more than once, so
   // counting requests fails a duplicate the engine has already satisfied.
@@ -349,3 +394,48 @@ test('a failed load names the file and stops looking busy', async ({ page }) => 
     ),
   ).toBe('none')
 })
+
+/**
+ * The budget, asserted from the engine rather than from a spreadsheet.
+ *
+ * An iPhone stalls a sample load once the decoded total passes about 4MB, and it
+ * stalls by never answering rather than by failing — so this is the one limit in
+ * the project that cannot be caught by anything the page itself reports. The
+ * numbers come from `getLoadedBuffers()` after the page is up, so they are what
+ * the engine actually holds and not what the files suggest.
+ *
+ * 3.7MB is the ceiling because /piano/ loads at 3.68MB on the device and the two
+ * that failed crossed 4MB. Raising it needs a phone, not an argument.
+ */
+const DECODED_CEILING_MB = 3.7
+
+for (const app of ['kit', 'piano', 'dulcimer', 'marimba']) {
+  test(`${app} stays inside the decoded-audio budget`, async ({ page }) => {
+    await boot(page, app)
+
+    const megabytes = await page.evaluate(() => {
+      const sonic = (
+        window as unknown as {
+          __ss: {
+            sonic: { getLoadedBuffers(): { numFrames: number; numChannels: number }[] }
+          }
+        }
+      ).__ss.sonic
+
+      // float32 at the AudioContext's rate, which is what decodeAudioData
+      // produced — frames already reflect any resampling from the file's rate.
+      return (
+        sonic
+          .getLoadedBuffers()
+          .reduce((total, buffer) => total + buffer.numFrames * buffer.numChannels * 4, 0) /
+        1048576
+      )
+    })
+
+    expect(
+      megabytes,
+      `${app} holds ${megabytes.toFixed(2)}MB of decoded audio, over the ${DECODED_CEILING_MB}MB ` +
+        `an iPhone will take. Shorten or go mono — not a lower sample rate, which does nothing.`,
+    ).toBeLessThan(DECODED_CEILING_MB)
+  })
+}

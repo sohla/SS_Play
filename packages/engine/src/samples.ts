@@ -15,6 +15,8 @@ export interface LoadProgress {
   total: number
   /** The one being fetched and decoded right now, or null when finished. */
   loading: string | null
+  /** Bytes of decoded audio accepted so far, at the context's sample rate. */
+  decodedBytes: number
 }
 
 export interface LoadSampleSetOptions {
@@ -33,6 +35,20 @@ export interface LoadSampleSetOptions {
    * holding the phone.
    */
   onProgress?: (progress: LoadProgress) => void
+  /**
+   * Give up on a single load after this long.
+   *
+   * Not a nicety. `loadSample` ends with `await prepared.allocationComplete`,
+   * which waits for the engine to acknowledge the allocation — and when the
+   * engine cannot satisfy it, nothing is sent and that promise never settles.
+   * The result is a page that waits forever with no error to show, which is
+   * exactly what an iPhone did at the fourth sample while desktop Chrome loaded
+   * the same set without complaint.
+   *
+   * A timeout converts that into a failure someone can read. Generous, because
+   * a slow phone on a slow connection is not the thing being caught.
+   */
+  timeoutMs?: number
 }
 
 /**
@@ -73,19 +89,29 @@ export async function loadSampleSet({
   names,
   base = '/samples/',
   onProgress,
+  timeoutMs = 20_000,
 }: LoadSampleSetOptions): Promise<LoadedSample[]> {
   const loaded: LoadedSample[] = []
   const total = names.length
+  let decodedBytes = 0
 
   for (const name of names) {
-    onProgress?.({ done: loaded.length, total, loading: name })
+    onProgress?.({ done: loaded.length, total, loading: name, decodedBytes })
 
     const bufnum = session.buffers.alloc()
     // encodeURIComponent, not raw: a filename with a space or a # would
     // otherwise truncate at the fragment and 404 on the rest.
     let result
     try {
-      result = await session.sonic.loadSample(bufnum, `${base}${encodeURIComponent(name)}`)
+      result = await withTimeout(
+        session.sonic.loadSample(bufnum, `${base}${encodeURIComponent(name)}`),
+        timeoutMs,
+        // The number is the diagnosis. Every page that stays under about 3.7MB
+        // of decoded audio loads on an iPhone; the two that went past 4MB
+        // stalled at the sample that crossed it.
+        `no answer after ${(timeoutMs / 1000).toFixed(0)}s with ` +
+          `${(decodedBytes / 1048576).toFixed(2)}MB of decoded audio already accepted`,
+      )
     } catch (cause) {
       // Named, because the generic message says only that a load failed. Which
       // file it was is the whole diagnosis: a 404 is a store that was not
@@ -99,7 +125,15 @@ export async function loadSampleSet({
     // Before the next load, not after the last: the point is to leave the
     // channel empty for whatever is queued next, and after the final one there
     // is nothing waiting.
+    //
+    // Kept after measuring that it costs nothing, and dropped as *the* fix for
+    // the stall — it did not help. The channel draining is necessary and not
+    // sufficient.
     await session.sonic.sync()
+
+    // At the AudioContext's rate, not the file's: decodeAudioData resamples, so
+    // a 44.1kHz file costs 8.8% more than its own duration suggests.
+    decodedBytes += (result.numFrames ?? 0) * (result.numChannels ?? 0) * 4
 
     loaded.push({
       name,
@@ -110,8 +144,22 @@ export async function loadSampleSet({
     })
   }
 
-  onProgress?.({ done: total, total, loading: null })
+  onProgress?.({ done: total, total, loading: null, decodedBytes })
   return loaded
 }
 
 const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
+
+/**
+ * Reject if a promise has not settled in time.
+ *
+ * The timer is cleared either way, so a load that finishes just after the
+ * deadline does not leave a pending timeout holding the page awake.
+ */
+function withTimeout<T>(work: Promise<T>, ms: number, detail: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(detail)), ms)
+  })
+  return Promise.race([work, expiry]).finally(() => clearTimeout(timer)) as Promise<T>
+}

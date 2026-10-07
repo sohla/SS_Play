@@ -111,7 +111,8 @@ export function App() {
       pending={
         error
           ? `Could not load ${error}`
-          : `Loading 9 dulcimer samples — about 36MB. ${progress.done} of ${progress.total}.`
+          : `Loading 9 dulcimer samples — ${progress.done} of ${progress.total}, `
+            + `${(progress.decodedBytes / 1048576).toFixed(2)}MB decoded.`
       }
       pendingFailed={error !== null}
     />

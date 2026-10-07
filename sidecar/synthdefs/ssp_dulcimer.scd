@@ -34,7 +34,12 @@ SynthDef(\ssp_dulcimer, { |out = 0, bufnum = 0, amp = 0.2, rate = 1, start = 0, 
 
     env = EnvGen.kr(Env.new([0, 1, 1, 0], [attack, sustain, release]), doneAction: 2);
 
-    sig = PlayBuf.ar(2, bufnum,
+    // Mono buffer, so one channel — which the stereo `tone` below expands back
+    // to two. The samples are mono and trimmed to 2.1s because decoded audio has
+    // to total under about 3.7MB: the stereo 3.0s set was 9.89MB and stalled an
+    // iPhone at the fourth sample. Mono alone was still 4.94MB, hence the trim,
+    // which takes about half a second off the end of a 2.6s release.
+    sig = PlayBuf.ar(1, bufnum,
         rate: rate * BufRateScale.kr(bufnum),
         startPos: start * BufFrames.kr(bufnum), loop: 0);
 
@@ -43,6 +48,8 @@ SynthDef(\ssp_dulcimer, { |out = 0, bufnum = 0, amp = 0.2, rate = 1, start = 0, 
     // always present.
     tone = LFTri.ar(freq * [1, 1.02] * 2 * LFCub.ar(9 * amp, 0, 0.1 * amp, 2), 0, 0.04);
 
+    // One channel plus two expands to two: the sample sits in the middle and the
+    // LFTri pair provides the width, which is where it came from anyway.
     mix = (sig + tone) * amp * env;
 
     Out.ar(out, Balance2.ar(mix[0], mix[1], pan));

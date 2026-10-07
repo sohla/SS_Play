@@ -72,7 +72,8 @@ export function App() {
       pending={
         error
           ? `Could not load ${error}`
-          : `Loading 10 marimba bars — about 24MB. ${progress.done} of ${progress.total}.`
+          : `Loading 10 marimba bars — ${progress.done} of ${progress.total}, `
+            + `${(progress.decodedBytes / 1048576).toFixed(2)}MB decoded.`
       }
       pendingFailed={error !== null}
     />

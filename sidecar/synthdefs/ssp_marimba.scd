@@ -4,7 +4,8 @@
 // `sustain` is the middle segment's duration, which sclang fills in from
 // `dur * legato`, and the port sends explicitly.
 //
-// REDUCED TO TWO CHANNELS, which the original is not.
+// MONO SOURCE, AND TWO CHANNELS OUT. The original is a stereo source and four
+// channels out.
 //
 // It reads
 //
@@ -16,17 +17,24 @@
 // output, so the detuned copy lands on the bus above and is never heard. The
 // detune is computed on every note and thrown away.
 //
-// Folded rather than truncated: the pair is summed, so two channels carry both
-// copies and the detune the author wrote is audible. Halved on the way, because
-// summing two copies of the same material would otherwise be 6dB louder than the
-// original's single audible copy.
+// Folded rather than truncated: the pair is summed, so the detune the author
+// wrote is audible. Halved on the way, because summing two copies of the same
+// material would otherwise be 6dB louder than the original's single audible
+// copy.
+//
+// The samples are mono, which is the second change and the one that makes the
+// page work on a phone at all. Decoded audio has to total under about 3.7MB —
+// the stereo set was 6.78MB and stalled an iPhone at the fourth sample — and
+// mono alone brings it to 3.39MB with nothing trimmed. What is lost is the
+// recording's own stereo image; the detune and the pan both survive, so a struck
+// bar still has width and a position.
 //
 // This does change the sound — it adds a slow beat against itself that was
 // previously inaudible, which on a mallet instrument reads as a little more
-// body on the tail. To hear exactly what the original does instead, drop the
-// second copy:
+// body on the tail. To hear only what the original let through, drop the second
+// copy (one channel, because the buffer is mono now):
 //
-//     sig = PlayBuf.ar(2, bufnum, rate: lr, ...);
+//     sig = PlayBuf.ar(1, bufnum, rate: lr, ...);
 //
 // Fifth def in this collection with this shape. ssp_mel, miniMoog, ssp_gendy and
 // ssp_dulcimer all expanded past the channel count their output could carry.
@@ -38,15 +46,16 @@ SynthDef(\ssp_marimba, { |out = 0, bufnum = 0, amp = 1, rate = 1, ptch = 1, star
 
     env = EnvGen.kr(Env.new([0, 1, 1, 0], [attack, sustain, release]), doneAction: 2);
 
-    // Two stereo copies, 1.2 cents apart.
-    pair = PlayBuf.ar(2, bufnum, rate: [lr, lr * 1.007],
+    // Two mono copies, 1.2 cents apart. An array rate expands PlayBuf, so this
+    // is two channels from a one-channel buffer.
+    pair = PlayBuf.ar(1, bufnum, rate: [lr, lr * 1.007],
         startPos: start * BufFrames.kr(bufnum), loop: 0);
 
-    // [[L, R], [L', R']] summed to [L + L', R + R'] — four channels folded into
-    // two rather than two of them discarded.
+    // Summed to one, then panned. The beating between the two rates is the
+    // point; where it sits in the field is the pan's job.
     sig = (pair[0] + pair[1]) * 0.5;
 
-    Out.ar(out, Balance2.ar(sig[0], sig[1], pan, amp * env));
+    Out.ar(out, Pan2.ar(sig, pan, amp * env));
 },
 metadata: (
     specs: (
