@@ -10,9 +10,13 @@ import { arrangeDulcimer, dulcimerPattern, type DulcimerState } from './pattern.
  * Nine samples, named by the MIDI note each was recorded at.
  *
  * The original scans twenty-six. These are the nine the lookup can ever select —
- * see the note in pattern.ts — each trimmed to three seconds, which is just past
- * the longest the envelope can hold one open. 27 seconds in total, about 36MB of
- * memory, against 322 seconds and ~433MB for the folder as it stands.
+ * see the note in pattern.ts — mono, and trimmed to 2.1 seconds.
+ *
+ * The envelope runs to 2.6s, so the trim does cut about half a second off the end
+ * of a release. It is there because an iPhone stalls a load once the decoded total
+ * passes about 4MB: stereo at 3.0s was 9.89MB and stopped at the fourth sample,
+ * mono alone was still 4.94MB, and mono at 2.1s is 3.46MB. The folder as it stands
+ * is 322 seconds and 9.89MB decoded.
  */
 const LIBRARY = [26, 30, 36, 38, 42, 48, 50, 54, 60].map((midi) => `dulc_${midi}.flac`)
 

@@ -61,6 +61,52 @@ and again on the playground after boot — the panels that overflow only exist o
 Shared rather than copied into each app: `index.css` had already been duplicated three times before
 this, which is how three pages come to disagree about what a slider looks like.
 
+## What a phone will actually give you
+
+The two hard limits found by shipping to one, both invisible on a desktop and neither reported as an
+error.
+
+### ~3.7MB of decoded audio per page
+
+A sampled page stalls partway through loading once the decoded total passes about 4MB — and stalls by
+*never answering*, because `loadSample` ends in `await prepared.allocationComplete` and nothing is
+sent when the engine cannot satisfy an allocation. `/piano/` at 3.68MB and `/kit/` at 2.47MB load;
+`/marimba/` at 6.78MB and `/dulcimer/` at 9.89MB did not.
+
+Decoded at the **AudioContext's** rate, not the file's, so a 44.1kHz file costs 8.8% more than its
+duration suggests. Mono and shorter are the only levers — a lower file sample rate does nothing,
+because `decodeAudioData` resamples. Full detail and the two discarded explanations in
+[SAMPLES.md](SAMPLES.md#and-the-hard-wall-4mb-of-decoded-audio-per-page).
+
+### The back/forward cache keeps the engine alive
+
+Each boot is ~70MB of WebAssembly, and **a page held in the back/forward cache keeps all of it**. So
+leaving one page for another means two engines resident, which on a phone is enough to be killed for.
+
+This was missed for a long time because the desktop measurement said there was no leak — thirteen
+navigations holding flat at 79.9MB. Chrome reclaims the memory regardless of what the teardown
+achieves, so the test could not see the case that matters. **Flat desktop memory is not evidence that
+a page releases anything.**
+
+Two things are needed, in `SuperSonicProvider`:
+
+- **Close the AudioContext synchronously on `pagehide`**, before anything else. `dispose()` closes it
+  too, but it is a promise and `pagehide` gives no time to finish one — and the context owns the
+  worklet, which is where the memory lives.
+- **Reload on a restored `pageshow`.** Having released the engine, a restored page comes back looking
+  alive with a closed context behind it: every control responds and nothing sounds, which is worse
+  than a reload because it looks like it works.
+
+Memory wins over a seamless back button, at the cost of one reload on a gesture people expect to be
+cheap.
+
+## Landed since this page was written
+
+### IMU and multitouch
+
+Both shipped — `packages/motion` with `watchMotion`, and `/touch/` with pointer capture. The notes
+below are kept as reference rather than as a plan.
+
 ## Still to do
 
 ### Orientation and landscape
@@ -69,14 +115,14 @@ Untested. A phone held sideways for two-handed playing is the likely performance
 `100vh` is a trap there — iOS Safari's toolbars change the viewport height during a scroll. Use
 `100dvh` when something needs to fill the screen.
 
-### IMU
+### IMU — reference
 
 `DeviceOrientationEvent` and `DeviceMotionEvent` need a **user gesture** on iOS:
 `DeviceOrientationEvent.requestPermission()` must be called from inside a tap handler, and it
 resolves to `'granted'` or `'denied'`. It also requires a secure context, which is why
 `npm run dev:lan` exists with mkcert rather than plain HTTP over the LAN.
 
-Design notes for when it lands:
+What it came down to:
 
 - It belongs beside the engine, not in a page. `packages/engine` already has the shape for this:
   `mapSpec`/`unmapSpec` work in 0..1, so tilt, a touch position and a MIDI CC can feed the same path
@@ -88,7 +134,7 @@ Design notes for when it lands:
 - Permission is per-origin and remembered, so the page has to handle "already denied" without a
   prompt — which is a UI state, not an error.
 
-### Multitouch
+### Multitouch — reference
 
 - `touch-action: none` on a surface that handles its own gestures, or the browser steals the drag
   for scrolling. Scoped to that element: setting it on `body` breaks ordinary scrolling everywhere.

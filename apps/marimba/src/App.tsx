@@ -8,9 +8,13 @@ import { arrangeMarimba, marimbaPattern, type MarimbaState } from './pattern.ts'
 /**
  * Ten bars, named by the MIDI note each was recorded at.
  *
- * The original scans eighteen; these are the ten the lookup can ever select, each
- * trimmed to three seconds — just past the 2.6s the envelope can hold one open at
- * its longest. 18.5 seconds in total, about 24MB of memory.
+ * The original scans eighteen; these are the ten the lookup can ever select, mono
+ * and trimmed to three seconds — just past the 2.6s the envelope can hold one open
+ * at its longest. 18.5 seconds, 3.39MB decoded.
+ *
+ * Mono because an iPhone stalls a load once the decoded total passes about 4MB,
+ * and the stereo set was 6.78MB. Nothing is trimmed for it: mono alone was enough
+ * here, unlike the dulcimer.
  */
 const LIBRARY = [47, 53, 59, 62, 65, 71, 74, 77, 83, 86].map((midi) => `mar_${midi}.flac`)
 

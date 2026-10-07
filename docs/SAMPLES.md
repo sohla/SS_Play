@@ -168,8 +168,9 @@ than the whole engine.
 ## Making a sampled library fit
 
 Trimming is the obvious lever and it is rarely the first one. Two others come before it, both
-subtractions that cost nothing audible, and on the dulcimer they together turned **322 seconds and
-~433MB into 27 seconds and ~36MB**.
+subtractions that cost nothing audible, and on the dulcimer they together took **26 files and 322
+seconds down to 9 files and 27** — before mono and a further trim brought it under the limit a phone
+imposes.
 
 ### Ship only what the lookup can reach
 
@@ -249,25 +250,66 @@ complaint. An iPhone did not:
 Both stalls land exactly where cumulative decoded audio crosses 4MB. Four observations, one
 threshold.
 
-`loadSampleSet` now awaits `sonic.sync()` between loads, which is a round trip and so cannot return
-until everything queued ahead of it has been processed — precisely "the channel has drained". It
-costs nothing measurable: nine samples in about a second including boot.
+**The mechanism is not pinned.** Two explanations fitted all four observations and then failed under
+test, which is worth recording because the next person will think of both:
 
-Raising `inboxSize` would also work and is the wrong fix: a bigger ring buys slack on the device
-that is already refusing the engine's 70MB allocation.
+| idea | why it fitted | how it died |
+|---|---|---|
+| a hard 4MB ceiling on the channel | the arithmetic matched all four pages exactly | a 1MB inbox still loads 3.7MB of audio on desktop Chrome, so the ring is drained and reused |
+| the channel draining too slowly | desktop keeps up, the phone would not | `sonic.sync()` between loads shipped, and the phone stalled at the same sample |
+
+So what exists is a threshold calibrated against four observations, not a cause. `sync()` is kept
+because it costs nothing measurable and draining before queueing more is right regardless; it is not
+the reason anything works.
+
+What *did* fix it was getting under the threshold: both libraries are mono, and the dulcimer is also
+trimmed from 3.0s to 2.1s. **Keep the total under ~3.7MB**, which is what `/piano/` loads
+successfully on the device.
+
+Raising `inboxSize` would plausibly also work and is the wrong direction: a bigger ring buys slack on
+a device already refusing the engine's 70MB allocation.
+
+### A stall is now a message
+
+Because the mechanism is unknown, the symptom is made impossible instead. `loadSample` ends with
+
+```js
+await this.send('/b_allocPtr', bufnum, prepared.laneOffset, …)
+await prepared.allocationComplete
+```
+
+and when the engine cannot satisfy an allocation, nothing is sent and that promise never settles —
+a hang with nothing to show, which is why the error reporting added just before it produced a stall
+and no message. Each load now gets 20 seconds and then fails with the file and the running total:
+
+```
+Could not load mar_62.flac (3 of 10 loaded):
+no answer after 20s with 3.26MB of decoded audio already accepted
+```
+
+The loading panel reports that total as it goes, because the wall is a total and not a count. And an
+e2e test asserts every sampled page stays under 3.7MB, read from `getLoadedBuffers()` after boot —
+the engine's own figure rather than the files'. Raising that ceiling needs a phone, not an argument.
 
 Note the **48kHz**, not the file's rate. A 44.1kHz file is resampled on decode, so it costs 8.8% more
 than its own duration suggests.
 
 ## The pages
 
-| page | samples | audio | memory | shape |
+Decoded totals are at the AudioContext's 48kHz, measured from `getLoadedBuffers()`. All five are
+under the 3.7MB an iPhone will take.
+
+| page | samples | audio | decoded | shape |
 |---|---|---|---|---|
-| `/sample/` | 1 at a time | — | ~13MB | loads any file, loops it |
-| `/kit/` | 12 | 13.5s mono | ~9MB | 3-way subdivision, kick on the downbeat |
-| `/piano/` | 6 | 10.0s | ~13MB | nearest-sample, stretched up to 11 semitones |
-| `/dulcimer/` | 9 | 27.0s | ~36MB | 3-way subdivision, fx tail on a private bus |
-| `/marimba/` | 10 | 18.5s | ~24MB | 4-way subdivision, octave walks per event |
+| `/sample/` | 1 at a time | — | ≤3.7MB | loads any file, loops it |
+| `/kit/` | 12 | 13.5s mono | 2.47MB | 3-way subdivision, kick on the downbeat |
+| `/piano/` | 6 | 10.0s stereo | 3.68MB | nearest-sample, stretched up to 11 semitones |
+| `/marimba/` | 10 | 18.5s mono | 3.39MB | 4-way subdivision, octave walks per event |
+| `/dulcimer/` | 9 | 18.9s mono | 3.46MB | 3-way subdivision, fx tail on a private bus |
+
+The marimba and the dulcimer were stereo and 6.78MB and 9.89MB, and stalled an iPhone at the fourth
+sample. Mono halved both; the dulcimer needed a trim from 3.0s to 2.1s as well, which takes about
+half a second off the end of a 2.6s release.
 
 ### One buffer per page, reused
 

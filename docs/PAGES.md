@@ -93,11 +93,21 @@ the deploy fails and the previous config keeps running.
 opens unauthenticated by default. Writing `/etc/caddy/Caddyfile` needs root; *loading* a config does
 not. That distinction is the whole reason this is automatic.
 
-### One-time bootstrap
+### One-time bootstrap — done
 
-Without this, a deploy still corrects the running config — but Caddy re-reads `/etc/caddy/Caddyfile`
-when it restarts or the VM reboots, and reverts. The bootstrap makes the deployed config the one it
-re-reads.
+**This has been run.** `/etc/caddy/Caddyfile` is now 33 bytes:
+
+```
+import /srv/ssplay/caddy/*.caddy
+```
+
+so nothing below needs doing again, and nothing in the deploy loop asks for root. Kept because it is
+the only part of the setup that cannot be re-derived from the repo, and a rebuilt VM needs it.
+
+Without it, a deploy still corrected the running config — but Caddy re-reads `/etc/caddy/Caddyfile`
+when it restarts or the VM reboots, and reverted. For most of this project's life that meant a
+reboot would have taken the site back to a single-page config with a site-wide
+`try_files {path} /index.html` and no `/samples/` route.
 
 **Only one of the steps needs root**, and an earlier version of this section said all five did — the
 same mistake made three times in this project about Caddy and privilege. `/srv/ssplay` is owned by
@@ -150,7 +160,7 @@ engine — so the order is boot, then load, then build. `MotionInstrument` takes
 ```tsx
 <MotionInstrument
   ready={library !== null}
-  pending={error ? `The library did not load: ${error}` : 'Loading 10 bars — about 24MB.'}
+  pending={error ? `Could not load ${error}` : `Loading 10 bars — ${progress.done} of 10.`}
   …
 />
 ```

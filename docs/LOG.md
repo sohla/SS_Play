@@ -991,13 +991,12 @@ hit area turned out to be the bigger problem.
 
 ### Open
 
-- **One root command left in LISH**, and it now matters more: eighteen pages and a 39-file sample
-  store ride on a Caddy config that reverts on reboot.
-  `printf 'import /srv/ssplay/caddy/*.caddy\n' > /etc/caddy/Caddyfile && caddy validate --config
-  /etc/caddy/Caddyfile && systemctl reload caddy`
-- **An unexplained flake.** One deploy gate reported 124 passed where the same commit gives 132 in
-  four other runs. No cause identified, which by this project's own rule is the least satisfying
-  outcome available. The kit and dulcimer subdivision comparisons are the first place to look.
+- ~~One root command left in LISH~~ — **done 2026-10-07.** `/etc/caddy/Caddyfile` is now the 33-byte
+  import line, so nothing in the deploy loop asks for root again.
+- ~~An unexplained flake~~ — **cause found 2026-10-07, and it was mine.** Two `npm run verify` runs
+  overlapping contend for port 4173; the second finds no server and fails en masse with
+  `ERR_CONNECTION_REFUSED`. Reproduced by accident doing exactly that again, 125 tests down. Nothing
+  wrong with the suite.
 - `sidecar/dist/` is still caught by a blanket `dist/` in `.gitignore`, so the 27 compiled defs are
   not committed — which the plan wanted specifically so a build never needs SuperCollider.
 - Every page still stages all 27 authored synthdefs, not the ones it declares.
@@ -1008,3 +1007,80 @@ hit area turned out to be the bigger problem.
   `conductor`-shaped with its own `Shower` class, written before `Conductor` existed.
 - iOS unverified since the boot fix. The page will now show a handled error rather than a
   `RangeError`; what it says is the next thing worth knowing.
+
+---
+
+## 2026-10-07 — Getting the sampled pages onto a phone
+
+Everything here was found by one person reporting three numbers from an iPhone. None of it was
+visible on a desktop, and two measurements I had already called conclusive turned out not to be
+evidence of anything.
+
+### Done
+
+- **Two more sampled pages**: `/dulcimer/` and `/marimba/`, both `ClientConductor`. The marimba is
+  folded to two channels on request; neither carries a reverb.
+- **The loading panel moves and counts.** Scrolling diagonal stripes from a
+  `repeating-linear-gradient` — nothing to fetch, which matters when the point is that the page is
+  already fetching — plus `3 of 10, 3.26MB decoded`. A failure names the file and loses the
+  animation, because moving stripes behind an error say the page is still working on it.
+- **`useSampleSet`** in `@ss/react`, replacing the same effect copy-pasted into four pages.
+- **A 20-second timeout per load**, so a stall is a message rather than a spinner.
+- **The Caddy bootstrap**, finally. `/etc/caddy/Caddyfile` is 33 bytes and nothing asks for root
+  again.
+
+### The two iPhone limits, and how long they took to find
+
+**~3.7MB of decoded audio per page.** `/marimba/` stalled at 3 of 10 and `/dulcimer/` at 3 of 9,
+both where the running total crosses 4MB, while `/piano/` at 3.68MB and `/kit/` at 2.47MB load. Four
+observations, one threshold — and the threshold is all there is, because two mechanisms fitted it
+exactly and then failed:
+
+- *A hard 4MB channel ceiling.* The arithmetic matched all four pages. Disproved by shrinking
+  `inboxSize` to 1MB on desktop, where 3.7MB of audio still loads — the ring is drained and reused.
+- *The channel draining too slowly.* Shipped `sonic.sync()` between loads. The phone stalled at the
+  same sample.
+
+Fixed by getting under the line instead: both libraries mono, the dulcimer also trimmed 3.0s → 2.1s.
+`sync()` was kept because it costs nothing, not because it works.
+
+**The back/forward cache keeps the engine alive.** Leaving a page for another left two 70MB engines
+resident. The cause was sitting in a comment I had written: `pagehide` was chosen over `unload`
+partly *to stay eligible* for that cache. Fixed by closing the AudioContext synchronously on
+`pagehide` — it owns the worklet, and `dispose()` is a promise `pagehide` gives no time to finish —
+and reloading on a restored `pageshow`, since a released page otherwise comes back looking alive with
+a closed context behind it.
+
+### Two things I had called settled that were not
+
+- **"There is no memory leak."** Reported on thirteen desktop navigations holding flat at 79.9MB.
+  Chrome reclaims that regardless of what the teardown achieves, so the measurement could not see the
+  case that matters on a phone. The bfcache problem was there the whole time. **Flat desktop memory
+  is not evidence that a page releases anything.**
+- **"Lower the sample rate to halve memory."** Wrong. `decodeAudioData` resamples to the context's
+  rate, so a 24kHz file decodes to as many samples as a 48kHz one. Duration and channels are the only
+  levers.
+
+Also corrected: a four-for-four arithmetic fit is a correlation. Both discarded mechanisms above
+survived that test and died on the first real one.
+
+### Found in the sources
+
+- `multiBeat5`'s `oct` is computed, sent, and overridden — the Pbind binds `\octave` itself, and a
+  Pbind's own keys beat the prototype `Pdef.set` fills in. So tilt does nothing. `ptch` has its send
+  line commented out.
+- **A Pbind key advances per event, not per bar.** The dulcimer shipped with its octave held for a
+  whole bar, which flattened a figure that descends two octaves *inside* one bar. Caught while
+  porting the marimba; regression test checked against the old code.
+- `ssp_marimba` is the fifth def in the collection writing more channels than its output carries.
+
+### Open
+
+- `sidecar/dist/` is still caught by a blanket `dist/` in `.gitignore`, so the 27 compiled defs are
+  not committed — which the plan wanted specifically so a build never needs SuperCollider.
+- Every page stages all 27 authored synthdefs, not the ones it declares.
+- `droplet` hardcodes `FX_BUS = 8`; `dulcimer` derives it from `session.firstPrivateBus`, which is 4.
+  Both work. They should be one thing.
+- The 70MB engine floor is irreducible by every option tested. If a device cannot hold one engine
+  plus 3.7MB of audio, nothing here helps — the next lever would be a single-page app so only one
+  engine ever exists per tab.
