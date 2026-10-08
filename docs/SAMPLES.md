@@ -296,7 +296,7 @@ than its own duration suggests.
 
 ## The pages
 
-Decoded totals are at the AudioContext's 48kHz, measured from `getLoadedBuffers()`. All five are
+Decoded totals are at the AudioContext's 48kHz, measured from `getLoadedBuffers()`. All six are
 under the 3.7MB an iPhone will take.
 
 | page | samples | audio | decoded | shape |
@@ -306,10 +306,25 @@ under the 3.7MB an iPhone will take.
 | `/piano/` | 6 | 10.0s stereo | 3.68MB | nearest-sample, stretched up to 11 semitones |
 | `/marimba/` | 10 | 18.5s mono | 3.39MB | 4-way subdivision, octave walks per event |
 | `/dulcimer/` | 9 | 18.9s mono | 3.46MB | 3-way subdivision, fx tail on a private bus |
+| `/combo/` | 9 | 2.5s mono + 5.0s stereo | 2.27MB | kit, bass and piano on one bar — a subset of two libraries |
 
 The marimba and the dulcimer were stereo and 6.78MB and 9.89MB, and stalled an iPhone at the fourth
 sample. Mono halved both; the dulcimer needed a trim from 3.0s to 2.1s as well, which takes about
 half a second off the end of a 2.6s release.
+
+### The budget forces a choice, not a compression
+
+`/combo/` is the case where the ceiling changed the page rather than the files. The full kit plus the
+full piano library is **6.15MB** decoded, well over the wall — and neither library can be trimmed
+further, since both already ship at the limits above. So the page takes a **subset**: the six
+shortest, most percussive drums instead of twelve, and three piano octaves instead of six. 2.27MB.
+
+Three octaves still cover the range because the nearest-sample lookup stretches, and dropping to
+three keeps every shift inside six semitones — the same argument as
+[Ship only what the lookup can reach](#ship-only-what-the-lookup-can-reach), applied in reverse: not
+*which samples can this pattern reach*, but *how few samples can cover the notes it plays*.
+`tests/e2e/combo.spec.ts` asserts the total from `getLoadedBuffers()`, so adding a drum back has to
+get past the budget rather than past a reviewer.
 
 ### One buffer per page, reused
 

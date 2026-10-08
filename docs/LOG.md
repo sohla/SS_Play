@@ -1084,3 +1084,156 @@ survived that test and died on the first real one.
 - The 70MB engine floor is irreducible by every option tested. If a device cannot hold one engine
   plus 3.7MB of audio, nothing here helps — the next lever would be a single-page app so only one
   engine ever exists per tab.
+
+---
+
+## 2026-10-07 — AirKit's plotter, sensitivity and palette, and a page called combo
+
+Four things ported from `code3.0/` and one page that is not a port. The ported half went in without
+much argument; the one thing that fought back was a single arithmetic choice in sensitivity, and the
+test suite is what caught it.
+
+### Done
+
+- **The plotter**, from `plotterView.scd`. Fifty frames of history, every series overlaid, sampled at
+  33Hz — AirKit yields `0.03` between frames with the comment *"this has a big impact on CPU use"*,
+  so that rate is a measured choice there and is kept. Canvas, no React state: 33 `setState`s a
+  second is exactly what this project's one rule forbids. On **15 pages** now — the thirteen
+  `MotionInstrument` ones plus `droplet` and `imu` by hand.
+- **Each page's own `~plot`**, ported literally with its source named. The bodies vary more than
+  expected: `suz3` plots three gyro axes, `multiBeatSynth1` a computed drone level, `trainMelody2` a
+  curved tilt. Legends come from the p-files' own colour comments.
+- **`shakeRaw` and `turnRaw`** in `@ss/motion`. Nothing maps from them; they exist to be plotted.
+- **Sensitivity**, AirKit's device param, as a second argument to every `map`.
+- **The palette** — black panels, grey labels, `#ffff00` as the single accent, no blues — scoped to
+  an `ak` class so the landing page, the def browser and the touch surface do not become AirKit too.
+- **`/combo/`**: a kit, a moog bass and a piano line on one two-second bar.
+
+### The sensitivity factor is `0.5 / sens`, and the suite is why
+
+AirKit's personalities write `lincurve(v, 0, 2.5 * sens, …)` — the param scales a curve's *input
+span*, which is the same function as scaling the input. So it is one line per mapping at the point
+the reading is already being scaled, rather than one change per curve.
+
+I shipped the plain `1 / sens` first. **Two gentle-versus-hard tests failed immediately**, because
+AirKit's own 0.5 default made every page twice as hot as the thing it was ported from and the gentle
+gesture already saturated. The reasoning I had skipped: the bounds in these mappings came from
+personalities that have no `sens` at all, so those bounds already *are* the effective ones — which
+makes 0.5 the neutral point by construction, not by taste. With `0.5 / sens`, default behaviour is
+identical to before the port and the slider has AirKit's range and direction.
+
+Worth stating plainly: a port whose default is a factor of two off is not a port, and nothing about
+it looks wrong. Two comparative tests caught what reading the source twice had not.
+
+### Sensitivity means three different things, because the inputs are three shapes
+
+AirKit only ever scales a **unipolar** span — `lincurve(v, 0, TOP * sens, …)` starts at zero — so the
+line had to be drawn somewhere, and `droplet` and `imu` are where it showed:
+
+| input | treatment |
+|---|---|
+| a flick, or `shake`, genuinely 0..1 from zero | scaled directly |
+| `roll`/`pitch` through `unipolar()`, centre at 0.5 | the **deviation from centre** is scaled |
+| absolute orientation on `droplet` | left alone — thirty degrees of tilt is thirty degrees |
+| `yaw`, a compass bearing | **skipped**, and the page says which axis it skips |
+
+The middle row is the one that matters: scaling the value rather than the deviation means a flat
+phone stops reading mid-range, and the drone detunes itself when you put it down. The last row is
+there because giving a wrapping bearing something plausible-looking is worse than giving it nothing.
+
+`pluck` keeps a direct multiply, because `pluck1.sc` really does have `2.5 * sens` — one of only four
+personalities that reads the param at all. Its two inverted uses are ported too.
+
+### Kept AirKit's direction even though it reads backwards
+
+A *smaller* sensitivity saturates sooner, so the word and the number point opposite ways. Not
+inverted: a value that means the same thing on both rigs is more use than one that reads better on
+this one. The label carries the explanation instead — `AirKit's number: lower saturates sooner`.
+
+### The colour order is load-bearing
+
+`[yellow, magenta, cyan, red, green, blue]`. Every p-file carries a `// [yellow, magenta, cyan]`
+comment above its `~plot` naming which expression is which colour, so changing the order makes a
+decade of those comments wrong.
+
+Which is why `plotter.spec.ts` reads the colours back **off the canvas pixels**. A Tailwind class
+that was never generated still looks entirely correct in the DOM — the markup is not evidence that
+anything is yellow.
+
+The same lesson from the other direction: `imu.spec.ts` was selecting a bar marker by
+`.bg-emerald-400`, which this palette change would have broken. **A selector that depends on the
+palette breaks every time the palette does.** It uses a `data-testid` now.
+
+### combo: two gestures doing different jobs
+
+Not a port — the mechanisms are AirKit's and named where they are used, but the note material, the
+progression and the layering are new. The shape of it is that the two gestures are different *kinds*
+of gesture:
+
+- **Rotation is smooth.** Turning widens the pitch set and opens the bass filter. Continuous,
+  reversible, nothing lands on a beat.
+- **Acceleration is sharp.** Shaking steps the subdivision between whole numbers, and a hard flick
+  moves the root.
+
+Separable, and tested as such: shaking hard without turning must not open the harmony, and turning
+hard without shaking must not change the rhythm. **Those two tests are the brief.**
+
+The pitch set opens **by consonance rather than by pitch** — `[0, 7, 3, 10, 5, 2, 8]`, so root, fifth
+and third first, then the seventh, fourth, second and minor sixth. Widening never introduces a note
+that argues with what is already sounding; it only gets less bare. Three notes over the bass is
+nearly a drone, seven is the whole natural minor. The mechanism is `circusChoir1.sc`'s
+`range = accelMassFiltered.lincurve(0, 2.0 * sens, 1, notes.size, -2)`, moved onto rotation because
+that is the gesture you can hold.
+
+The root walks `[0, 5, 8, 3]` — i, iv, VI, III, all diatonic, so a shift moves the centre without
+leaving the mode. `arialBass.sc`'s gate: a threshold plus a floor on how often, but **a whole bar
+rather than 0.35 beats**, because a root holding three layers together cannot move on every knock.
+Shifted on the downbeat, so it always lands on a beat.
+
+Three `ClientConductor`s stay in phase for one structural reason: `MotionInstrument` starts and stops
+every `client` instrument on the same level test, so they begin on the same tick. After that it is
+arithmetic — kit at 2, 4 or 8 per bar, bass at 1 or 2, melody at 4 or 8, all powers of two off 2.0s.
+A test asserts the division rather than trusting it, because three schedulers that merely *started*
+together would be three machines within a minute.
+
+### The sample budget forced a real choice
+
+The full kit plus the full piano library is **6.15MB** decoded, well over the ~3.7MB an iPhone will
+take — and neither library can be trimmed further, since both already ship mono and at the limit.
+
+So this is the first page where the ceiling changed the *page* rather than the files: the six
+shortest, most percussive drums instead of twelve, and three piano octaves instead of six. **2.27MB.**
+Three octaves still cover the range because the nearest-sample lookup stretches, and dropping to
+three keeps every shift inside six semitones.
+
+### Smaller things
+
+- The `ss-waiting` loading stripes were a desaturated yellow at 8% alpha, which on the near-black
+  AirKit background read as grey rather than as yellow. `#ffff00` at 26% now — the same colour as
+  `--ak-accent` and the plotter's first trace. Hardcoded rather than `var(--ak-accent)`, because the
+  utility should not depend on being inside an `ak` scope.
+- `droplet` was a straight swap: it already had `plotFrom` returning exactly `droplet.sc`'s three
+  `~plot` values, drawn as bars, so the bars became the traces and the dead `Readout` renderer and
+  its 10Hz state went with them.
+- `imu` gets the plotter **added above** its seven bars rather than replacing them — seven mappings
+  against six colours, and the bars name what each axis drives where a three-item legend cannot. Its
+  plot content is a choice rather than a port, since no p-file sits behind that page.
+- `Mapped.traces` is superseded but kept: a page mid-port may have traces and no `plot` yet.
+
+### Open
+
+- **An intermittent console 404 on `/combo/`**, about one run in three. All nine buffers load every
+  time, and it is invisible to both a response listener and full request interception, so it comes
+  from inside a worker. Nothing functional is affected and I could not pin it down. Logged rather
+  than fixed.
+- `droplet` and `imu` now carry the plotter, sensitivity and the palette, but still roll their own
+  shells — so they are the two places any shell change has to be made twice. `droplet` is a p-file
+  page and is `conductor`-shaped; it probably should use `MotionInstrument`.
+- `sidecar/dist/` is still caught by a blanket `dist/` in `.gitignore`, so the compiled defs are not
+  committed — which the plan wanted specifically so a build never needs SuperCollider.
+- Every page still stages all authored synthdefs, not the ones it declares.
+- `droplet` hardcodes `FX_BUS = 8`; `dulcimer` derives it from `session.firstPrivateBus`, which is 4.
+  Both work. They should be one thing.
+- The 70MB engine floor is still irreducible by every option tested.
+- Nothing here has been on a phone yet. The plotter at 33Hz on a canvas is the part worth checking:
+  the rate was chosen for SuperCollider's CPU cost, not for a mobile browser's compositor.

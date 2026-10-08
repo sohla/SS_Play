@@ -25,6 +25,11 @@ engine would still report success, metrics would still climb, `/n_end` would sti
 
 It works through `startCapture` / `stopCapture`, which hand back the actual rendered samples.
 
+`tests/e2e/combo.spec.ts` is the one other spec that captures, and it deliberately makes a smaller
+claim: **energy and headroom only**, no spectral assertion. Three layers sounding at once is the case
+where clipping would appear, which is worth checking; but "the right sound" for a page whose pitch set
+and subdivision both move with the phone is not a frequency you can name in advance.
+
 ### Five rules that keep it honest
 
 **1. Synchronise on OSC and on the frame counter, never on a clock.** `sync()` before, a
@@ -103,6 +108,31 @@ means the engine produced something rather than the harness always reporting tha
 - **Only the defs named on the provider are loaded at boot.** The capture helper loads a def before
   playing it; without that you get `/fail "SynthDef not found"`, which presents as silence. Every
   audio test asserts no `/fail` arrived.
+
+## Asserting the brief rather than the plumbing
+
+A page spec that only proves the page boots proves the least interesting thing about it. Where a page
+has a stated brief, the spec is written against *that*:
+
+| spec | asserts |
+|---|---|
+| `combo.spec.ts` | the two gestures are **separable** — shaking hard without turning must not open the harmony, and turning hard without shaking must not change the rhythm. Those two tests *are* the brief. Plus: every layer's count per bar is a power of two, the root only visits the four chords in the progression, it moves at most once per 2s bar, and the melody stays inside the pool it was given |
+| `plotter.spec.ts` | that the pages plot the right number of series **in AirKit's colour order**, read back off the canvas pixels |
+| `zz-sens.spec.ts` | that the same fixed gesture at two sensitivities reads differently. Comparative, never absolute |
+
+Two things learned writing them:
+
+- **Read a colour from the canvas, not from the markup.** A Tailwind class that was never generated
+  still looks perfectly correct in the DOM. The only way to know a trace is yellow is to sample the
+  pixel.
+- **A selector that depends on the palette breaks every time the palette does.** `imu.spec.ts` was
+  picking a bar marker by `.bg-emerald-400`; the AirKit palette would have broken it. It uses a
+  `data-testid` now, which is the rule for anything a restyle can move.
+
+A sensitivity test has to be comparative because there is no correct absolute reading — only the
+relation between two. Note also that `playwright.config.ts` sets `workers: 1` and
+`fullyParallel: false`, so specs run serially in filename order, and the `zz-` prefix puts that one
+last.
 
 ## What is still only checked by a person
 

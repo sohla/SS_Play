@@ -57,9 +57,15 @@ and again on the playground after boot — the panels that overflow only exist o
 | `ss-range` | A range input with a 44px hit area and an explicit thumb for WebKit and Gecko |
 | `pane-scroll` | A scrolling pane with `min-width: 0`, so it cannot widen its parent |
 | `pad-safe` | Gutters that clear the notch and the home indicator via `env(safe-area-inset-*)` |
+| `ss-waiting` | The loading stripes — a `repeating-linear-gradient`, so there is nothing to fetch |
+| `ak`, `ak-panel`, `ak-label`, `ak-accent`, `ak-live` | AirKit's palette, scoped to a class rather than set in `@theme` |
 
 Shared rather than copied into each app: `index.css` had already been duplicated three times before
 this, which is how three pages come to disagree about what a slider looks like.
+
+The `ak` utilities are the one group that is **deliberately not global** — the landing page, the def
+browser and the touch surface are not AirKit and should not become it. See
+[UI.md](UI.md#the-airkit-palette) for what is in it and why the yellow is `#ffff00`.
 
 ## What a phone will actually give you
 

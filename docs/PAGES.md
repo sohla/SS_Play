@@ -13,11 +13,18 @@ existing page is the same *shape* as the one you want:
 | sequence in the server | `apps/suz` | a Demand clock, `SendReply`, a voice spawned per event |
 | sequence in JS | `apps/multibeat` | `ClientConductor` with OSC timetags, for a pattern whose shape changes while it plays |
 | sampled | `apps/marimba` | the above plus a buffer set loaded before anything can play |
+| layered | `apps/combo` | several `ClientConductor`s on one shared bar, kept in phase by the shell |
 | bespoke UI | `apps/touch` | no `MotionInstrument`; its own layout and gestures |
 
 The three instrument shapes are described in
 [UI.md](UI.md#the-three-shapes-an-instrument-takes); which one you need is decided by whether the
 pattern's *shape* changes at runtime, not by taste.
+
+Whatever the shape, the shell draws AirKit's plotter and a sensitivity control as soon as the page
+supplies two things: a `plot` returning the values its mapping reads, and a `map` taking
+`(motion, sensitivity)`. Both are in [UI.md](UI.md#the-plotter). A page with no `plot` falls back to
+the static bars, which works and shows much less — if a gesture seems to do nothing, the plotter is
+the thing that says so.
 
 ## 1. Declare it
 
