@@ -1,20 +1,19 @@
 import { expect, test } from '@playwright/test'
 
 /**
- * The thrum page: three vibrotactile layers out of one phone speaker.
+ * The thrum page: one haptic pulse, nine parameters.
  *
- * The unit suite already pins the boundaries this page is built on — the ~6Hz
- * segregation rate, the ~25ms pulse-to-vibration threshold, the five regimes the
- * flutter sweep crosses — because those are arithmetic and belong where they are
- * cheap. What only a browser can say is that the two mechanisms actually run:
- * that the Demand clock spawns taps and frees them, that the held bed answers to
- * a control at 30Hz, and that three layers at once make a sound without clipping.
+ * `apps/thrum/test/pulse.test.ts` already pins what each parameter does to the
+ * mapping, and does it across hundreds of values in milliseconds. What only a
+ * browser can show is that the panel reaches the engine at all, that the page
+ * sounds with the device completely still, and that no setting clips.
  *
- * What nothing here can say is whether any of it is *felt*. That needs a hand.
+ * What nothing here can say is whether any of it is *felt*. That is the page's
+ * entire purpose and it needs a hand.
  */
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
-test.setTimeout(300_000)
+test.setTimeout(180_000)
 
 const boot = async (page: import('@playwright/test').Page) => {
   await page.goto('/thrum/?debug=1')
@@ -25,60 +24,124 @@ const boot = async (page: import('@playwright/test').Page) => {
 const value = (page: import('@playwright/test').Page, name: string) =>
   page.locator(`[data-testid="value-${name}"]`).innerText()
 
-/**
- * Drive the two gestures independently, which is the only way to show they are
- * independent. `spin` is rotation rate, `force` is linear acceleration.
- *
- * **Awaits its own duration**, and that is the whole point of the wrapper. The
- * evaluate only *arms* an interval and returns at once, so two of these called
- * in sequence overlap: the first call is still dispatching its rotation while
- * the second is supposed to be showing what shaking alone does. Written the
- * obvious way, the separability test above passed its rotation reading straight
- * into its acceleration reading and compared a number with itself.
- */
-const move = async (
-  page: import('@playwright/test').Page,
-  { spin, force, ms, beta = 20 }: { spin: number; force: number; ms: number; beta?: number },
-) => {
-  await page.evaluate(
-    ([rate, accel, duration, tilt]) => {
-      const tick = setInterval(() => {
-        window.dispatchEvent(
-          new DeviceOrientationEvent('deviceorientation', {
-            alpha: 0,
-            beta: tilt as number,
-            gamma: 25,
-          }),
-        )
-        window.dispatchEvent(
-          new DeviceMotionEvent('devicemotion', {
-            acceleration: { x: accel as number, y: accel as number, z: accel as number },
-            rotationRate: {
-              alpha: rate as number,
-              beta: rate as number,
-              gamma: rate as number,
-            },
-          }),
-        )
-      }, 16)
-      setTimeout(() => clearInterval(tick), duration as number)
-    },
-    [spin, force, ms, beta] as const,
-  )
+const voices = (page: import('@playwright/test').Page) =>
+  page
+    .locator('[data-testid=voices]')
+    .innerText()
+    .then((text) => Number(text.replace(/\D/g, '')))
 
-  await page.waitForTimeout(ms + 200)
-}
+const measure = (page: import('@playwright/test').Page) =>
+  page.evaluate(async () => {
+    const sonic = (
+      window as unknown as {
+        __ss: {
+          sonic: {
+            startCapture(): void
+            stopCapture(): { frames: number; left: Float32Array }
+            getCaptureFrames(): number
+          }
+        }
+      }
+    ).__ss.sonic
 
-/**
- * Keep orientation events arriving with no movement in them.
- *
- * Not the same as waiting. `shake` and `turn` decay on each incoming event, so a
- * page that simply stops receiving them holds its last reading for ever — the
- * clock keeps running and the bed keeps sounding. Putting the phone down has to
- * be simulated as events, because that is what a phone on a table sends.
- */
-const hold = async (page: import('@playwright/test').Page, ms: number) => {
-  await page.evaluate((duration) => {
+    sonic.startCapture()
+    const deadline = performance.now() + 5000
+    while (sonic.getCaptureFrames() < 48_000 && performance.now() < deadline) {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    const taken = sonic.stopCapture()
+
+    let sumSquares = 0
+    let peak = 0
+    const from = Math.floor(taken.frames * 0.1)
+    const to = Math.floor(taken.frames * 0.9)
+    for (let at = from; at < to; at++) {
+      const v = taken.left[at] ?? 0
+      sumSquares += v * v
+      if (Math.abs(v) > peak) peak = Math.abs(v)
+    }
+    return { rms: Math.sqrt(sumSquares / Math.max(1, to - from)), peak }
+  })
+
+test('it is already running when the page opens, with nothing touched', async ({ page }) => {
+  await boot(page)
+  await page.waitForTimeout(1200)
+
+  // Not one orientation or motion event is dispatched in this test. Every other
+  // page here is silent until moved, and this one must not be: it is a bench for
+  // judging a vibration, and a vibration cannot be judged while shaking the
+  // thing producing it. Free run is on by default and wakes the shell itself.
+  await expect(page.locator('[data-testid=playing]')).not.toContainText('stopped')
+  await expect(page.locator('[data-testid=ctl-free-run]')).toBeChecked()
+
+  const heard = await measure(page)
+  expect(heard.rms, 'the page opened silent').toBeGreaterThan(0.002)
+  expect(heard.peak, 'the page clipped at its defaults').toBeLessThan(0.99)
+
+  // One held voice and nothing else. No clock, no spawned taps.
+  expect(await voices(page)).toBe(1)
+})
+
+test('every one of the nine parameters reaches the engine', async ({ page }) => {
+  await boot(page)
+
+  // The panel's whole value is that a hand can move one thing and trust the
+  // number it reads back. If a slider is wired to the wrong control, or to
+  // nothing, the page still makes a noise and still looks right.
+  const cases: [testId: string, set: string, readout: string, expected: string][] = [
+    ['carrier', '140', 'carrier', '140Hz'],
+    ['rate', '30', 'rate', '30.0Hz flutter'],
+    ['decay', '0.004', 'decay', '4ms tap'],
+    ['attack', '0.03', 'attack', '30.00ms'],
+    ['curve', '0', 'curve', '0.0 linear'],
+    ['overdrive', '3.5', 'overdrive', 'x3.5'],
+    ['transient', '0', 'transient', 'off'],
+    ['sharpness', '0.9', 'sharpness', '0.90'],
+  ]
+
+  for (const [testId, set, readout, expected] of cases) {
+    await page.locator(`[data-testid=ctl-${testId}]`).fill(set)
+    await expect
+      .poll(() => value(page, readout), { timeout: 10_000 })
+      .toBe(expected)
+  }
+
+  // Intensity is reported twice — the slider and the amplitude it produces —
+  // because the Stevens correction between them is wide enough to read as a bug.
+  await page.locator('[data-testid=ctl-intensity]').fill('0.5')
+  await expect.poll(() => value(page, 'intensity'), { timeout: 10_000 }).toBe('0.50 amp 0.31')
+})
+
+test('it still sounds, and does not clip, at the extremes of the envelope', async ({ page }) => {
+  await boot(page)
+
+  // The corners most likely to break: a 3ms pulse with maximum overdrive at the
+  // fused rate, and a 500ms pulse that overlaps itself many times over.
+  await page.locator('[data-testid=ctl-intensity]').fill('1')
+  await page.locator('[data-testid=ctl-overdrive]').fill('6')
+  await page.locator('[data-testid=ctl-decay]').fill('0.003')
+  await page.locator('[data-testid=ctl-rate]').fill('90')
+  await page.waitForTimeout(900)
+
+  const sharp = await measure(page)
+  expect(sharp.rms, 'short pulses at a fused rate produced nothing').toBeGreaterThan(0.002)
+  expect(sharp.peak, 'short pulses at full overdrive clipped').toBeLessThan(0.99)
+
+  await page.locator('[data-testid=ctl-decay]').fill('0.5')
+  await page.waitForTimeout(900)
+
+  const long = await measure(page)
+  expect(long.rms, 'long overlapping pulses produced nothing').toBeGreaterThan(0.002)
+  expect(long.peak, 'long overlapping pulses clipped').toBeLessThan(0.99)
+})
+
+test('turning free run off hands the page back to the gestures', async ({ page }) => {
+  await boot(page)
+  await page.locator('[data-testid=ctl-free-run]').uncheck()
+
+  // And with it off, a still device must go quiet again — the ordinary rule for
+  // every page here, which this one only suspends while free running.
+  await page.evaluate(() => {
     const tick = setInterval(() => {
       window.dispatchEvent(
         new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 20, gamma: 25 }),
@@ -90,284 +153,9 @@ const hold = async (page: import('@playwright/test').Page, ms: number) => {
         }),
       )
     }, 16)
-    setTimeout(() => clearInterval(tick), duration as number)
-  }, ms)
-
-  await page.waitForTimeout(ms + 200)
-}
-
-const voices = (page: import('@playwright/test').Page) =>
-  page
-    .locator('[data-testid=voices]')
-    .innerText()
-    .then((text) => Number(text.replace(/\D/g, '')))
-
-test('the tap clock spawns voices and every one of them frees itself', async ({ page }) => {
-  await boot(page)
-
-  // Shake only. The tap layer is the one that allocates, and a percussive voice
-  // with no sustain is exactly where a missing doneAction hides: the page sounds
-  // right for thirty seconds and then silently runs out of nodes.
-  await move(page, { spin: 0, force: 10, ms: 6000 })
-
-  // Six seconds at the top of the rate curve is ~35 taps. The threshold is low
-  // enough to survive a slow runner and far enough above zero to mean the clock
-  // ran rather than fired once.
-  const spawned = Number(await value(page, 'events'))
-  expect(spawned, 'the clock reported no taps').toBeGreaterThan(10)
-
-  // Then put it down. Two synths are permanent here and not one: the clock and
-  // the held bed. Every tap lives at most 25ms, so once the shaking stops there
-  // can be nothing else left — and the count above proves there was something
-  // to free.
-  await hold(page, 4000)
-  await expect.poll(() => voices(page), { timeout: 15_000 }).toBe(2)
-})
-
-test('the three gestures reach three different layers', async ({ page }) => {
-  await boot(page)
-
-  // Turn without shaking: the flutter must move and the taps must not strike.
-  await move(page, { spin: 320, force: 0.2, ms: 4000 })
-  const turnedFlutter = Number((await value(page, 'flut')).split('Hz')[0])
-  const turnedStrike = Number(await value(page, 'strike'))
-
-  // Put it down in between, so the first gesture has actually decayed before the
-  // second is measured. Without this the two readings share a tail.
-  await hold(page, 3000)
-
-  // Shake without turning: the opposite.
-  await move(page, { spin: 0, force: 11, ms: 4000 })
-  const shakenFlutter = Number((await value(page, 'flut')).split('Hz')[0])
-  const shakenStrike = Number(await value(page, 'strike'))
-
-  expect(turnedFlutter, 'turning did not raise the flutter rate').toBeGreaterThan(shakenFlutter)
-  expect(shakenStrike, 'shaking did not strike').toBeGreaterThan(turnedStrike)
-})
-
-test('the flutter sweep is reported as a named regime, not just a rate', async ({ page }) => {
-  await boot(page)
-
-  // The readout that says what the instrument is doing rather than what its
-  // numbers are. Hard rotation has to reach the fused end of the sweep.
-  await move(page, { spin: 400, force: 0.2, ms: 5000 })
-
-  const felt = await value(page, 'flut')
-  expect(
-    ['flutter', 'rough', 'fused'].some((name) => felt.includes(name)),
-    `hard rotation reported "${felt}"`,
-  ).toBe(true)
-})
-
-test('three layers at once sound, and do not clip', async ({ page }) => {
-  await boot(page)
-
-  // Everything at once: shaken, turned and tilted. This is the case where three
-  // claims on the same diaphragm travel would show up as clipping, which is what
-  // the ducking and the shared limiter exist to prevent.
-  await move(page, { spin: 300, force: 10, ms: 6000, beta: 70 })
-
-  const heard = await page.evaluate(async () => {
-    const sonic = (
-      window as unknown as {
-        __ss: {
-          sonic: {
-            startCapture(): void
-            stopCapture(): { frames: number; left: Float32Array }
-            getCaptureFrames(): number
-          }
-        }
-      }
-    ).__ss.sonic
-
-    sonic.startCapture()
-    const deadline = performance.now() + 5000
-    while (sonic.getCaptureFrames() < 48_000 && performance.now() < deadline) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-    }
-    const taken = sonic.stopCapture()
-
-    let sumSquares = 0
-    let peak = 0
-    const from = Math.floor(taken.frames * 0.1)
-    const to = Math.floor(taken.frames * 0.9)
-    for (let at = from; at < to; at++) {
-      const value = taken.left[at] ?? 0
-      sumSquares += value * value
-      if (Math.abs(value) > peak) peak = Math.abs(value)
-    }
-    return { rms: Math.sqrt(sumSquares / Math.max(1, to - from)), peak }
+    setTimeout(() => clearInterval(tick), 3000)
   })
+  await page.waitForTimeout(3600)
 
-  expect(heard.rms, 'three layers driven hard produced no signal').toBeGreaterThan(0.002)
-  expect(heard.peak, 'the shared limiter did not hold').toBeLessThan(0.99)
-})
-
-test('a still phone is silent, however it is being held', async ({ page }) => {
-  await boot(page)
-
-  // Tilt is the one input that does not return to zero on its own, so it is the
-  // one that could leave a page droning on a desk. Orientation events only: no
-  // acceleration, no rotation.
-  await page.evaluate(() =>
-    window.dispatchEvent(
-      new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 75, gamma: 40 }),
-    ),
-  )
-  await page.waitForTimeout(1500)
-
-  expect(Number(await value(page, 'bed'))).toBe(0)
   await expect(page.locator('[data-testid=playing]')).toContainText('stopped')
-})
-
-/**
- * The control panel, which exists because the first report from a hand was that
- * the taps were too short to feel.
- *
- * `apps/thrum/test/layers.test.ts` already pins what each control does to the
- * mapping. What only a browser can show is that the panel reaches the engine at
- * all — and, for free run, that the page sounds with the device completely
- * still, which is the one thing the shell is otherwise careful to prevent.
- */
-test('free run sounds with no sensor events whatsoever', async ({ page }) => {
-  await boot(page)
-
-  // Not one orientation or motion event is dispatched in this test. On a desktop
-  // none arrive on their own either, so `motion.live` is false and the shell
-  // sends nothing — which is correct for every other page and would make free
-  // run silently useless. The toggle wakes the shell itself.
-  await page.locator('[data-testid=ctl-free-run]').check()
-  await page.waitForTimeout(1500)
-
-  // The badge shows the event count when it is sounding and "stopped — move to
-  // start" when it is not, so the absence of the second is the assertion. There
-  // is no literal "playing" in it.
-  await expect(page.locator('[data-testid=playing]')).not.toContainText('stopped')
-  await expect.poll(() => value(page, 'events'), { timeout: 15_000 }).not.toBe('0')
-
-  const heard = await page.evaluate(async () => {
-    const sonic = (
-      window as unknown as {
-        __ss: {
-          sonic: {
-            startCapture(): void
-            stopCapture(): { frames: number; left: Float32Array }
-            getCaptureFrames(): number
-          }
-        }
-      }
-    ).__ss.sonic
-
-    sonic.startCapture()
-    const deadline = performance.now() + 5000
-    while (sonic.getCaptureFrames() < 48_000 && performance.now() < deadline) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-    }
-    const taken = sonic.stopCapture()
-
-    let sumSquares = 0
-    let peak = 0
-    const from = Math.floor(taken.frames * 0.1)
-    const to = Math.floor(taken.frames * 0.9)
-    for (let at = from; at < to; at++) {
-      const v = taken.left[at] ?? 0
-      sumSquares += v * v
-      if (Math.abs(v) > peak) peak = Math.abs(v)
-    }
-    return { rms: Math.sqrt(sumSquares / Math.max(1, to - from)), peak }
-  })
-
-  expect(heard.rms, 'free run produced no signal from a still device').toBeGreaterThan(0.002)
-  expect(heard.peak, 'free run clipped').toBeLessThan(0.99)
-})
-
-test('the pulse control crosses the tap/buzz boundary and says which side it is on', async ({
-  page,
-}) => {
-  await boot(page)
-  await page.locator('[data-testid=ctl-free-run]').check()
-
-  // The readout names the side rather than only the number, the same way the
-  // flutter rate is reported as a named regime. 30ms means nothing on its own.
-  await page.locator('[data-testid=ctl-tapLength]').fill('0.005')
-  await expect.poll(() => value(page, 'tap len'), { timeout: 10_000 }).toContain('tap')
-
-  await page.locator('[data-testid=ctl-tapLength]').fill('0.3')
-  await expect.poll(() => value(page, 'tap len'), { timeout: 10_000 }).toContain('buzz')
-})
-
-test('muting all three layers silences the page without stopping it', async ({ page }) => {
-  await boot(page)
-  await page.locator('[data-testid=ctl-free-run]').check()
-  await page.waitForTimeout(800)
-
-  for (const layer of ['taps', 'flutter', 'carrier']) {
-    await page.locator(`[data-testid=ctl-mute-${layer}]`).uncheck()
-  }
-  await page.waitForTimeout(1200)
-
-  // The bed is a held voice: muted means zero amplitude, not freed. And the taps
-  // mute by closing the clock's own gate, so the node count must come back to
-  // the two permanent synths rather than carrying silent voices.
-  expect(Number(await value(page, 'bed'))).toBe(0)
-  await expect.poll(() => voices(page), { timeout: 15_000 }).toBe(2)
-})
-
-test('each layer has its own pitch and its own length, reaching the engine separately', async ({
-  page,
-}) => {
-  await boot(page)
-  await page.locator('[data-testid=ctl-free-run]').check()
-
-  // The thing three rounds of feedback were about. Set every layer differently
-  // and read all three back: a page where any two were still coupled would show
-  // the same number twice.
-  await page.locator('[data-testid=ctl-tapPitch]').fill('120')
-  await page.locator('[data-testid=ctl-flutPitch]').fill('400')
-  await page.locator('[data-testid=ctl-carPitch]').fill('250')
-  await page.locator('[data-testid=ctl-tapLength]').fill('0.25')
-  await page.locator('[data-testid=ctl-flutLength]').fill('0.005')
-  await page.waitForTimeout(800)
-
-  expect(await value(page, 'tap Hz')).toBe('120')
-  expect(await value(page, 'flut Hz')).toBe('400')
-  expect(await value(page, 'carrier')).toBe('250Hz')
-  expect(await value(page, 'tap len')).toContain('250ms')
-  expect(await value(page, 'flut len')).toContain('5ms')
-
-  // And it still makes a sound with all three set apart, which is the case where
-  // two oscillators at different frequencies could cancel or clip.
-  const heard = await page.evaluate(async () => {
-    const sonic = (
-      window as unknown as {
-        __ss: {
-          sonic: {
-            startCapture(): void
-            stopCapture(): { frames: number; left: Float32Array }
-            getCaptureFrames(): number
-          }
-        }
-      }
-    ).__ss.sonic
-
-    sonic.startCapture()
-    const deadline = performance.now() + 5000
-    while (sonic.getCaptureFrames() < 48_000 && performance.now() < deadline) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-    }
-    const taken = sonic.stopCapture()
-    let sumSquares = 0
-    let peak = 0
-    const from = Math.floor(taken.frames * 0.1)
-    const to = Math.floor(taken.frames * 0.9)
-    for (let at = from; at < to; at++) {
-      const v = taken.left[at] ?? 0
-      sumSquares += v * v
-      if (Math.abs(v) > peak) peak = Math.abs(v)
-    }
-    return { rms: Math.sqrt(sumSquares / Math.max(1, to - from)), peak }
-  })
-
-  expect(heard.rms, 'three layers at three pitches produced no signal').toBeGreaterThan(0.002)
-  expect(heard.peak, 'three layers at three pitches clipped').toBeLessThan(0.99)
 })

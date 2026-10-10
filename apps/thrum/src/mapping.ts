@@ -1,186 +1,138 @@
-import { lincurve, unipolar, type Motion } from '@ss/motion'
+import { lincurve, type Motion } from '@ss/motion'
 import type { Mapped } from '@ss/ui'
 
 /**
- * `thrum`: sound designed to be felt rather than heard.
+ * `thrum`: one haptic pulse, with every parameter the research says matters on a
+ * slider.
  *
- * Not a port. There is no p-file behind this page — the mechanisms are AirKit's
- * and named where they are used, but what the page is *for* comes from the
- * vibrotactile literature rather than from a personality.
+ * ## What the earlier versions got wrong
  *
- * ## Why a phone speaker can do this at all
+ * Three layers, each eventually with its own pitch, rate and length — and the
+ * page was still unfeelable. The structure was never the problem. **The pulse
+ * itself had no controls.** Its envelope, its onset, its two halves and their
+ * balance were baked into the SynthDef, chosen from the literature, and
+ * therefore wrong in exactly the way a literature value is wrong: correct about
+ * a population, and silent about one hand holding one speaker.
  *
- * A microspeaker's system resonance sits around 800Hz-1kHz and its output falls
- * 12dB/octave below that, which reads as "a phone has no bass" and is usually
- * the end of the story. The useful half of that fact is less often said: below
- * the cutoff the diaphragm's **excursion goes roughly constant while radiated
- * level falls as f²**. The drive does not disappear, it stops becoming sound and
- * starts becoming movement. So the sub-cutoff band is not the band a phone is
- * bad at — it is the band where a phone is a vibrator rather than a speaker.
+ * So: one layer, and nine parameters.
  *
- * This page works the speaker there on purpose.
+ * ## The pulse is an impulse followed by a decaying tone
  *
- * ## Why 250Hz and not 40Hz
+ * Which is what a real actuator does, modelled directly rather than by analogy:
  *
- * The instinct for anything felt is to go as low as possible, and it is wrong
- * twice over. The vibrotactile detection threshold for glabrous skin is a
- * U-curve with its minimum at **250Hz** — the Pacinian channel's 250-300Hz
- * maximum, where the hand can detect displacements on the order of nanometres.
- * At 40Hz the skin is an order of magnitude less sensitive *and* the speaker has
- * run out of travel. 250Hz is simultaneously the most-felt frequency available
- * and comfortably inside the band the diaphragm can still move through, which
- * is not a coincidence anyone here arranged: it is why phone actuators resonate
- * between 150 and 235Hz.
+ *   transient   a few ms of band-passed noise    the edge, mostly heard
+ *   tone        a decaying sinusoid near 250Hz   the body, mostly felt
+ *   overdrive   a brief boost on the onset       gets the mass moving at all
  *
- * ## Why the three layers are three rates
+ * The overdrive is borrowed from haptic driver ICs — TI's DRV2605 applies a
+ * short higher-voltage kick at onset to overcome the actuator's inertia, because
+ * a mass on a spring takes time to reach amplitude and a click that arrives late
+ * is not a click. A diaphragm has the same problem and the same fix.
  *
- * The layers are the three mechanoreceptor channels, and each one is a *rate*
- * regime rather than a sound. Which means the page has one real axis — how
- * often something happens — and crossing a boundary on it changes what the hand
- * is holding without changing its pitch or its level:
+ * Its counterpart, **braking** (driving in antiphase to stop the mass dead), is
+ * deliberately absent: it exists because a physical mass rings on after the
+ * drive stops, and a synthesised envelope does not. Braking and "shorten the
+ * decay" would be one control wearing two names.
  *
- *   1  taps      ≤ ~6Hz      SA-I     separate, countable events
- *   2  flutter   16-32Hz     RA-I     a rhythmic flutter
- *   3  carrier   35-500Hz    RA-II    one smooth continuous buzz
+ * ## Where each default comes from
  *
- * The other load-bearing number is **25-30ms**: the duration at which a burst
- * stops being felt as a discrete pulse and becomes a continuous vibration. It is
- * near-constant from 40Hz to 590Hz, unlike its auditory equivalent — so in this
- * instrument *length decides category and pitch does not*. Which is a trade-off
- * and not a cap: see docs/HAPTICS.md, and the `length` controls below.
+ * | | | |
+ * |---|---|---|
+ * | `carrier` | 250Hz | the minimum of the vibrotactile threshold curve for glabrous skin; phone LRAs sit at 125-300Hz for the same reason |
+ * | `decay` | 60ms | *above* the 25-30ms tap/vibration boundary on purpose — see below |
+ * | `intensity` | 0.75 | applied as `intensity^(1/0.6)`, because subjective magnitude grows as amplitude^0.6 at 250Hz |
+ * | `rate` | 4Hz | under the ~6.3Hz critical segregation rate, so pulses stay countable |
+ * | `sharpness` | 0.5 | Core Haptics' own parameter, where it is the "clickiness" of a transient |
+ *
+ * **Why `decay` defaults above the boundary.** A burst stops being felt as a
+ * discrete pulse at about 25-30ms, so under that is where a crisp tap lives. But
+ * the Pacinian channel — the one 250Hz addresses — summates energy over roughly
+ * a second, so its detection threshold *falls* as duration rises. A burst short
+ * enough to read unambiguously as a tap is close to the least detectable thing
+ * this transducer can produce. That is not something to optimise; it is a
+ * trade-off to hand over, which is why the range crosses it and the readout says
+ * which side you are on.
  */
 
-/**
- * Must match `level > 0.02` inside `ssp_thrum_clock`.
- *
- * The clock gates its own trigger in the graph, so this constant and that
- * comparison are one decision written in two places. They disagree silently: the
- * page would show `playing` while the server sat below its threshold.
- */
+/** Matches the threshold the shell uses for its own playing badge. */
 export const SILENCE_BELOW = 0.02
 
 /** The tap/vibration boundary, in seconds. Reported, never enforced. */
 export const TAP_BOUNDARY_S = 0.025
 
 /**
- * Every layer's pitch and length, independently.
+ * The Stevens exponent for vibrotactile magnitude at 250Hz on the finger.
  *
- * Three rounds of feedback from a hand got this file here, and each one removed
- * something clever rather than adding something:
+ * Perceived magnitude grows as amplitude^0.6, so a physically linear amplitude
+ * control feels compressive — most of the change crowds into the bottom of the
+ * travel. The graph raises `intensity` to `1 / STEVENS` to straighten it.
  *
- * 1. *"the short glitches are so short i don't feel like i can feel them"* — the
- *    envelope lengths were capped under 25ms to keep taps reading as taps, and
- *    that is the duration where the Pacinian channel is least sensitive. Capped
- *    became adjustable.
- * 2. *"no width control"* — burst length had been shipped as "pulse", which is a
- *    different control from pulse *width*. Both exist now.
- * 3. *"flutter needs its own pitch and length control as does tap … you seem to
- *    be guessing a bit and over complicating"* — correct. Three things were
- *    shared because sharing them was defensible on paper, and each one removed a
- *    question the instrument needed to be able to ask:
+ * Frequency-dependent: it is 0.95 at 60Hz. So this correction belongs to this
+ * carrier rather than to vibration in general, and would be wrong if the carrier
+ * were taken to the bottom of its range.
+ */
+export const STEVENS = 0.6
+
+/**
+ * Nine parameters, each with a default from the literature and a range round it.
  *
- *    - the flutter and the carrier shared one oscillator, so the flutter had no
- *      pitch of its own
- *    - the taps took their pitch from the carrier through a sequence of ratios,
- *      so they had no pitch of their own either
- *    - one `length` fed both the taps and the flutter
- *
- *    Plus two demand sequences moving tap pitch and hardness on their own, which
- *    meant no two taps were the same stimulus — so a hand trying to find a
- *    setting was comparing things that had never been equal.
- *
- * What is left is a grid. **One pitch and one length per layer, nothing derived
- * from anything else.** The shape controls are deliberately global, because they
- * describe the waveform rather than a layer.
+ * No layer owns any of them, because there is one layer, and nothing is derived
+ * from anything else.
  */
 export interface Controls {
-  /** Layer 1 — the taps. */
-  tapPitch: number
-  tapLength: number
-  /** Taps per second. Free run only; otherwise shake sets it. */
-  tapRate: number
-
-  /** Layer 2 — the flutter. */
-  flutPitch: number
-  flutLength: number
-  /** Pulses per second. Free run only; otherwise turning sets it. */
-  flutRate: number
-
-  /** Layer 3 — the carrier, which is continuous and so has no length. */
-  carPitch: number
-
-  /**
-   * Duty cycle, 0.02..0.5 — a real pulse width, shared by all three layers.
-   *
-   * 0.5 is a square: fundamental at 4/π of the peak, so ~27% more excursion than
-   * a sine for the same headroom, and the most felt setting. Narrowing moves
-   * energy into harmonics above the speaker's cutoff — louder to the ear,
-   * thinner to the hand. No setting is good at both: the sharp edges that make a
-   * waveform bright are the edges that move the diaphragm.
-   */
-  width: number
-  /**
-   * Onset time. The glitchiness control.
-   *
-   * 0.2ms is a click. 60ms has no transient left and the burst swells in.
-   */
+  /** Hz. The felt frequency. */
+  carrier: number
+  /** Hz. How often the pulse retriggers. */
+  rate: number
+  /** 0..1, perceptually linearised in the graph. */
+  intensity: number
+  /** Seconds. Onset time: a click at the bottom, a swell at the top. */
   attack: number
-  /** The audible 2.5kHz tick on each tap. Zero is a legitimate setting. */
-  click: number
-  /** Master level into both limiters. */
-  drive: number
-
+  /** Seconds. The tone's decay — the control the first version did not have. */
+  decay: number
+  /** Envelope curve. Negative is a resonant decay, 0 linear, positive holds. */
+  curve: number
+  /** 1 is no boost. The onset kick, borrowed from LRA drivers. */
+  overdrive: number
+  /** 0..1. Level of the impulse half. */
+  transient: number
+  /** 0..1. Core Haptics' "clickiness" — the band the transient lives in. */
+  sharpness: number
   /**
    * Sound at these settings with the phone held still.
    *
-   * Judging a vibration while shaking the thing producing it is close to
-   * impossible, so this replaces the three gestures with the sliders above.
-   * **The one rule: in free run every slider is exact; in gesture mode the
-   * gestures modulate.**
+   * **On by default**, which is a change from every other page here. This one is
+   * a test bench: the question it exists to answer is what a particular hand can
+   * feel, and a vibration cannot be judged while shaking the thing producing it.
+   * Turn it off and shake drives intensity, turning drives rate.
    */
   freeRun: boolean
-  muteTaps: boolean
-  muteFlutter: boolean
-  muteCarrier: boolean
 }
 
 export const DEFAULT_CONTROLS: Controls = {
-  tapPitch: 250,
-  tapLength: 0.012,
-  tapRate: 3,
-  flutPitch: 250,
-  flutLength: 0.012,
-  flutRate: 18,
-  carPitch: 250,
-  width: 0.5,
+  carrier: 250,
+  rate: 4,
+  intensity: 0.75,
   attack: 0.001,
-  click: 0.35,
-  drive: 0.8,
-  freeRun: false,
-  muteTaps: false,
-  muteFlutter: false,
-  muteCarrier: false,
+  decay: 0.06,
+  curve: -4,
+  overdrive: 1,
+  transient: 0.3,
+  sharpness: 0.5,
+  freeRun: true,
 }
 
-/**
- * Every slider's range, matching the specs the three defs declare.
- *
- * The three pitch ranges are 60-600Hz, widened from the old 150-320Hz. 250Hz is
- * where skin is most sensitive *on average*, and an average is not a hand — the
- * only way to find out where one device works is to be able to look outside it.
- */
+/** Every range, matching the specs `ssp_thrum` declares. */
 export const RANGES = {
-  tapPitch: { min: 60, max: 600 },
-  tapLength: { min: 0.003, max: 0.4 },
-  tapRate: { min: 0.8, max: 6 },
-  flutPitch: { min: 60, max: 600 },
-  flutLength: { min: 0.003, max: 0.4 },
-  flutRate: { min: 4, max: 90 },
-  carPitch: { min: 60, max: 600 },
-  width: { min: 0.02, max: 0.5 },
-  attack: { min: 0.0002, max: 0.06 },
-  click: { min: 0, max: 0.6 },
-  drive: { min: 0, max: 1 },
+  carrier: { min: 60, max: 600 },
+  rate: { min: 0.5, max: 90 },
+  intensity: { min: 0, max: 1 },
+  attack: { min: 0.0001, max: 0.05 },
+  decay: { min: 0.003, max: 0.5 },
+  curve: { min: -8, max: 4 },
+  overdrive: { min: 1, max: 6 },
+  transient: { min: 0, max: 1 },
+  sharpness: { min: 0, max: 1 },
 } as const
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -189,13 +141,12 @@ const held = (value: number, key: keyof typeof RANGES) =>
   clamp(value, RANGES[key].min, RANGES[key].max)
 
 /**
- * What a pulse rate is felt as, in order.
+ * What a retrigger rate is felt as, in order.
  *
- * The boundaries from the psychophysics, not a scale someone liked: below about
- * 6.3Hz the pulses of a periodic stimulus stay segregated and can be counted;
- * between roughly 16 and 32Hz they take on a flutter quality; past 50-80Hz they
- * fuse into something smooth. The two gaps are genuinely gaps — the percept in
- * them is neither thing.
+ * The boundaries from the psychophysics rather than a scale someone liked: below
+ * about 6.3Hz the pulses stay segregated and can be counted; between roughly 16
+ * and 32Hz they take on a flutter quality; past 50-80Hz they fuse into something
+ * smooth. The two gaps are genuinely gaps — the percept in them is neither.
  */
 export const REGIMES: readonly { readonly below: number; readonly name: string }[] = [
   { below: 6.3, name: 'discrete' },
@@ -209,55 +160,47 @@ export function regimeOf(rate: number): string {
   return REGIMES.find((regime) => rate < regime.below)?.name ?? 'fused'
 }
 
-/** Which side of the tap/vibration boundary a length is on. */
-export function pulseReads(seconds: number): string {
+/** Which side of the tap/vibration boundary a decay is on. */
+export function decayReads(seconds: number): string {
   if (seconds < TAP_BOUNDARY_S * 0.6) return 'tap'
   if (seconds < TAP_BOUNDARY_S * 1.4) return 'edge'
   return 'buzz'
 }
 
-/** Which way a duty cycle is trading the two senses. */
-export function widthReads(width: number): string {
-  if (width > 0.38) return 'fat, felt'
-  if (width > 0.18) return 'mid'
-  return 'thin, heard'
-}
-
-/** Everything the three layers need, before it is split across two synths. */
-export interface Thrum {
-  /** Clock: seconds between taps, the tap pitch, and the clock's second gate. */
-  dur: number
-  tapFreq: number
-  strike: number
-  /** Tap voice. */
-  tapLength: number
-  tapAmp: number
-  /** Bed, layer two. */
-  flutFreq: number
-  flutRate: number
-  flutLength: number
-  flutAmp: number
-  /** Bed, layer three. */
-  carFreq: number
-  carAmp: number
-  /** Shape, shared. */
-  width: number
-  attack: number
-  clickAmp: number
-  /** Whether the hand is doing anything. Gates the clock and the badge. */
-  level: number
-  bedAmp: number
-  /** The three layers' drive, 0..1, for the plotter. */
-  drive: readonly [taps: number, flutter: number, carrier: number]
+/** The envelope shape, named. */
+export function curveReads(curve: number): string {
+  if (curve < -2) return 'struck'
+  if (curve < -0.5) return 'soft'
+  if (curve <= 0.5) return 'linear'
+  return 'held'
 }
 
 /**
- * The gesture drive free run stands in for.
+ * The amplitude an intensity setting actually produces.
  *
- * 0.7 rather than 1: it leaves all three layers audible at once, which is what
- * auditioning them needs.
+ * Shown on the page as well as applied, because the gap is wide enough to look
+ * like a bug if you only see one of the two numbers: at 0.5 the amplitude is
+ * 0.31.
  */
-const FREE_DRIVE = 0.7
+export function amplitudeOf(intensity: number): number {
+  return clamp(intensity, 0, 1) ** (1 / STEVENS)
+}
+
+export interface Thrum {
+  carrier: number
+  rate: number
+  intensity: number
+  attack: number
+  decay: number
+  curve: number
+  overdrive: number
+  transient: number
+  sharpness: number
+  /** Drives the shell's playing badge. */
+  level: number
+  /** Three traces for the plotter. */
+  drive: readonly [intensity: number, raw: number, filtered: number]
+}
 
 export function thrumFrom(
   motion: Motion,
@@ -267,86 +210,37 @@ export function thrumFrom(
   // Sensitivity, AirKit style, on the two movement spans and nothing else. The
   // factor is `0.5 / sens` rather than `1 / sens` for the reason every mapping
   // here says: the bounds below are the effective ones, so AirKit's 0.5 default
-  // has to be the neutral point or the page arrives twice as hot as it was tuned.
+  // has to be the neutral point.
   const gain = 0.5 / Math.max(0.05, sensitivity)
+  const mass = Math.min(1, motion.shake * gain)
+  const spin = Math.min(1, motion.turn * gain)
 
-  const mass = controls.freeRun ? FREE_DRIVE : Math.min(1, motion.shake * gain)
-  const spin = controls.freeRun ? FREE_DRIVE : Math.min(1, motion.turn * gain)
+  // One rule, and it is the whole of the mode: **in free run every slider is
+  // exact; otherwise the two gestures take over intensity and rate.** Nothing
+  // else is ever gesture-driven, because a parameter being judged must not also
+  // be moving — the mistake that made the first version impossible to evaluate.
+  const intensity = controls.freeRun
+    ? held(controls.intensity, 'intensity')
+    : lincurve(mass, 0, 1, 0, 1, -2)
 
-  // Pinned open in free run, which is the point of the mode: the page has to
-  // sound while the phone sits still, so what is being judged is the vibration
-  // rather than the arm making it.
-  const level = controls.freeRun ? 1 : Math.max(mass, spin)
-
-  // ── Layer 1: taps.
-  //
-  // The rate stays under the ~6.3Hz segregation rate, because countable events
-  // are this layer's whole reason to exist. Negative curve so the response
-  // arrives early, same sign and reason as `suz`.
-  const dur = controls.freeRun
-    ? 1 / held(controls.tapRate, 'tapRate')
-    : lincurve(mass, 0, 1, 1.2, 0.17, -3)
-
-  // Muting stops the clock rather than silencing the voice: the clock gates on
-  // `strike > 0.02` in the graph, so a muted layer costs no nodes at all.
-  const strike = controls.muteTaps ? 0 : mass
-  const tapAmp = lincurve(mass, 0, 1, 0.12, 1, -2) * controls.drive
-
-  // ── Layer 2: flutter.
-  //
-  // The rate is the instrument: 6Hz to 88Hz crosses discrete → stutter →
-  // flutter → rough → fused, four changes of category for one gesture. On
-  // rotation because it is the gesture you can hold.
-  const flutRate = controls.freeRun
-    ? held(controls.flutRate, 'flutRate')
-    : lincurve(spin, 0, 1, 6, 88, 2)
-  const flutAmp = controls.muteFlutter ? 0 : lincurve(spin, 0, 1, 0, 0.42, -1)
-
-  // ── Layer 3: carrier.
-  //
-  // Gated on movement, because this is the one layer whose own gesture does not
-  // return to zero: a phone propped at an angle has a valid tilt, and without
-  // the gate the page would drone at it on a desk until the tab closed.
-  const carDrive = controls.muteCarrier
-    ? 0
-    : (controls.freeRun ? 1 : unipolar(motion.pitch)) * Math.min(1, level * 2.5)
+  const rate = controls.freeRun ? held(controls.rate, 'rate') : lincurve(spin, 0, 1, 1, 80, 2)
 
   return {
-    dur,
-    // Each layer's pitch is its own control and is derived from nothing. In
-    // gesture mode roll offsets the carrier by ±35Hz — the one rule, that free
-    // run is exact and gestures modulate — and the other two are left alone,
-    // since no gesture is mapped to them.
-    tapFreq: held(controls.tapPitch, 'tapPitch'),
-    strike,
-    tapLength: held(controls.tapLength, 'tapLength'),
-    tapAmp,
-    flutFreq: held(controls.flutPitch, 'flutPitch'),
-    flutRate,
-    flutLength: held(controls.flutLength, 'flutLength'),
-    flutAmp,
-    carFreq: held(
-      controls.freeRun
-        ? controls.carPitch
-        : controls.carPitch + lincurve(motion.roll, -1, 1, -35, 35, 0),
-      'carPitch',
-    ),
-    carAmp: carDrive * 0.45,
-    width: held(controls.width, 'width'),
+    carrier: held(controls.carrier, 'carrier'),
+    rate,
+    intensity,
     attack: held(controls.attack, 'attack'),
-    clickAmp: held(controls.click, 'click'),
-    level,
-    // No duck. The taps used to pull the bed down as the hand struck harder, on
-    // the argument that excursion is zero-sum and a tap needs headroom to land
-    // in. The argument is right and the control was wrong: a level that moves
-    // while you are trying to judge a level is the thing that makes a page
-    // impossible to tune. The limiter already handles the sum.
-    bedAmp: 0.9 * controls.drive,
-    drive: [mass, spin, carDrive],
+    decay: held(controls.decay, 'decay'),
+    curve: held(controls.curve, 'curve'),
+    overdrive: held(controls.overdrive, 'overdrive'),
+    transient: held(controls.transient, 'transient'),
+    sharpness: held(controls.sharpness, 'sharpness'),
+    // Pinned open in free run: the page has to sound while the phone sits still.
+    level: controls.freeRun ? 1 : Math.max(mass, spin),
+    drive: [intensity, motion.shakeRaw, motion.shake],
   }
 }
 
-/** The shell's shape, from the three layers. */
 export function mapThrum(
   motion: Motion,
   sensitivity = 0.5,
@@ -355,56 +249,47 @@ export function mapThrum(
   const now = thrumFrom(motion, sensitivity, controls)
 
   return {
-    dur: now.dur,
+    // No clock on this page, so nothing reads `dur`. The shell's type wants it.
+    dur: 0.25,
     level: now.level,
-    voice: {
-      freq: now.tapFreq,
-      decay: now.tapLength,
-      attack: now.attack,
-      width: now.width,
-      clickAmp: now.clickAmp,
-      hard: 0.7,
-      amp: now.tapAmp,
-    },
-    clock: { strike: now.strike, freq: now.tapFreq },
+    voice: {},
     held: {
-      flutFreq: now.flutFreq,
-      flutRate: now.flutRate,
-      flutAmp: now.flutAmp,
-      flutDecay: now.flutLength,
-      flutAttack: now.attack,
-      width: now.width,
-      carFreq: now.carFreq,
-      carAmp: now.carAmp,
-      amp: now.bedAmp,
+      carrier: now.carrier,
+      rate: now.rate,
+      intensity: now.intensity,
+      attack: now.attack,
+      decay: now.decay,
+      curve: now.curve,
+      overdrive: now.overdrive,
+      transient: now.transient,
+      sharpness: now.sharpness,
     },
     traces: [],
-    // Grouped by layer, in the order of the plot's colours, so the readout and
-    // the panel can be read against each other.
     values: [
-      ['tap', `${(1 / now.dur).toFixed(1)}/s`],
-      ['tap Hz', `${now.tapFreq.toFixed(0)}`],
-      ['tap len', `${(now.tapLength * 1000).toFixed(0)}ms ${pulseReads(now.tapLength)}`],
-      ['flut', `${now.flutRate.toFixed(1)}Hz ${regimeOf(now.flutRate)}`],
-      ['flut Hz', `${now.flutFreq.toFixed(0)}`],
-      ['flut len', `${(now.flutLength * 1000).toFixed(0)}ms ${pulseReads(now.flutLength)}`],
-      ['carrier', `${now.carFreq.toFixed(0)}Hz`],
-      // `bed` and `strike` are the two levels, kept because they are how you
-      // tell a muted layer from a silent one — and because the spec reads them.
-      ['bed', now.carAmp.toFixed(2)],
-      ['strike', now.strike.toFixed(2)],
-      ['width', `${now.width.toFixed(2)} ${widthReads(now.width)}`],
+      ['carrier', `${now.carrier.toFixed(0)}Hz`],
+      ['rate', `${now.rate.toFixed(1)}Hz ${regimeOf(now.rate)}`],
+      ['decay', `${(now.decay * 1000).toFixed(0)}ms ${decayReads(now.decay)}`],
+      ['attack', `${(now.attack * 1000).toFixed(2)}ms`],
+      ['curve', `${now.curve.toFixed(1)} ${curveReads(now.curve)}`],
+      ['overdrive', `x${now.overdrive.toFixed(1)}`],
+      // `off` rather than `0.00`, matching the slider's own label. Two places
+      // naming the same state differently is a small thing that costs a reader
+      // a glance every time.
+      ['transient', now.transient === 0 ? 'off' : now.transient.toFixed(2)],
+      ['sharpness', now.sharpness.toFixed(2)],
+      ['intensity', `${now.intensity.toFixed(2)} amp ${amplitudeOf(now.intensity).toFixed(2)}`],
     ],
   }
 }
 
 /**
- * One trace per layer.
+ * Intensity against the raw and the filtered shake.
  *
- * Not the raw sensors: what matters is how much of each channel is being driven,
- * because the failure this has to make visible is a gesture moving a number the
- * instrument is not using. Yellow lands on the taps deliberately — it is also
- * the accent colour, and the taps are the lead.
+ * `[accelMass, accelMassFiltered]` is the commonest `~plot` body in AirKit's
+ * personalities, because the pair is the diagnostic: the raw trace is what the
+ * hand did and the filtered one is what the instrument heard, so the distance
+ * between them is the envelope follower made visible. Intensity on top is what
+ * actually reached the synth.
  */
 export function plotOf(
   motion: Motion,
@@ -415,4 +300,4 @@ export function plotOf(
 }
 
 /** The series in colour order: yellow, magenta, cyan. */
-export const PLOT_LABELS = ['taps (shake)', 'flutter (turn)', 'carrier (tilt)']
+export const PLOT_LABELS = ['intensity', 'shake raw', 'shake filtered']

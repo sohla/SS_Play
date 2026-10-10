@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
 import {
@@ -6,55 +6,35 @@ import {
   PLOT_LABELS,
   RANGES,
   SILENCE_BELOW,
-  type Controls,
+  amplitudeOf,
+  curveReads,
+  decayReads,
   mapThrum,
   plotOf,
-  pulseReads,
   regimeOf,
-  widthReads,
+  type Controls,
 } from './mapping.ts'
 
 /**
- * Three layers, two synths, and the split is not arbitrary.
+ * One layer, one synth, one `held` voice.
  *
- * Layer one is a `conductor`: a demand sequence in the server reporting each tap
- * with `SendReply`, and a node spawned per report. Right for this layer and only
- * this layer, because at under 6Hz the events are individually felt — so what
- * the Demand graph buys is that a stalled main thread cannot smear them.
+ * No conductor and no clock. The retrigger is an `Impulse` inside the graph,
+ * which is the only place it can be: the rate runs to 90Hz, where an OSC round
+ * trip is the same order as the interval between events, so the rate the hand
+ * asked for and the rate the skin received would be different numbers.
  *
- * Layers two and three are one `held` voice, and could not be conductors. Their
- * rates run to 90Hz, where the OSC round trip is the same order as the interval
- * between events: the rate the hand asked for and the rate the skin received
- * would be different numbers. They are a pulse train and a tone inside the
- * graph instead, with their accents on a demand sequence the train pulls itself
- * — a pattern in the server with no OSC traffic at all.
- *
- * They are one SynthDef rather than two because excursion is shared and so their
- * limiter has to be; see the note in `ssp_thrum_bed`.
+ * The three defs this replaced — a Demand clock, a tap voice and a two-layer bed
+ * — are deleted. Their structure was never what was wrong.
  */
-const INSTRUMENT = [
-  {
-    kind: 'conductor' as const,
-    clock: 'ssp_thrum_clock',
-    voice: 'ssp_thrum_tap',
-    address: '/ssp_thrum',
-    controls: ([freq, hard]: readonly number[]) => ({ freq: freq ?? 250, hard: hard ?? 0.6 }),
-    // No `sustainS`. A tap is a fixed-length percussive envelope with
-    // doneAction 2 — it frees itself, and there is nothing to hold. The gate
-    // exists so the def is releasable like every other one here, not because
-    // this page uses it.
-  },
-  { kind: 'held' as const, def: 'ssp_thrum_bed', initial: { flutAmp: 0, carAmp: 0 } },
-]
+const INSTRUMENT = [{ kind: 'held' as const, def: 'ssp_thrum', initial: { intensity: 0 } }]
 
 export function App() {
   /**
-   * Both, and for the reason `sensitivity` inside `MotionInstrument` is both.
+   * Both, for the reason `sensitivity` inside `MotionInstrument` is both.
    *
    * The state drives the sliders. The ref is what `map` reads, because `map` is
    * in the sending effect's dependency list — a callback that changed identity
    * on every slider frame would tear down and re-arm the 30Hz loop mid-drag.
-   * So `map` closes over the ref and never changes.
    */
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS)
   const live = useRef<Controls>(DEFAULT_CONTROLS)
@@ -74,17 +54,54 @@ export function App() {
     [],
   )
 
+  /**
+   * Keep telling the shell a sensor exists, for as long as free run is on.
+   *
+   * `MotionInstrument` sends nothing until `motion.live` is true, and that guard
+   * is right: without it every page would play on load from a resting pose and
+   * never stop on a machine with nothing to tilt. But free run is the user
+   * saying *play now, I am holding this still*, and on a desktop no orientation
+   * event ever arrives — so without this the mode would silently do nothing on
+   * the machine most likely to be used to try it.
+   *
+   * An interval rather than one event on mount, because the shell only starts
+   * listening once it has booted and this component cannot see when that
+   * happened. Repeating is self-healing and costs nothing.
+   *
+   * It overwrites the real orientation on a phone, which is harmless: in free
+   * run nothing reads orientation. The interval stops when free run does.
+   *
+   * Page-local on purpose. The guard is correct and nineteen other pages depend
+   * on it, so the page that wants an exception is the page that should carry it.
+   */
+  useEffect(() => {
+    if (!controls.freeRun) return
+    const wake = () => {
+      try {
+        if (typeof DeviceOrientationEvent !== 'function') return
+        window.dispatchEvent(
+          new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 0, gamma: 0 }),
+        )
+      } catch {
+        // Nothing to do. Free run works as soon as the device reports once.
+      }
+    }
+    wake()
+    const timer = setInterval(wake, 1000)
+    return () => clearInterval(timer)
+  }, [controls.freeRun])
+
   return (
     <MotionInstrument
       title="thrum"
       blurb={
         <>
-          Sound aimed at the hand rather than the ear. Everything here sits near{' '}
-          <strong>250Hz</strong>, where skin is most sensitive and a phone speaker has stopped
-          radiating and started shaking. <strong>Shake</strong> for separate taps,{' '}
-          <strong>turn</strong> to run the pulse rate up until they fuse into one buzz, and{' '}
-          <strong>tilt</strong> to set the carrier underneath. Best felt with the phone loose in a
-          palm, volume up, and nothing between it and your skin.
+          One haptic pulse: a <strong>transient</strong> you hear and a{' '}
+          <strong>decaying tone</strong> you feel, near 250Hz where skin is most sensitive and a
+          phone speaker has stopped radiating and started shaking. It is already running — every
+          parameter below has a default from the literature and a range around it, because the one
+          thing the research cannot tell you is what <em>your</em> hand on <em>your</em> phone can
+          feel. Hold it loose in a palm, volume up, nothing between it and your skin.
         </>
       }
       instrument={INSTRUMENT}
@@ -92,42 +109,11 @@ export function App() {
       silenceBelow={SILENCE_BELOW}
       plot={plot}
       plotLabels={PLOT_LABELS}
-      // The three drives are 0..1, not bipolar. Left at -1..1 the traces would
-      // all sit in the top half of the plot and waste half of it.
       plotMin={0}
       plotMax={1}
       controls={<Panel controls={controls} set={set} />}
     />
   )
-}
-
-/**
- * Tell the shell a sensor exists, so free run can actually sound.
- *
- * `MotionInstrument` sends nothing until `motion.live` is true, and that guard is
- * right: without it every page would play on load from a resting pose and never
- * stop on a machine with nothing to tilt. But it means free run — which is the
- * user saying *play now, I am holding this still* — would achieve nothing on a
- * desktop, where no orientation event ever arrives. On a phone they arrive
- * continuously and this is a no-op.
- *
- * One synthetic event, dispatched only on the way into free run. Deliberately
- * page-local rather than a change to the shared guard: the guard is correct and
- * nineteen other pages depend on it, so the page that wants an exception should
- * be the one carrying it.
- *
- * Wrapped because the constructor is not guaranteed everywhere, and a page that
- * throws here would lose its whole control panel over a convenience.
- */
-function wakeTheShell() {
-  try {
-    if (typeof DeviceOrientationEvent !== 'function') return
-    window.dispatchEvent(
-      new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 0, gamma: 0 }),
-    )
-  } catch {
-    // Nothing to do. Free run will work as soon as the device reports once.
-  }
 }
 
 interface PanelProps {
@@ -136,146 +122,132 @@ interface PanelProps {
 }
 
 /**
- * What a hand needs that reading could not supply.
+ * The nine parameters, grouped by what they decide.
  *
- * Every other number on this page comes from published psychophysics. These do
- * not, because they depend on one speaker in one palm — and the first report
- * back was that the taps were too short to feel, which is a thing no amount of
- * reading would have produced.
+ * Ordered so the two that most often explain "I cannot feel anything" come
+ * first: how long the pulse lasts, and how hard it is driven.
  */
 function Panel({ controls, set }: PanelProps) {
   const slider = (
     name: string,
-    key: keyof Controls,
+    key: keyof typeof RANGES,
     step: number,
     format: (value: number) => string,
     hint?: string,
-    disabled?: boolean,
   ) => (
     <Slider
       name={name}
-      // From the key, not the display name. Two groups each have a `pitch`, a
-      // `length` and a `rate`, so naming ids after the label makes six of them
-      // ambiguous — which Playwright reports as "resolved to 2 elements" rather
-      // than as a wrong value, and is the harder failure to read. The key is
-      // unique by construction.
       testId={key}
-      value={controls[key] as number}
-      range={RANGES[key as keyof typeof RANGES]}
+      value={controls[key]}
+      range={RANGES[key]}
       step={step}
       format={format}
       {...(hint ? { hint } : {})}
-      {...(disabled ? { disabled } : {})}
-      onChange={(next) => set(key, next as Controls[typeof key])}
+      onChange={(next) => set(key, next)}
     />
   )
-
-  const hz = (v: number) => `${v.toFixed(0)}Hz`
-  const ms = (v: number) => `${(v * 1000).toFixed(0)}ms ${pulseReads(v)}`
 
   return (
     <div className="flex flex-col gap-4">
       <div className="ak-panel flex flex-col gap-3 rounded border p-3">
-        <p className="ak-label font-mono text-[11px]">
-          <strong className="ak-accent">free run</strong> first — a vibration is hard to judge
-          while shaking the thing that makes it. In free run every slider is exact; otherwise the
-          gestures modulate.
-        </p>
-
         <Toggle
           label="free run"
+          hint="sound at these settings with the phone still. Off: shake drives intensity, turning drives rate"
           on={controls.freeRun}
-          onChange={(next) => {
-            set('freeRun', next)
-            if (next) wakeTheShell()
-          }}
+          onChange={(next) => set('freeRun', next)}
         />
-
-        {slider('drive', 'drive', 0.01, (v) => v.toFixed(2), 'master level into both limiters')}
       </div>
 
-      {/* One group per layer, each with its own pitch and its own length and
-          nothing derived from another layer. The grouping is the point: three
-          rounds of feedback came down to controls that were shared when they
-          should have been separate. */}
-      <Group name="taps" lead="yellow" on={!controls.muteTaps} onMute={(m) => set('muteTaps', m)}>
-        {slider('pitch', 'tapPitch', 1, hz)}
-        {slider('length', 'tapLength', 0.001, ms, 'under ~25ms reads as a tap and is hard to feel')}
-        {slider('rate', 'tapRate', 0.1, (v) => `${v.toFixed(1)}/s`, 'free run only', !controls.freeRun)}
-      </Group>
-
-      <Group
-        name="flutter"
-        lead="magenta"
-        on={!controls.muteFlutter}
-        onMute={(m) => set('muteFlutter', m)}
+      <Fieldset
+        name="the envelope"
+        note="The shape of one pulse, and the half that was baked in before."
       >
-        {slider('pitch', 'flutPitch', 1, hz)}
-        {slider('length', 'flutLength', 0.001, ms)}
         {slider(
-          'rate',
-          'flutRate',
-          0.5,
-          (v) => `${v.toFixed(1)}Hz ${regimeOf(v)}`,
-          'free run only. 16-32Hz is the flutter band; past ~80Hz it fuses',
-          !controls.freeRun,
-        )}
-      </Group>
-
-      <Group
-        name="carrier"
-        lead="cyan"
-        on={!controls.muteCarrier}
-        onMute={(m) => set('muteCarrier', m)}
-      >
-        {slider('pitch', 'carPitch', 1, hz, 'continuous, so no length. Roll offsets it ±35Hz unless free running')}
-      </Group>
-
-      <div className="ak-panel flex flex-col gap-3 rounded border p-3">
-        <p className="ak-label font-mono text-[11px]">
-          Waveform, shared by all three — these describe the shape rather than a layer.
-        </p>
-        {slider(
-          'width',
-          'width',
-          0.005,
-          (v) => `${v.toFixed(2)} ${widthReads(v)}`,
-          'duty cycle. 0.5 is a square and the most felt — 27% more excursion than a sine at the same level. Narrow moves energy into harmonics the ear gets and the hand does not',
+          'decay',
+          'decay',
+          0.001,
+          (v) => `${(v * 1000).toFixed(0)}ms ${decayReads(v)}`,
+          'how long the tone rings. Under ~25ms reads as a crisp tap and is near the least detectable thing available, because the Pacinian channel summates energy over about a second',
         )}
         {slider(
           'attack',
           'attack',
-          0.0002,
-          (v) => `${(v * 1000).toFixed(1)}ms`,
-          'the onset. 0.2ms is a click; wind it up and the burst swells in instead',
+          0.0001,
+          (v) => `${(v * 1000).toFixed(2)}ms`,
+          'the onset. 0.1ms is a click; wind it up and the pulse swells in instead',
         )}
         {slider(
-          'click',
-          'click',
+          'curve',
+          'curve',
+          0.1,
+          (v) => `${v.toFixed(1)} ${curveReads(v)}`,
+          'negative decays like a struck object, 0 is linear, positive holds then drops',
+        )}
+        {slider(
+          'overdrive',
+          'overdrive',
+          0.1,
+          (v) => `x${v.toFixed(1)}`,
+          "a boost on the first 4ms only. Haptic driver ICs do this to overcome an actuator's inertia — a diaphragm has the same problem",
+        )}
+      </Fieldset>
+
+      <Fieldset name="the two halves" note="A transient you hear, a tone you feel.">
+        {slider(
+          'transient',
+          'transient',
           0.01,
           (v) => (v === 0 ? 'off' : v.toFixed(2)),
-          'the audible 2.5kHz tick on each tap. Off to hear only what the body is doing',
+          'level of the impulse half. Off to feel the tone alone',
         )}
-      </div>
+        {slider(
+          'sharpness',
+          'sharpness',
+          0.01,
+          (v) => v.toFixed(2),
+          "Core Haptics calls this clickiness. It is the band the transient sits in, 400Hz to 6kHz",
+        )}
+      </Fieldset>
+
+      <Fieldset name="the carrier" note="Frequency, rate and how hard it is driven.">
+        {slider(
+          'carrier',
+          'carrier',
+          1,
+          (v) => `${v.toFixed(0)}Hz`,
+          '250Hz is the most felt frequency on average, and an average is not a hand',
+        )}
+        {slider(
+          'rate',
+          'rate',
+          0.1,
+          (v) => `${v.toFixed(1)}Hz ${regimeOf(v)}`,
+          'retriggers per second. Under ~6Hz they stay countable; 16-32Hz is a flutter; past ~80Hz they fuse',
+        )}
+        {slider(
+          'intensity',
+          'intensity',
+          0.01,
+          (v) => `${v.toFixed(2)} -> amp ${amplitudeOf(v).toFixed(2)}`,
+          'corrected for perception: magnitude grows as amplitude^0.6 at 250Hz, so the slider is straight and the amplitude is not',
+        )}
+      </Fieldset>
     </div>
   )
 }
 
-interface GroupProps {
+interface FieldsetProps {
   name: string
-  /** The plotter trace this layer is, so the panel and the plot can be read together. */
-  lead: string
-  on: boolean
-  onMute: (muted: boolean) => void
+  note: string
   children: ReactNode
 }
 
-function Group({ name, lead, on, onMute, children }: GroupProps) {
+function Fieldset({ name, note, children }: FieldsetProps) {
   return (
-    <div className={`ak-panel flex flex-col gap-3 rounded border p-3 ${on ? '' : 'opacity-50'}`}>
-      <div className="flex items-center gap-x-3">
-        <Toggle label={name} testId={`mute-${name}`} on={on} onChange={(next) => onMute(!next)} compact />
-        <span className="ak-label ml-auto font-mono text-[11px]">{lead}</span>
+    <div className="ak-panel flex flex-col gap-3 rounded border p-3">
+      <div>
+        <div className="ak-accent font-mono text-xs">{name}</div>
+        <div className="ak-label font-mono text-[11px]">{note}</div>
       </div>
       {children}
     </div>
@@ -286,27 +258,16 @@ interface SliderProps {
   name: string
   testId?: string
   value: number
-  range: { min: number; max: number }
+  range: { readonly min: number; readonly max: number }
   step: number
   format: (value: number) => string
   hint?: string
-  disabled?: boolean
   onChange: (value: number) => void
 }
 
-function Slider({
-  name,
-  testId,
-  value,
-  range,
-  step,
-  format,
-  hint,
-  disabled = false,
-  onChange,
-}: SliderProps) {
+function Slider({ name, testId, value, range, step, format, hint, onChange }: SliderProps) {
   return (
-    <label className={`flex flex-wrap items-center gap-x-3 ${disabled ? 'opacity-40' : ''}`}>
+    <label className="flex flex-wrap items-center gap-x-3">
       <span className="ak-label font-mono text-xs sm:w-28">{name}</span>
       <input
         type="range"
@@ -315,56 +276,40 @@ function Slider({
         max={range.max}
         step={step}
         value={value}
-        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
         className="ss-range order-3 basis-full sm:order-2 sm:min-w-0 sm:basis-auto sm:grow"
-        aria-label={(testId ?? name).replace(/([A-Z])/g, ' $1').toLowerCase()}
+        aria-label={testId ?? name}
       />
-      <span className="ak-accent ml-auto min-w-24 py-2 text-right font-mono text-xs sm:ml-0 sm:py-0">
+      <span className="ak-accent ml-auto min-w-28 py-2 text-right font-mono text-xs sm:ml-0 sm:py-0">
         {format(value)}
       </span>
-      {hint ? (
-        <span className="ak-label order-4 basis-full font-mono text-[11px]">{hint}</span>
-      ) : null}
+      {hint ? <span className="ak-label order-4 basis-full font-mono text-[11px]">{hint}</span> : null}
     </label>
   )
 }
 
 interface ToggleProps {
   label: string
-  /**
-   * Overrides the label-derived test id.
-   *
-   * Needed because three of the mutes are named after a layer that also has a
-   * slider — `taps` and `flutter` both exist twice on this panel, and a shared
-   * id made the e2e locator ambiguous rather than wrong, which is the harder
-   * version to notice.
-   */
-  testId?: string
   hint?: string
   on: boolean
-  compact?: boolean
   onChange: (on: boolean) => void
 }
 
-function Toggle({ label, testId, hint, on, compact = false, onChange }: ToggleProps) {
+function Toggle({ label, hint, on, onChange }: ToggleProps) {
   return (
     <label className="flex flex-wrap items-center gap-x-3">
-      {/* A checkbox rather than a styled div: it is focusable, it is reachable
-          by a screen reader, and it is already 44px through ui.css's touch
-          sizing. A pretty toggle that cannot be tabbed to is a regression. */}
+      {/* A checkbox rather than a styled div: focusable, reachable by a screen
+          reader, and already 44px through ui.css's touch sizing. */}
       <input
         type="checkbox"
-        data-testid={`ctl-${testId ?? label.replace(/\s+/g, '-')}`}
+        data-testid={`ctl-${label.replace(/\s+/g, '-')}`}
         checked={on}
         onChange={(event) => onChange(event.target.checked)}
         className="h-11 w-11 shrink-0 accent-[var(--ak-accent)] sm:h-6 sm:w-6"
         aria-label={label}
       />
       <span className={`font-mono text-xs ${on ? 'ak-accent' : 'ak-label'}`}>{label}</span>
-      {hint && !compact ? (
-        <span className="ak-label basis-full font-mono text-[11px]">{hint}</span>
-      ) : null}
+      {hint ? <span className="ak-label basis-full font-mono text-[11px]">{hint}</span> : null}
     </label>
   )
 }
