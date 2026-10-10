@@ -129,7 +129,7 @@ test('the three gestures reach three different layers', async ({ page }) => {
 
   // Turn without shaking: the flutter must move and the taps must not strike.
   await move(page, { spin: 320, force: 0.2, ms: 4000 })
-  const turnedFlutter = Number((await value(page, 'flutter')).replace('Hz', ''))
+  const turnedFlutter = Number((await value(page, 'flut')).split('Hz')[0])
   const turnedStrike = Number(await value(page, 'strike'))
 
   // Put it down in between, so the first gesture has actually decayed before the
@@ -138,7 +138,7 @@ test('the three gestures reach three different layers', async ({ page }) => {
 
   // Shake without turning: the opposite.
   await move(page, { spin: 0, force: 11, ms: 4000 })
-  const shakenFlutter = Number((await value(page, 'flutter')).replace('Hz', ''))
+  const shakenFlutter = Number((await value(page, 'flut')).split('Hz')[0])
   const shakenStrike = Number(await value(page, 'strike'))
 
   expect(turnedFlutter, 'turning did not raise the flutter rate').toBeGreaterThan(shakenFlutter)
@@ -152,8 +152,11 @@ test('the flutter sweep is reported as a named regime, not just a rate', async (
   // numbers are. Hard rotation has to reach the fused end of the sweep.
   await move(page, { spin: 400, force: 0.2, ms: 5000 })
 
-  const felt = await value(page, 'felt as')
-  expect(['flutter', 'rough', 'fused'], `hard rotation reported "${felt}"`).toContain(felt)
+  const felt = await value(page, 'flut')
+  expect(
+    ['flutter', 'rough', 'fused'].some((name) => felt.includes(name)),
+    `hard rotation reported "${felt}"`,
+  ).toBe(true)
 })
 
 test('three layers at once sound, and do not clip', async ({ page }) => {
@@ -286,11 +289,11 @@ test('the pulse control crosses the tap/buzz boundary and says which side it is 
 
   // The readout names the side rather than only the number, the same way the
   // flutter rate is reported as a named regime. 30ms means nothing on its own.
-  await page.locator('[data-testid=ctl-pulse]').fill('0.005')
-  await expect.poll(() => value(page, 'pulse'), { timeout: 10_000 }).toContain('tap')
+  await page.locator('[data-testid=ctl-tapLength]').fill('0.005')
+  await expect.poll(() => value(page, 'tap len'), { timeout: 10_000 }).toContain('tap')
 
-  await page.locator('[data-testid=ctl-pulse]').fill('0.3')
-  await expect.poll(() => value(page, 'pulse'), { timeout: 10_000 }).toContain('buzz')
+  await page.locator('[data-testid=ctl-tapLength]').fill('0.3')
+  await expect.poll(() => value(page, 'tap len'), { timeout: 10_000 }).toContain('buzz')
 })
 
 test('muting all three layers silences the page without stopping it', async ({ page }) => {
@@ -308,4 +311,63 @@ test('muting all three layers silences the page without stopping it', async ({ p
   // the two permanent synths rather than carrying silent voices.
   expect(Number(await value(page, 'bed'))).toBe(0)
   await expect.poll(() => voices(page), { timeout: 15_000 }).toBe(2)
+})
+
+test('each layer has its own pitch and its own length, reaching the engine separately', async ({
+  page,
+}) => {
+  await boot(page)
+  await page.locator('[data-testid=ctl-free-run]').check()
+
+  // The thing three rounds of feedback were about. Set every layer differently
+  // and read all three back: a page where any two were still coupled would show
+  // the same number twice.
+  await page.locator('[data-testid=ctl-tapPitch]').fill('120')
+  await page.locator('[data-testid=ctl-flutPitch]').fill('400')
+  await page.locator('[data-testid=ctl-carPitch]').fill('250')
+  await page.locator('[data-testid=ctl-tapLength]').fill('0.25')
+  await page.locator('[data-testid=ctl-flutLength]').fill('0.005')
+  await page.waitForTimeout(800)
+
+  expect(await value(page, 'tap Hz')).toBe('120')
+  expect(await value(page, 'flut Hz')).toBe('400')
+  expect(await value(page, 'carrier')).toBe('250Hz')
+  expect(await value(page, 'tap len')).toContain('250ms')
+  expect(await value(page, 'flut len')).toContain('5ms')
+
+  // And it still makes a sound with all three set apart, which is the case where
+  // two oscillators at different frequencies could cancel or clip.
+  const heard = await page.evaluate(async () => {
+    const sonic = (
+      window as unknown as {
+        __ss: {
+          sonic: {
+            startCapture(): void
+            stopCapture(): { frames: number; left: Float32Array }
+            getCaptureFrames(): number
+          }
+        }
+      }
+    ).__ss.sonic
+
+    sonic.startCapture()
+    const deadline = performance.now() + 5000
+    while (sonic.getCaptureFrames() < 48_000 && performance.now() < deadline) {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    const taken = sonic.stopCapture()
+    let sumSquares = 0
+    let peak = 0
+    const from = Math.floor(taken.frames * 0.1)
+    const to = Math.floor(taken.frames * 0.9)
+    for (let at = from; at < to; at++) {
+      const v = taken.left[at] ?? 0
+      sumSquares += v * v
+      if (Math.abs(v) > peak) peak = Math.abs(v)
+    }
+    return { rms: Math.sqrt(sumSquares / Math.max(1, to - from)), peak }
+  })
+
+  expect(heard.rms, 'three layers at three pitches produced no signal').toBeGreaterThan(0.002)
+  expect(heard.peak, 'three layers at three pitches clipped').toBeLessThan(0.99)
 })

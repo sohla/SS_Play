@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { MotionInstrument } from '@ss/ui'
 import type { Motion } from '@ss/motion'
 import {
@@ -10,6 +10,8 @@ import {
   mapThrum,
   plotOf,
   pulseReads,
+  regimeOf,
+  widthReads,
 } from './mapping.ts'
 
 /**
@@ -142,105 +144,147 @@ interface PanelProps {
  * reading would have produced.
  */
 function Panel({ controls, set }: PanelProps) {
+  const slider = (
+    name: string,
+    key: keyof Controls,
+    step: number,
+    format: (value: number) => string,
+    hint?: string,
+    disabled?: boolean,
+  ) => (
+    <Slider
+      name={name}
+      // From the key, not the display name. Two groups each have a `pitch`, a
+      // `length` and a `rate`, so naming ids after the label makes six of them
+      // ambiguous — which Playwright reports as "resolved to 2 elements" rather
+      // than as a wrong value, and is the harder failure to read. The key is
+      // unique by construction.
+      testId={key}
+      value={controls[key] as number}
+      range={RANGES[key as keyof typeof RANGES]}
+      step={step}
+      format={format}
+      {...(hint ? { hint } : {})}
+      {...(disabled ? { disabled } : {})}
+      onChange={(next) => set(key, next as Controls[typeof key])}
+    />
+  )
+
+  const hz = (v: number) => `${v.toFixed(0)}Hz`
+  const ms = (v: number) => `${(v * 1000).toFixed(0)}ms ${pulseReads(v)}`
+
   return (
-    <div className="ak-panel flex flex-col gap-3 rounded border p-3">
-      <p className="ak-label font-mono text-[11px]">
-        What only a hand can settle. <strong className="ak-accent">free run</strong> first — a
-        vibration is hard to judge while shaking the thing that makes it.
-      </p>
+    <div className="flex flex-col gap-4">
+      <div className="ak-panel flex flex-col gap-3 rounded border p-3">
+        <p className="ak-label font-mono text-[11px]">
+          <strong className="ak-accent">free run</strong> first — a vibration is hard to judge
+          while shaking the thing that makes it. In free run every slider is exact; otherwise the
+          gestures modulate.
+        </p>
 
-      <Toggle
-        label="free run"
-        hint="sound at these settings with the phone held still"
-        on={controls.freeRun}
-        onChange={(next) => {
-          set('freeRun', next)
-          if (next) wakeTheShell()
-        }}
-      />
-
-      <Slider
-        name="pulse"
-        value={controls.pulse}
-        range={RANGES.pulse}
-        step={0.001}
-        format={(v) => `${(v * 1000).toFixed(0)}ms ${pulseReads(v)}`}
-        hint="under ~25ms is a crisp tap and hard to feel; over it is easy to feel and not an event"
-        onChange={(next) => set('pulse', next)}
-      />
-
-      <Slider
-        name="drive"
-        value={controls.drive}
-        range={RANGES.drive}
-        step={0.01}
-        format={(v) => v.toFixed(2)}
-        hint="level into both limiters — the other reason nothing arrives"
-        onChange={(next) => set('drive', next)}
-      />
-
-      <Slider
-        name="carrier"
-        value={controls.carrier}
-        range={RANGES.carrier}
-        step={1}
-        format={(v) => `${v.toFixed(0)}Hz`}
-        hint="250Hz is the most-felt frequency on average; your hand and your phone are not average. Roll still offsets it ±35Hz"
-        onChange={(next) => set('carrier', next)}
-      />
-
-      <Slider
-        name="taps"
-        value={controls.tapRate}
-        range={RANGES.tapRate}
-        step={0.1}
-        format={(v) => `${v.toFixed(1)}/s`}
-        disabled={!controls.freeRun}
-        hint="free run only — otherwise shake sets it"
-        onChange={(next) => set('tapRate', next)}
-      />
-
-      <Slider
-        name="flutter"
-        value={controls.flutter}
-        range={RANGES.flutter}
-        step={0.5}
-        format={(v) => `${v.toFixed(1)}Hz`}
-        disabled={!controls.freeRun}
-        hint="free run only — otherwise turning sets it. 16-32Hz is the flutter band"
-        onChange={(next) => set('flutter', next)}
-      />
-
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="ak-label font-mono text-xs sm:w-28">solo by muting</span>
         <Toggle
-          label="taps"
-          testId="mute-taps"
-          on={!controls.muteTaps}
-          onChange={(next) => set('muteTaps', !next)}
-          compact
+          label="free run"
+          on={controls.freeRun}
+          onChange={(next) => {
+            set('freeRun', next)
+            if (next) wakeTheShell()
+          }}
         />
-        <Toggle
-          label="flutter"
-          testId="mute-flutter"
-          on={!controls.muteFlutter}
-          onChange={(next) => set('muteFlutter', !next)}
-          compact
-        />
-        <Toggle
-          label="carrier"
-          testId="mute-carrier"
-          on={!controls.muteCarrier}
-          onChange={(next) => set('muteCarrier', !next)}
-          compact
-        />
+
+        {slider('drive', 'drive', 0.01, (v) => v.toFixed(2), 'master level into both limiters')}
       </div>
+
+      {/* One group per layer, each with its own pitch and its own length and
+          nothing derived from another layer. The grouping is the point: three
+          rounds of feedback came down to controls that were shared when they
+          should have been separate. */}
+      <Group name="taps" lead="yellow" on={!controls.muteTaps} onMute={(m) => set('muteTaps', m)}>
+        {slider('pitch', 'tapPitch', 1, hz)}
+        {slider('length', 'tapLength', 0.001, ms, 'under ~25ms reads as a tap and is hard to feel')}
+        {slider('rate', 'tapRate', 0.1, (v) => `${v.toFixed(1)}/s`, 'free run only', !controls.freeRun)}
+      </Group>
+
+      <Group
+        name="flutter"
+        lead="magenta"
+        on={!controls.muteFlutter}
+        onMute={(m) => set('muteFlutter', m)}
+      >
+        {slider('pitch', 'flutPitch', 1, hz)}
+        {slider('length', 'flutLength', 0.001, ms)}
+        {slider(
+          'rate',
+          'flutRate',
+          0.5,
+          (v) => `${v.toFixed(1)}Hz ${regimeOf(v)}`,
+          'free run only. 16-32Hz is the flutter band; past ~80Hz it fuses',
+          !controls.freeRun,
+        )}
+      </Group>
+
+      <Group
+        name="carrier"
+        lead="cyan"
+        on={!controls.muteCarrier}
+        onMute={(m) => set('muteCarrier', m)}
+      >
+        {slider('pitch', 'carPitch', 1, hz, 'continuous, so no length. Roll offsets it ±35Hz unless free running')}
+      </Group>
+
+      <div className="ak-panel flex flex-col gap-3 rounded border p-3">
+        <p className="ak-label font-mono text-[11px]">
+          Waveform, shared by all three — these describe the shape rather than a layer.
+        </p>
+        {slider(
+          'width',
+          'width',
+          0.005,
+          (v) => `${v.toFixed(2)} ${widthReads(v)}`,
+          'duty cycle. 0.5 is a square and the most felt — 27% more excursion than a sine at the same level. Narrow moves energy into harmonics the ear gets and the hand does not',
+        )}
+        {slider(
+          'attack',
+          'attack',
+          0.0002,
+          (v) => `${(v * 1000).toFixed(1)}ms`,
+          'the onset. 0.2ms is a click; wind it up and the burst swells in instead',
+        )}
+        {slider(
+          'click',
+          'click',
+          0.01,
+          (v) => (v === 0 ? 'off' : v.toFixed(2)),
+          'the audible 2.5kHz tick on each tap. Off to hear only what the body is doing',
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface GroupProps {
+  name: string
+  /** The plotter trace this layer is, so the panel and the plot can be read together. */
+  lead: string
+  on: boolean
+  onMute: (muted: boolean) => void
+  children: ReactNode
+}
+
+function Group({ name, lead, on, onMute, children }: GroupProps) {
+  return (
+    <div className={`ak-panel flex flex-col gap-3 rounded border p-3 ${on ? '' : 'opacity-50'}`}>
+      <div className="flex items-center gap-x-3">
+        <Toggle label={name} testId={`mute-${name}`} on={on} onChange={(next) => onMute(!next)} compact />
+        <span className="ak-label ml-auto font-mono text-[11px]">{lead}</span>
+      </div>
+      {children}
     </div>
   )
 }
 
 interface SliderProps {
   name: string
+  testId?: string
   value: number
   range: { min: number; max: number }
   step: number
@@ -252,6 +296,7 @@ interface SliderProps {
 
 function Slider({
   name,
+  testId,
   value,
   range,
   step,
@@ -265,7 +310,7 @@ function Slider({
       <span className="ak-label font-mono text-xs sm:w-28">{name}</span>
       <input
         type="range"
-        data-testid={`ctl-${name}`}
+        data-testid={`ctl-${testId ?? name}`}
         min={range.min}
         max={range.max}
         step={step}
@@ -273,7 +318,7 @@ function Slider({
         disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
         className="ss-range order-3 basis-full sm:order-2 sm:min-w-0 sm:basis-auto sm:grow"
-        aria-label={name}
+        aria-label={(testId ?? name).replace(/([A-Z])/g, ' $1').toLowerCase()}
       />
       <span className="ak-accent ml-auto min-w-24 py-2 text-right font-mono text-xs sm:ml-0 sm:py-0">
         {format(value)}

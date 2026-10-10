@@ -11,8 +11,8 @@
 // because what it buys is not speed but exactness: the sequence is pulled by
 // the audio clock, so a stalled main thread cannot smear the one layer whose
 // events are individually felt.
-SynthDef(\ssp_thrum_clock, { |out = 0, gate = 1, dur = 0.5, level = 0, strike = 0, base = 250|
-    var env, trig, hard, ratio, freq;
+SynthDef(\ssp_thrum_clock, { |out = 0, gate = 1, dur = 0.5, level = 0, strike = 0, freq = 250|
+    var env, trig;
 
     env = EnvGen.kr(Env.asr(0.01, 1, 0.01), gate, doneAction: 2);
 
@@ -29,27 +29,19 @@ SynthDef(\ssp_thrum_clock, { |out = 0, gate = 1, dur = 0.5, level = 0, strike = 
     // alternative was a control that exists and does nothing.
     trig = TDuty.ar(dur) * (level > 0.02) * (strike > 0.02);
 
-    // Five against seven: hardness and ratio keep their own positions, so the
-    // accent pattern and the pitch pattern only line up again every 35 taps.
-    // Two demand sequences pulled by one trigger, with nothing counting for
-    // them — the same trick ssp_suz_clock uses at nine against sixteen.
+    // This clock used to carry two demand sequences — five hardness values
+    // against seven pitch ratios, so the accents and the pitches only realigned
+    // every 35 taps. Both are gone.
     //
-    // Hardness carries the pattern and ratio barely moves, which is the way
-    // round the skin needs rather than the way round a melody would want.
-    // Vibrotactile frequency discrimination is poor — it is why an LRA is a
-    // single-frequency device — while a change in intensity is unmistakable.
-    // A tune written into `ratio` would be felt as an even pulse train and
-    // heard as a tune, which is the wrong way round for this page.
-    hard = Demand.ar(trig, 0, Dseq([1, 0.45, 0.72, 0.5, 0.88], inf));
-    ratio = Demand.ar(trig, 0, Dseq([1, 1, 0.72, 1, 1.5, 1, 0.72], inf));
-
-    // Clipped at the graph edge rather than in the page. 90Hz is below the
-    // excursion the speaker has to give and 520Hz is above the band the skin is
-    // best at, so a `base` arriving from a tilt that someone has since rescaled
-    // cannot push the taps out of the useful window.
-    freq = (base * ratio).clip(90, 520);
-
-    SendReply.ar(trig, '/ssp_thrum', [freq, hard]);
+    // They were a guess, and the wrong kind: a tap whose pitch and hardness move
+    // on their own is a tap you cannot evaluate. Every reading is of a different
+    // stimulus, so a hand trying to find the setting that works is comparing
+    // things that were never the same. A pattern is worth having once the page
+    // is *tuned*; while it is being tuned it is noise in the measurement.
+    //
+    // So the clock reports the pitch it is given and nothing else. `hard` is an
+    // ordinary control on the voice now rather than a value riding each event.
+    SendReply.ar(trig, '/ssp_thrum', [freq.clip(60, 600)]);
     Out.ar(out, Silent.ar(2) * env);
 },
 metadata: (
@@ -62,10 +54,11 @@ metadata: (
         level: ControlSpec(0, 1, \lin, 0, 0),
         strike: ControlSpec(0, 1, \lin, 0, 0),
 
-        // The tactile band, and 250Hz sits at the bottom of the U-curve for
-        // glabrous skin. Both ends are reachable by a phone speaker, which 40Hz
-        // is not.
-        base: ControlSpec(120, 400, \exp, 0, 250)
+        // The tap layer's own pitch, independent of the other two layers. Wider
+        // than the 120-400Hz this used to allow, because "the most felt
+        // frequency" is a population average and the only way to find it on one
+        // device in one hand is to be able to look outside the average.
+        freq: ControlSpec(60, 600, \exp, 0, 250)
     ),
     frozen: (out: 0),
     supplied: (gate: 1)

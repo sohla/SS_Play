@@ -28,9 +28,10 @@
 // a demand sequence the train pulls itself — a pattern in the server with no
 // OSC traffic at all.
 SynthDef(\ssp_thrum_bed, { |out = 0, gate = 1,
-                           flutRate = 18, flutAmp = 0, flutDecay = 0.012,
+                           flutFreq = 250, flutRate = 18, flutAmp = 0,
+                           flutDecay = 0.012, flutAttack = 0.001, width = 0.5,
                            carFreq = 250, carAmp = 0, guard = 120, amp = 0.9|
-    var env, trig, accent, pulse, osc, sig;
+    var env, trig, pulse, flutter, carrier, sig;
 
     env = EnvGen.kr(Env.asr(0.06, 1, 0.12), gate, doneAction: 2);
 
@@ -44,12 +45,6 @@ SynthDef(\ssp_thrum_bed, { |out = 0, gate = 1,
     // pulse rate is audible as a stutter in the stutter.
     trig = Impulse.ar(Lag.kr(flutRate, 0.06));
 
-    // Server-side Demand, pulled by the pulse train itself. Eight steps, so at
-    // the flutter rates the cycle is a half-second figure and at the fused rates
-    // it becomes a timbre rather than a rhythm — the same sequence doing two
-    // different jobs either side of the boundary.
-    accent = Demand.ar(trig, 0, Dseq([1, 0.5, 0.75, 0.5, 0.9, 0.5, 0.75, 0.6], inf));
-
     // Each pulse is its own damped sinusoid. Its length is a control rather than
     // a constant for the reason set out in ssp_thrum_tap: short enough to be
     // unambiguously a pulse is also close to undetectable, because the Pacinian
@@ -60,17 +55,28 @@ SynthDef(\ssp_thrum_bed, { |out = 0, gate = 1,
     // nothing in the graph testing for it. A long pulse reaches that point
     // sooner, which is a real interaction between two controls and is why they
     // are both on the page rather than one being chosen here.
-    pulse = EnvGen.ar(Env.perc(0.0006, flutDecay, 1, -4), trig) * accent * flutAmp;
+    pulse = EnvGen.ar(Env.perc(flutAttack, flutDecay, 1, -4), trig) * flutAmp;
 
-    // One oscillator for both layers, which is a choice and not a saving.
+    // Two oscillators, and this is the correction that matters most here.
     //
-    // A real actuator has one resonant frequency and is driven two ways, so the
-    // flutter and the carrier being phase-locked is the physical case. It also
-    // means they cannot beat against each other: two oscillators a few Hz apart
-    // would sum to a slow swell in *excursion*, which is a tremolo you can feel
-    // and did not ask for.
-    osc = SinOsc.ar(Lag.kr(carFreq, 0.08));
-    sig = osc * (pulse + carAmp);
+    // These layers used to share one, on the argument that a real actuator has a
+    // single resonant frequency and the two being phase-locked was therefore the
+    // physical case. True, and useless: it meant the flutter had **no pitch of
+    // its own**, so there was no way to find out whether the rate that feels
+    // right and the frequency that feels right are the same answer. They are
+    // separate questions and the instrument has to be able to ask them
+    // separately.
+    //
+    // The cost is honest. Two oscillators a few Hz apart beat, and the beat is a
+    // slow swell in excursion — a tremolo you can feel. Set them to the same
+    // number and it goes away; that is now a choice rather than a constraint.
+    //
+    // Pulse rather than SinOsc: at width 0.5 the fundamental is 4/π of the peak,
+    // so a square buys ~27% more excursion than a sine for the same headroom.
+    // The DC that comes with any other width is handled by the LeakDC below.
+    flutter = Pulse.ar(Lag.kr(flutFreq, 0.08), width.clip(0.02, 0.5)) * pulse;
+    carrier = Pulse.ar(Lag.kr(carFreq, 0.08), width.clip(0.02, 0.5)) * carAmp;
+    sig = flutter + carrier;
 
     // The shared output stage, and the reason the two layers live together.
     //
@@ -107,6 +113,11 @@ SynthDef(\ssp_thrum_bed, { |out = 0, gate = 1,
 },
 metadata: (
     specs: (
+        // The flutter's own pitch, which it did not have until it stopped
+        // sharing the carrier's oscillator. Same range as the carrier below so
+        // the two can be set to each other, and set apart.
+        flutFreq: ControlSpec(60, 600, \exp, 0, 250),
+
         // 4 to 90Hz, chosen to contain both boundaries with room either side.
         // Stopping at 32Hz would leave the fusion unreachable and this page
         // would be two layers wearing three names.
@@ -114,11 +125,22 @@ metadata: (
         flutAmp: ControlSpec(0, 0.5, \lin, 0, 0),
         flutDecay: ControlSpec(0.003, 0.4, \exp, 0, 0.012),
 
-        // The tactile window. 250Hz is the bottom of the detection-threshold
-        // U-curve for glabrous skin and the middle of the Pacinian channel's
-        // 250-300Hz maximum, which is also why phone actuators resonate between
-        // 150 and 235Hz. It is the one frequency this page is built around.
-        carFreq: ControlSpec(150, 320, \exp, 0, 250),
+        // The flutter's onset. At the fused rates this stops being an attack and
+        // becomes the shape of the whole waveform, which is a second way to get
+        // at the timbre and the reason it is not just tied to flutDecay.
+        flutAttack: ControlSpec(0.0002, 0.06, \exp, 0, 0.001),
+
+        // Duty cycle, shared by the flutter and the carrier because they share
+        // the oscillator. 0.5 is a square and the most felt; 0.02 is a spike.
+        width: ControlSpec(0.02, 0.5, \lin, 0, 0.5),
+
+        // 250Hz is the bottom of the detection-threshold U-curve for glabrous
+        // skin and the middle of the Pacinian channel's 250-300Hz maximum. It is
+        // the frequency this page was built around — and it is a population
+        // average, so the range is now 60-600Hz rather than the old 150-320Hz.
+        // Finding where one device in one hand actually works means being able
+        // to look outside the average.
+        carFreq: ControlSpec(60, 600, \exp, 0, 250),
         carAmp: ControlSpec(0, 0.45, \lin, 0, 0),
 
         // Deliberately cannot reach the carrier's 150Hz floor. A guard that can
