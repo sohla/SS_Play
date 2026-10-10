@@ -1237,3 +1237,117 @@ three keeps every shift inside six semitones.
 - The 70MB engine floor is still irreducible by every option tested.
 - Nothing here has been on a phone yet. The plotter at 33Hz on a canvas is the part worth checking:
   the rate was chosen for SuperCollider's CPU cost, not for a mobile browser's compositor.
+
+---
+
+## 2026-10-10 — thrum: sound aimed at the hand
+
+A new page, and the first one here whose output is not primarily meant to be heard. Three layers,
+three SynthDefs, no p-file behind it — the mechanisms are AirKit's and named where they are used, but
+what the page is *for* came out of the vibrotactile literature. The research is in
+[HAPTICS.md](HAPTICS.md); this is what it changed.
+
+### Done
+
+- **`/thrum/`**, three layers on one phone speaker: taps on a Demand clock, a flutter pulse train,
+  and a 250Hz carrier.
+- **Three defs**: `ssp_thrum_clock`, `ssp_thrum_tap`, `ssp_thrum_bed`. 39 assertions, no waivers.
+- **`docs/HAPTICS.md`**, because none of the four numbers the page is built on are specific to it.
+- Unit suite of 20 assertions on the boundaries, 5 e2e on the mechanisms.
+
+### Three findings, and all three contradicted what I would have built
+
+**The speaker's weakness is the mechanism.** A microspeaker rolls off 12dB/octave below ~800Hz, which
+everyone knows as "a phone has no bass". The half that is not usually said: **below cutoff the
+diaphragm's excursion goes roughly constant while radiated level falls as f²**. The drive is not lost,
+it stops becoming sound and starts becoming movement. So the sub-cutoff band is not the band a phone
+is bad at — it is the band where a phone is a vibrator. The page works it there deliberately.
+
+**250Hz, not 40Hz.** The instinct for anything felt is to go as low as possible and it is wrong
+twice. Vibrotactile threshold for glabrous skin is a U-curve bottoming at **250Hz** — the Pacinian
+250-300Hz maximum, nanometre displacements — so at 40Hz the skin is an order of magnitude less
+sensitive *and* the speaker is out of travel. Two independent arguments, same conclusion, and neither
+is the one you reach for first. It is also why phone actuators resonate in the low hundreds rather
+than down where a subwoofer lives.
+
+**Length decides category, pitch does not.** A burst stops being felt as a discrete pulse at about
+**25-30ms**, and that threshold is near-constant from 40Hz to 590Hz — the opposite of hearing, where
+a higher frequency needs less time. In cycles it is wildly uneven (1.13 at 40Hz, 16.6 at 590Hz),
+which is another way of saying the skin times the event rather than counting its periods. So a 40ms
+version of this page's tap graph is a buzz, and `decay` is specced to top out at 0.025 in both voices
+with the unit suite asserting it at every sensitivity.
+
+### Three layers because there are three channels
+
+Not a stack of sounds — a stack of *rates*, one per mechanoreceptor channel: SA-I below ~6.3Hz where
+events stay countable, RA-I at 16-32Hz where they are a flutter, RA-II at 35-500Hz where they are one
+smooth vibration. Which gives the page **one real axis**, how often something happens, where crossing
+a boundary changes what the hand is holding without changing pitch or level.
+
+Rotation drives that axis, 6Hz to 88Hz on a positive curve, crossing `discrete → stutter → flutter →
+rough → fused`. On rotation because it is the gesture you can hold: a boundary you can cross but not
+sit on is a glitch, not a control. A test asserts all five are reached in order, which is the claim
+rather than a side effect of it.
+
+### The rate chose the architecture, and it is a general rule
+
+The brief suggested demand → osc → synth, and it is right for exactly one of the three layers. Under
+6Hz each event is individually felt, so the Demand graph's exactness is worth a round trip. By 90Hz
+the round trip is the same order as the interval between events, so the rate the hand asked for and
+the rate the skin received would be different numbers — the flutter had to be an `Impulse` inside the
+graph, with its accents on a demand sequence the train pulls itself. Server-side pattern, zero OSC
+traffic, nothing spawned.
+
+**There is a rate ceiling on the conductor shape**, somewhere around 20Hz, and it was not written
+down anywhere. It is now, in [UI.md](UI.md#there-is-a-rate-ceiling-and-it-is-lower-than-it-looks).
+
+### Excursion is zero-sum, which is a mix decision disguised as physics
+
+Three layers are three claims on the same ~0.4mm of travel. Two limiters each seeing half the signal
+both report headroom while the pair clips, so the two continuous layers are **one SynthDef with one
+limiter that sees their sum**. The tap layer sits outside it because a tap has to be able to take
+priority, and it does that by ducking the bed.
+
+That the bed is one def rather than two also sidesteps something worth knowing: `MotionInstrument`
+sends `next.held` to **every** held voice it owns, so two held synths on a page receive each other's
+controls.
+
+### What the suite caught that reading would not have
+
+- **`ssp_thrum_bed` had no `amp`.** Caught by the existing "every non-`_clock` def declares `amp`"
+  assertion, which lives in vitest rather than the sclang suite and is easy to miss while authoring.
+  It turned out to be the right home for the ducking: the per-layer levels are what the gesture asked
+  for, `amp` is what the budget allowed, and I had been multiplying two different quantities together.
+  A rule I first read as a formality was a design prompt.
+- **A fire-and-forget test helper compared a number with itself.** `move()` arms an interval inside
+  `page.evaluate` and returns at once, so the rotation phase was still dispatching while the
+  shake-only phase was being measured. The separability test failed as `70.8 > 70.8` — a tautology in
+  the failure message, which is the tell. Fixed by awaiting the duration.
+- **Stopping the events is not putting the phone down.** `shake` and `turn` decay per *incoming*
+  event, so a page that stops receiving them holds its reading for ever. Settling has to be simulated
+  as zero-movement events, which `personalities.spec.ts` has always known and I had to rediscover.
+
+### Verified
+
+`npm run verify` and `npm run sc:verify` both green: 1311 unit tests, 177 e2e, 396 SynthDef
+assertions, 5 continuity checks. The full e2e suite rather than the new spec alone, because
+`mobile.spec.ts` and `isolation.spec.ts` sweep every page in `sites.json` and a new page joins both.
+
+### Open
+
+- **Nothing here has been felt by a hand.** The suite proves the engine renders it without clipping;
+  it cannot say whether 250Hz through a phone speaker produces a sensation at a volume anyone would
+  choose, or how much of what arrives is the diaphragm versus the chassis. This page is a well-founded
+  hypothesis with a green suite, and what it needs next is a palm rather than another assertion.
+- Whether the three layers are distinguishable *by touch* or collapse into one buzz with a tremolo.
+  The research says the channels are separate; it does not say this transducer can address them
+  separately.
+- `guard` defaults to 120Hz by argument, not by measurement. It is the one genuinely
+  device-dependent control on the page.
+- The plotter's 33Hz canvas is still unmeasured on a phone — the rate was chosen for
+  SuperCollider's CPU cost, not for a mobile compositor. Now on fifteen pages.
+- `README.md`'s doc index does not list `SAMPLES.md`, and did not list `HAPTICS.md` until today.
+  Noticed rather than fixed, since the first one is not mine to decide.
+- Still open from before: `sidecar/dist/` caught by a blanket `dist/` in `.gitignore`; every page
+  staging all authored synthdefs; `droplet`'s `FX_BUS = 8` against `session.firstPrivateBus`; the
+  70MB engine floor; the intermittent `/combo/` 404 from inside a worker.

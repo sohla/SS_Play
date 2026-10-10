@@ -28,6 +28,7 @@ library surface this is built against.
 | [`docs/PAGES.md`](docs/PAGES.md) | Adding a page: the one source of truth, and the step that fails silently |
 | [`docs/UI.md`](docs/UI.md) | The React layer: hooks, re-render rules, generated controls |
 | [`docs/MOBILE.md`](docs/MOBILE.md) | Mobile first: touch targets, the overflow trap, IMU and multitouch notes |
+| [`docs/HAPTICS.md`](docs/HAPTICS.md) | Sound aimed at the hand: the speaker's excursion band, 250Hz, and the 25ms rule |
 | [`docs/TESTING.md`](docs/TESTING.md) | The five tiers, and how the audio assertions stay honest |
 | [`docs/UNKNOWN-PARAMS.md`](docs/UNKNOWN-PARAMS.md) | Vendored parameters still needing a range |
 | [`docs/SIDECAR.md`](docs/SIDECAR.md) | Authoring SynthDefs: the live rig, and how to use it |

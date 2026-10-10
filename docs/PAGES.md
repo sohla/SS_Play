@@ -14,6 +14,7 @@ existing page is the same *shape* as the one you want:
 | sequence in JS | `apps/multibeat` | `ClientConductor` with OSC timetags, for a pattern whose shape changes while it plays |
 | sampled | `apps/marimba` | the above plus a buffer set loaded before anything can play |
 | layered | `apps/combo` | several `ClientConductor`s on one shared bar, kept in phase by the shell |
+| mixed mechanism | `apps/thrum` | a `conductor` and a `held` voice on one page, split by event rate |
 | bespoke UI | `apps/touch` | no `MotionInstrument`; its own layout and gestures |
 
 The three instrument shapes are described in

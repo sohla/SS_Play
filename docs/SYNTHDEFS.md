@@ -137,7 +137,7 @@ SynthDef(\ssp_sine, { |out = 0, freq = 440, amp = 0.2, pan = 0,
 })
 ```
 
-Four rules the build enforces:
+Five rules the build enforces:
 
 - **Names start with `ssp_`.** The synthdefs package stages 131 `sonic-pi-*` defs into the same
   directory; the prefix makes a collision impossible rather than unlikely.
@@ -151,13 +151,31 @@ Four rules the build enforces:
 - **No argument may be called `sustain`.** The event system computes `sustain` as a *time*
   (`dur * legato * stretch`) and sends it to any argument of that name, which silently overwrites
   whatever it was meant to mean. Use `susLevel` for an envelope level. *Waivable — see below.*
+- **Every def that is not a `_clock` must declare `amp`.** Asserted by
+  `packages/engine/test/sidecar-dist.test.ts` rather than by the sclang suite, which is why it is
+  easy to miss when authoring. A suffix rule rather than a list of names, so a voice whose levels
+  are all specific — `ssp_thrum_bed` has `flutAmp` and `carAmp` and had no `amp` at all — still
+  fails until there is one thing every page can address by name.
+
+  Worth taking as a design prompt rather than a formality. The missing `amp` on that def turned out
+  to be the right home for its ducking: the per-layer levels are what the gesture asked for and
+  `amp` is what the excursion budget allowed, which are two different quantities that had been
+  multiplied together.
 
 ### Waiving a rule
 
-The last two rules protect against **sclang's event system**, and a def driven from the JS
-conductor is not reached by any of it: `ClientConductor` sends only the controls it is given, so
+The `gate` and `sustain` rules protect against **sclang's event system**, and a def driven from the
+JS conductor is not reached by any of it: `ClientConductor` sends only the controls it is given, so
 nothing computes a `sustain` behind the def's back, and a fixed-length envelope with
 `doneAction: 2` has nothing for a gate to release.
+
+**Check whether you actually need the gate waiver first.** A fixed-length envelope can keep a gate
+and still pass: `EnvGen.ar(Env.perc(...), gate, doneAction: 2)` has no release node, so it plays
+through and frees itself regardless of what the gate does, while `desc.hasGate` is satisfied by the
+control existing. `ssp_thrum_tap` is a 12ms one-shot with no waiver for that reason, where
+`ssp_piano`, `ssp_marimba` and `ssp_dulcimer` all waive it. Three waivers for a rule that can be
+passed is not wrong — those three are ports and `Env.new` is what the originals use — but a new
+one-shot should reach for the gate before reaching for the waiver.
 
 Rather than weaken the checks for everything, a def declares the exception and says why:
 

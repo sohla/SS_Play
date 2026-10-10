@@ -25,10 +25,12 @@ engine would still report success, metrics would still climb, `/n_end` would sti
 
 It works through `startCapture` / `stopCapture`, which hand back the actual rendered samples.
 
-`tests/e2e/combo.spec.ts` is the one other spec that captures, and it deliberately makes a smaller
-claim: **energy and headroom only**, no spectral assertion. Three layers sounding at once is the case
-where clipping would appear, which is worth checking; but "the right sound" for a page whose pitch set
-and subdivision both move with the phone is not a frequency you can name in advance.
+`combo.spec.ts` and `thrum.spec.ts` also capture, and both deliberately make a smaller claim:
+**energy and headroom only**, no spectral assertion. Three layers sounding at once is the case where
+clipping would appear, which is worth checking either way; but "the right sound" for a page whose
+pitch set and subdivision move with the phone is not a frequency you can name in advance, and on
+`thrum` it is not a frequency at all — [most of what that page emits is not meant to be
+audible](HAPTICS.md), so a spectral threshold would be measuring the part that matters least.
 
 ### Five rules that keep it honest
 
@@ -119,8 +121,28 @@ has a stated brief, the spec is written against *that*:
 | `combo.spec.ts` | the two gestures are **separable** — shaking hard without turning must not open the harmony, and turning hard without shaking must not change the rhythm. Those two tests *are* the brief. Plus: every layer's count per bar is a power of two, the root only visits the four chords in the progression, it moves at most once per 2s bar, and the melody stays inside the pool it was given |
 | `plotter.spec.ts` | that the pages plot the right number of series **in AirKit's colour order**, read back off the canvas pixels |
 | `zz-sens.spec.ts` | that the same fixed gesture at two sensitivities reads differently. Comparative, never absolute |
+| `thrum.spec.ts` | that the Demand clock spawns taps **and frees every one** — a 12ms one-shot is where a missing `doneAction` hides — that the three gestures reach three different layers, and that three layers driven at once do not clip |
 
-Two things learned writing them:
+`thrum`'s own boundaries are in `apps/thrum/test/layers.test.ts` instead, and that split is worth
+copying. The claims are about numbers — the ~6Hz rate below which taps stay countable, the ~25ms
+duration below which a burst is a tap, the five regimes one turn of the wrist has to cross — so they
+are asserted against the mapping across a hundred-step sweep at six sensitivities, which costs
+milliseconds. Doing the same thing through a browser would be a hundred page loads to check
+arithmetic. **Put a boundary where it is cheap and put the mechanism where it is real.**
+
+Three things learned writing them:
+
+- **A fire-and-forget helper overlaps the next one.** `move()` in `thrum.spec.ts` arms an interval
+  inside `page.evaluate` and returns immediately, so two calls in sequence both run: the first was
+  still dispatching rotation while the second was supposed to be showing what shaking alone does, and
+  the separability test compared a number with itself and passed the comparison as `70.8 > 70.8`.
+  Fixed by having the helper await its own duration. **A test that reads a value during an
+  overlapping gesture is testing nothing and says so quietly** — the failure message was a tautology,
+  which is the tell.
+- **Stopping the events is not putting the phone down.** `shake` and `turn` decay on each *incoming*
+  event, so a page that simply stops receiving them holds its last reading for ever — the clock keeps
+  running and the bed keeps sounding. Settling has to be simulated as zero-movement events, which is
+  what `hold()` does and what `personalities.spec.ts` has always done.
 
 - **Read a colour from the canvas, not from the markup.** A Tailwind class that was never generated
   still looks perfectly correct in the DOM. The only way to know a trace is yellow is to sample the

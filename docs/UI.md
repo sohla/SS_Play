@@ -124,7 +124,7 @@ One synth, opened at boot, played by moving its controls. No events, no allocati
 ```
 
 Right whenever the instrument is continuous: a drone, a texture, a filter being swept. `gendy`,
-`leaves` and `pluck` are this.
+`leaves`, `pluck` and `thrum`'s bed are this.
 
 ### `conductor`
 
@@ -146,12 +146,32 @@ The pattern is a **Demand graph in the server**. A clock synth runs it and repor
 how long to hold it — the values arrive together and cannot disagree.
 
 Keeps perfect time, because it *is* the audio clock — a JavaScript timer's jitter cannot reach it.
-Right for a fixed sequence. `suz`, `beast` and `moog` are this.
+Right for a fixed sequence. `suz`, `beast`, `moog` and `thrum`'s tap layer are this.
 
 Two things it cannot do: allocate a node (hence the report-and-spawn), and read a value that changes
 the pattern's *structure*. And a clock must send a sustain time for every event, because an `adsr`
 only frees when its gate falls — without it every note holds a node forever, which surfaces as
 `maxNodes` exhaustion partway through a performance.
+
+**Unless the voice is a fixed-length one-shot**, in which case omit `sustainS` and let it free
+itself. `ssp_thrum_tap` is an `Env.perc` with `doneAction: 2` — there is no sustain segment, so the
+gate has nothing to release and the node ends with its own envelope. The gate still exists, because
+[the suite requires one](SYNTHDEFS.md#writing-one) and a def that cannot be released is a def the
+live rig cannot hold. Worth knowing before adding a `sustainS` that computes a hold time for a 12ms
+event.
+
+#### There is a rate ceiling, and it is lower than it looks
+
+The round trip costs a few milliseconds. Against a tenth-of-a-second step that is scatter on the
+attack; by **20Hz it is a measurable fraction of the interval**, and past 50Hz the rate you asked
+for and the rate you get are different numbers.
+
+So the shape is wrong for anything fast, however fixed its sequence — the pattern has to become a
+trigger *inside* the graph instead, with `Impulse` or `Dyn` driving a demand sequence that nothing
+reports. `ssp_thrum_bed` does this at 4–90Hz and spawns nothing at all. See
+[HAPTICS.md](HAPTICS.md#rates-that-cannot-cross-to-javascript) for the case that forced it.
+
+The rule generalises: **the rate decides the mechanism**, the same way the pattern's shape does.
 
 ### `client`
 
@@ -178,6 +198,17 @@ movement stops reaching the sound because events are already committed.
 A page may use several — `multibeat` is a `client` sequence over a `held` drone. The shell starts and
 stops `client` conductors from the mapped level; `held` voices get every control continuously; and
 `conductor` clocks get `dur` and `level`.
+
+`thrum` is the other way round from both: a `conductor` for its slow layer and a `held` voice for its
+two fast ones, and **the split is decided by rate rather than by what each layer is**. Its taps are
+under 6Hz, where each event is individually felt and the Demand graph's exactness is worth a round
+trip; its flutter runs to 90Hz, where the round trip would smear it. Same page, same gesture
+vocabulary, two mechanisms, and the number that chose between them is the event rate.
+
+One consequence worth knowing before putting two `held` voices on a page: **they all receive the same
+control dict.** The shell sends `next.held` to every one it owns, so two held synths get each other's
+controls — which is one of two reasons `thrum`'s flutter and carrier are a single SynthDef. The other
+is that they share an excursion budget and so have to share a limiter.
 
 `combo` is three `client` sequences on one two-second bar, and **that single level test is what keeps
 them in phase**: every `client` instrument is started and stopped together, so three independent

@@ -72,6 +72,11 @@ browser and the touch surface are not AirKit and should not become it. See
 The two hard limits found by shipping to one, both invisible on a desktop and neither reported as an
 error.
 
+A third is in [HAPTICS.md](HAPTICS.md): the speaker rolls off 12dB/octave below about 800Hz, and
+**below that cutoff its excursion goes roughly constant while the level falls as f²** — so the band a
+phone cannot be heard in is the band it can be *felt* in. That is a limit read as a capability, and
+it is what `/thrum/` is built on.
+
 ### ~3.7MB of decoded audio per page
 
 A sampled page stalls partway through loading once the decoded total passes about 4MB — and stalls by

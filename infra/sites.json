@@ -126,6 +126,13 @@
       "engine": true
     },
     {
+      "app": "thrum",
+      "path": "/thrum/",
+      "title": "thrum",
+      "blurb": "Sound aimed at the hand, not the ear. Shake for separate taps, turn until they fuse into one buzz, tilt to set the carrier.",
+      "engine": true
+    },
+    {
       "app": "sample",
       "path": "/sample/",
       "title": "sample",
