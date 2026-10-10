@@ -60,6 +60,89 @@ import type { Mapped } from '@ss/ui'
 export const SILENCE_BELOW = 0.02
 
 /**
+ * The boundary the pulse-width control crosses, in seconds.
+ *
+ * Under it a burst is felt as a discrete tap; over it as a continuous
+ * vibration. Shown on the page rather than enforced, because the page cannot
+ * know which side the user wants to be on — see `PULSE` below.
+ */
+export const TAP_BOUNDARY_S = 0.025
+
+/**
+ * What the page lets you change by hand, and why any of it is adjustable.
+ *
+ * Everything else here is derived from published numbers. These five are not,
+ * because they depend on a particular speaker in a particular palm — and the
+ * first report back from a hand was that the taps were *too short to feel*,
+ * which no amount of reading would have produced.
+ *
+ * That report is also a finding. A burst short enough to read unambiguously as
+ * a tap sits where the Pacinian channel is least sensitive, because that channel
+ * summates energy over time up to about a second: detection threshold falls as
+ * duration rises. So crispness and detectability trade against each other, the
+ * exchange rate is per-device and per-hand, and the honest response is to expose
+ * the axis instead of picking a point on it.
+ */
+export interface Controls {
+  /** Burst length for the taps and the flutter pulses, in seconds. */
+  pulse: number
+  /** Master level into both limiters. The other likely reason nothing is felt. */
+  drive: number
+  /** Carrier centre in Hz. Roll still offsets it, so the band can be parked. */
+  carrier: number
+  /** Taps per second, used only when free-running. */
+  tapRate: number
+  /** Flutter rate in Hz, used only when free-running. */
+  flutter: number
+  /**
+   * Sound at fixed values with the phone held still.
+   *
+   * The control that makes the rest of them usable. Judging a tactile sensation
+   * while shaking the device that produces it is close to impossible — the
+   * gesture masks the thing it is meant to trigger — so this replaces the three
+   * gestures with the sliders above and lets the phone sit in a palm.
+   */
+  freeRun: boolean
+  /** Per layer, so one can be felt without the other two. */
+  muteTaps: boolean
+  muteFlutter: boolean
+  muteCarrier: boolean
+}
+
+/**
+ * The gesture drive free run stands in for.
+ *
+ * Not 1: a page pinned at maximum has the taps ducking the bed by the full 65%,
+ * so the layer being auditioned would be the quietest it ever gets. 0.7 leaves
+ * all three audible at once, which is what auditioning them needs.
+ */
+const FREE_DRIVE = 0.7
+
+export const DEFAULT_CONTROLS: Controls = {
+  pulse: 0.012,
+  drive: 0.8,
+  carrier: 250,
+  tapRate: 3,
+  flutter: 18,
+  freeRun: false,
+  muteTaps: false,
+  muteFlutter: false,
+  muteCarrier: false,
+}
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value))
+
+/** The declared range of each slider, matching the specs the three defs carry. */
+export const RANGES = {
+  pulse: { min: 0.003, max: 0.4 },
+  drive: { min: 0, max: 1 },
+  carrier: { min: 150, max: 320 },
+  tapRate: { min: 0.8, max: 6 },
+  flutter: { min: 4, max: 90 },
+} as const
+
+/**
  * What a pulse rate is felt as, in order.
  *
  * These are the boundaries from the psychophysics, not a scale someone liked:
@@ -83,6 +166,19 @@ export const REGIMES: readonly { readonly below: number; readonly name: string }
 
 export function regimeOf(rate: number): string {
   return REGIMES.find((regime) => rate < regime.below)?.name ?? 'fused'
+}
+
+/**
+ * Which side of the tap/vibration boundary a pulse length is on.
+ *
+ * `tap` is crisp and, in the Pacinian channel, close to undetectable. `buzz` is
+ * easy to feel and is not an event. Neither is the right answer and the page
+ * says which one you currently have rather than implying one of them is correct.
+ */
+export function pulseReads(seconds: number): string {
+  if (seconds < TAP_BOUNDARY_S * 0.6) return 'tap'
+  if (seconds < TAP_BOUNDARY_S * 1.4) return 'edge'
+  return 'buzz'
 }
 
 /** Everything the three layers need, before it is split across two synths. */
@@ -113,7 +209,11 @@ export interface Thrum {
   drive: readonly [taps: number, flutter: number, carrier: number]
 }
 
-export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
+export function thrumFrom(
+  motion: Motion,
+  sensitivity = 0.5,
+  controls: Controls = DEFAULT_CONTROLS,
+): Thrum {
   // Sensitivity, AirKit style, and only on the two movement spans.
   //
   // The factor is `0.5 / sens` rather than `1 / sens` for the reason every
@@ -125,13 +225,23 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
   // from zero, which is the only shape AirKit ever scales — `lincurve(v, 0,
   // TOP * sens, …)`. Orientation is absolute and is left alone further down.
   const gain = 0.5 / Math.max(0.05, sensitivity)
-  const mass = Math.min(1, motion.shake * gain)
-  const spin = Math.min(1, motion.turn * gain)
+
+  // How hard each gesture is being made, 0..1. In free run these become a fixed
+  // moderate drive rather than an inverse of the rate curves: the sliders set the
+  // two *rates* directly further down, and what is still wanted from `mass` and
+  // `spin` here is an amplitude and a duck, which should not swing about as a
+  // rate is dialled.
+  const mass = controls.freeRun ? FREE_DRIVE : Math.min(1, motion.shake * gain)
+  const spin = controls.freeRun ? FREE_DRIVE : Math.min(1, motion.turn * gain)
 
   // One number for "the hand is doing something", from either gesture. The
   // clock takes this *and* `strike`, because they answer different questions —
   // see the note in ssp_thrum_clock.
-  const level = Math.max(mass, spin)
+  //
+  // Pinned open in free run, which is the whole point of the mode: the page has
+  // to sound while the phone sits still, so the thing being judged is the
+  // vibration rather than the arm making it.
+  const level = controls.freeRun ? 1 : Math.max(mass, spin)
 
   // Excursion is zero-sum, and this is the one line that admits it.
   //
@@ -151,7 +261,7 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
   // asked for, `bedAmp` is what the travel allowed. The plotter shows the first
   // and the readout shows the second.
   const duck = 1 - 0.65 * mass
-  const bedAmp = 0.9 * duck
+  const bedAmp = 0.9 * duck * controls.drive
 
   // ── Layer 1: taps. SA-I, segregated events.
   //
@@ -163,15 +273,20 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
   // Negative curve, so the response arrives early: a small movement already
   // gets most of the rate, and the top of the travel is fine control rather than
   // the only place anything happens. Same sign and same reason as `suz`.
-  const dur = lincurve(mass, 0, 1, 1.2, 0.17, -3)
-  const strike = mass
+  const dur = controls.freeRun
+    ? 1 / clamp(controls.tapRate, RANGES.tapRate.min, RANGES.tapRate.max)
+    : lincurve(mass, 0, 1, 1.2, 0.17, -3)
+  // Muting the taps stops the clock rather than silencing the voice, because the
+  // clock gates on `strike > 0.02` in the graph — so a muted layer costs no
+  // nodes at all rather than spawning one per beat at zero amplitude.
+  const strike = controls.muteTaps ? 0 : mass
 
-  // 24ms down to 5ms. Both ends under the pulse-to-vibration boundary, so there
-  // is no gesture at which a tap stops being a tap — moving harder makes it
-  // sharper, never longer. The ceiling is the research number minus a margin,
-  // not a taste.
-  const decay = lincurve(mass, 0, 1, 0.024, 0.005, -2)
-  const tapAmp = lincurve(mass, 0, 1, 0.12, 0.6, -2)
+  // Straight from the slider rather than from the gesture. A duration you are
+  // trying to judge cannot also be moving — that was the mistake in the first
+  // version, where shaking harder shortened the very thing being felt for, so
+  // the harder you looked the less there was to find.
+  const decay = clamp(controls.pulse, RANGES.pulse.min, RANGES.pulse.max)
+  const tapAmp = lincurve(mass, 0, 1, 0.12, 1, -2) * controls.drive
 
   // ── Layer 2: flutter. RA-I, and the sweep is the instrument.
   //
@@ -183,9 +298,11 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
   //
   // On rotation rather than on acceleration because it is the gesture you can
   // hold. A boundary you cross and cannot sit on is a glitch, not a control.
-  const flutRate = lincurve(spin, 0, 1, 6, 88, 2)
-  const flutAmp = lincurve(spin, 0, 1, 0, 0.42, -1)
-  const flutDecay = lincurve(spin, 0, 1, 0.022, 0.006, -2)
+  const flutRate = controls.freeRun
+    ? clamp(controls.flutter, RANGES.flutter.min, RANGES.flutter.max)
+    : lincurve(spin, 0, 1, 6, 88, 2)
+  const flutAmp = controls.muteFlutter ? 0 : lincurve(spin, 0, 1, 0, 0.42, -1)
+  const flutDecay = decay
 
   // ── Layer 3: carrier. RA-II, the Pacinian peak.
   //
@@ -194,7 +311,14 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
   // **sensitivity does not touch it**: thirty degrees of roll is thirty degrees
   // whatever the knob says, and scaling a bipolar span has no meaning AirKit
   // would recognise.
-  const carFreq = lincurve(motion.roll, -1, 1, 150, 320, 0)
+  // The slider parks the band and roll offsets it, so the gesture survives while
+  // the carrier can still be held still — which is what finding the most-felt
+  // frequency on a particular device actually needs.
+  const carFreq = clamp(
+    controls.carrier + lincurve(motion.roll, -1, 1, -35, 35, 0),
+    RANGES.carrier.min,
+    RANGES.carrier.max,
+  )
 
   // Tilt sets how much of it there is — but gated on movement, because this is
   // the one layer whose own gesture does not return to zero. A phone left
@@ -204,8 +328,10 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
   // So: tilt chooses *what* the bed is, movement decides *whether* there is one.
   // Which is also the right way round for an absolute control — it belongs on a
   // timbre, not on a volume.
-  const carDrive = unipolar(motion.pitch) * Math.min(1, level * 2.5)
-  const carAmp = carDrive * 0.4
+  const carDrive = controls.muteCarrier
+    ? 0
+    : (controls.freeRun ? 1 : unipolar(motion.pitch)) * Math.min(1, level * 2.5)
+  const carAmp = carDrive * 0.45
 
   return {
     dur,
@@ -226,8 +352,12 @@ export function thrumFrom(motion: Motion, sensitivity = 0.5): Thrum {
 }
 
 /** The shell's shape, from the three layers. */
-export function mapThrum(motion: Motion, sensitivity = 0.5): Mapped {
-  const now = thrumFrom(motion, sensitivity)
+export function mapThrum(
+  motion: Motion,
+  sensitivity = 0.5,
+  controls: Controls = DEFAULT_CONTROLS,
+): Mapped {
+  const now = thrumFrom(motion, sensitivity, controls)
 
   return {
     dur: now.dur,
@@ -248,7 +378,10 @@ export function mapThrum(motion: Motion, sensitivity = 0.5): Mapped {
     values: [
       ['taps', `${(1 / now.dur).toFixed(1)}/s`],
       ['strike', now.strike.toFixed(2)],
-      ['decay', `${(now.decay * 1000).toFixed(1)}ms`],
+      // Both the number and which side of the boundary it is on. 30ms means
+      // nothing on its own; "30ms buzz" is the whole report, the same way the
+      // flutter rate is reported as a named regime rather than as a frequency.
+      ['pulse', `${(now.decay * 1000).toFixed(0)}ms ${pulseReads(now.decay)}`],
       ['flutter', `${now.flutRate.toFixed(1)}Hz`],
       ['felt as', regimeOf(now.flutRate)],
       ['carrier', `${now.carFreq.toFixed(0)}Hz`],
@@ -267,8 +400,12 @@ export function mapThrum(motion: Motion, sensitivity = 0.5): Mapped {
  * colour order is AirKit's, and yellow landing on the tap layer is deliberate —
  * it is also the accent colour, and the taps are the lead.
  */
-export function plotOf(motion: Motion, sensitivity = 0.5): number[] {
-  return [...thrumFrom(motion, sensitivity).drive]
+export function plotOf(
+  motion: Motion,
+  sensitivity = 0.5,
+  controls: Controls = DEFAULT_CONTROLS,
+): number[] {
+  return [...thrumFrom(motion, sensitivity, controls).drive]
 }
 
 /** The series in colour order: yellow, magenta, cyan. */

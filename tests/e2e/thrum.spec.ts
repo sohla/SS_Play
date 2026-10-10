@@ -216,3 +216,96 @@ test('a still phone is silent, however it is being held', async ({ page }) => {
   expect(Number(await value(page, 'bed'))).toBe(0)
   await expect(page.locator('[data-testid=playing]')).toContainText('stopped')
 })
+
+/**
+ * The control panel, which exists because the first report from a hand was that
+ * the taps were too short to feel.
+ *
+ * `apps/thrum/test/layers.test.ts` already pins what each control does to the
+ * mapping. What only a browser can show is that the panel reaches the engine at
+ * all — and, for free run, that the page sounds with the device completely
+ * still, which is the one thing the shell is otherwise careful to prevent.
+ */
+test('free run sounds with no sensor events whatsoever', async ({ page }) => {
+  await boot(page)
+
+  // Not one orientation or motion event is dispatched in this test. On a desktop
+  // none arrive on their own either, so `motion.live` is false and the shell
+  // sends nothing — which is correct for every other page and would make free
+  // run silently useless. The toggle wakes the shell itself.
+  await page.locator('[data-testid=ctl-free-run]').check()
+  await page.waitForTimeout(1500)
+
+  // The badge shows the event count when it is sounding and "stopped — move to
+  // start" when it is not, so the absence of the second is the assertion. There
+  // is no literal "playing" in it.
+  await expect(page.locator('[data-testid=playing]')).not.toContainText('stopped')
+  await expect.poll(() => value(page, 'events'), { timeout: 15_000 }).not.toBe('0')
+
+  const heard = await page.evaluate(async () => {
+    const sonic = (
+      window as unknown as {
+        __ss: {
+          sonic: {
+            startCapture(): void
+            stopCapture(): { frames: number; left: Float32Array }
+            getCaptureFrames(): number
+          }
+        }
+      }
+    ).__ss.sonic
+
+    sonic.startCapture()
+    const deadline = performance.now() + 5000
+    while (sonic.getCaptureFrames() < 48_000 && performance.now() < deadline) {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+    const taken = sonic.stopCapture()
+
+    let sumSquares = 0
+    let peak = 0
+    const from = Math.floor(taken.frames * 0.1)
+    const to = Math.floor(taken.frames * 0.9)
+    for (let at = from; at < to; at++) {
+      const v = taken.left[at] ?? 0
+      sumSquares += v * v
+      if (Math.abs(v) > peak) peak = Math.abs(v)
+    }
+    return { rms: Math.sqrt(sumSquares / Math.max(1, to - from)), peak }
+  })
+
+  expect(heard.rms, 'free run produced no signal from a still device').toBeGreaterThan(0.002)
+  expect(heard.peak, 'free run clipped').toBeLessThan(0.99)
+})
+
+test('the pulse control crosses the tap/buzz boundary and says which side it is on', async ({
+  page,
+}) => {
+  await boot(page)
+  await page.locator('[data-testid=ctl-free-run]').check()
+
+  // The readout names the side rather than only the number, the same way the
+  // flutter rate is reported as a named regime. 30ms means nothing on its own.
+  await page.locator('[data-testid=ctl-pulse]').fill('0.005')
+  await expect.poll(() => value(page, 'pulse'), { timeout: 10_000 }).toContain('tap')
+
+  await page.locator('[data-testid=ctl-pulse]').fill('0.3')
+  await expect.poll(() => value(page, 'pulse'), { timeout: 10_000 }).toContain('buzz')
+})
+
+test('muting all three layers silences the page without stopping it', async ({ page }) => {
+  await boot(page)
+  await page.locator('[data-testid=ctl-free-run]').check()
+  await page.waitForTimeout(800)
+
+  for (const layer of ['taps', 'flutter', 'carrier']) {
+    await page.locator(`[data-testid=ctl-mute-${layer}]`).uncheck()
+  }
+  await page.waitForTimeout(1200)
+
+  // The bed is a held voice: muted means zero amplitude, not freed. And the taps
+  // mute by closing the clock's own gate, so the node count must come back to
+  // the two permanent synths rather than carrying silent voices.
+  expect(Number(await value(page, 'bed'))).toBe(0)
+  await expect.poll(() => voices(page), { timeout: 15_000 }).toBe(2)
+})

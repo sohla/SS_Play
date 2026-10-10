@@ -125,7 +125,7 @@ has a stated brief, the spec is written against *that*:
 
 `thrum`'s own boundaries are in `apps/thrum/test/layers.test.ts` instead, and that split is worth
 copying. The claims are about numbers — the ~6Hz rate below which taps stay countable, the ~25ms
-duration below which a burst is a tap, the five regimes one turn of the wrist has to cross — so they
+duration at which a burst stops being a tap, the five regimes one turn of the wrist has to cross — so they
 are asserted against the mapping across a hundred-step sweep at six sensitivities, which costs
 milliseconds. Doing the same thing through a browser would be a hundred page loads to check
 arithmetic. **Put a boundary where it is cheap and put the mechanism where it is real.**

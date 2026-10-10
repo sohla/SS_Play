@@ -1351,3 +1351,91 @@ assertions, 5 continuity checks. The full e2e suite rather than the new spec alo
 - Still open from before: `sidecar/dist/` caught by a blanket `dist/` in `.gitignore`; every page
   staging all authored synthdefs; `droplet`'s `FX_BUS = 8` against `session.firstPrivateBus`; the
   70MB engine floor; the intermittent `/combo/` 404 from inside a worker.
+
+---
+
+## 2026-10-10 — thrum, corrected by a hand
+
+Deployed in the morning, played in the afternoon, wrong by the evening. The
+report was four words long and cost the page its most confidently-argued number:
+*"the short glitches are so short i don't feel like i can feel them."*
+
+### What was wrong
+
+The 25-30ms pulse-to-vibration threshold is real and I read it as a **ceiling**.
+`decay` was specced to top out at 0.025 on both voices, the unit suite asserted
+it at every sensitivity, and `ssp_thrum_tap`'s own comment called it "the single
+most load-bearing number here".
+
+The other half of the same literature points the other way. **The Pacinian
+channel summates energy over time up to about one second** — detection threshold
+falls as duration rises — and temporal summation happens in *that channel only*.
+Which is the channel 250Hz was picked to address. So the page put its carrier
+where skin is most sensitive and then made its taps the duration where the same
+channel is least sensitive, and both halves were sourced from papers I had
+already read.
+
+Made worse by a second decision that looked unrelated: `decay` was driven from
+the gesture, 24ms down to 5ms as you shook harder. **So feeling for a tap
+shortened it.** The harder you looked, the less there was to find.
+
+**A threshold tells you where a percept changes category. It does not tell you
+which side of it you want.** That is the transferable part.
+
+### Done
+
+- `decay` and `flutDecay` now span **3ms to 400ms**, both sides of the boundary,
+  and the gesture no longer touches either. A duration being judged must not also
+  be moving.
+- **A control panel**, because the settings that depend on one speaker in one palm
+  are not this repo's to assert: pulse, drive, carrier centre, tap and flutter
+  rates, three per-layer mutes.
+- **Free run** — sound at fixed settings with the phone held still. The control
+  that makes the others usable: judging a vibration while shaking the thing
+  producing it is close to impossible.
+- `MotionInstrument` gained one optional `controls` prop. Additive; no other page
+  passes it, and the full suite confirms none changed.
+- Default `drive` raised so the page starts louder than the version that was
+  reported unfeelable. The first thing to try when nothing arrives is more level,
+  and that should not need discovering.
+
+### Free run had to work around the shell, not change it
+
+`MotionInstrument` sends nothing until `motion.live` is true, which is correct —
+without it every page would play on load from a resting pose and never stop on a
+desktop. But free run is the user saying *play now, I am holding this still*, so
+on a desktop it would have achieved nothing: no orientation event ever arrives.
+
+Fixed by having the toggle dispatch **one synthetic orientation event**, which is
+page-local on purpose. The guard is right and nineteen other pages depend on it,
+so the page wanting an exception is the page that should carry it. On a phone,
+events arrive continuously and this is a no-op.
+
+### Found by the suite, again
+
+- **A `data-testid` collision.** The `taps` mute and the `taps` rate slider had
+  the same id, so Playwright reported *two elements* rather than the wrong one.
+  Ambiguous rather than broken is the harder version to notice; the mutes have
+  their own `ctl-mute-*` ids now.
+- I asserted the playing badge contains the word `playing`. It contains the event
+  count. The test failed with `17 events` in the message, which was simultaneously
+  a failing assertion and the proof that free run worked.
+
+### Verified
+
+1322 unit tests, 396 SynthDef assertions with no waivers, 180 e2e, 5 continuity
+checks. Full e2e rather than the thrum spec alone, because the change touched the
+shared shell.
+
+### Open
+
+- **Whether a long burst is felt.** The short ones are not — that is the only
+  firm result from a hand so far, and the page now exists to answer the rest.
+- The old test asserting `decay < 0.025` was **inverted rather than deleted**: it
+  now asserts the control reaches both sides of the boundary. A finding is worth
+  more in a test than in a changelog.
+- `guard` still defaults to 120Hz by argument. It is reachable in `/playground/`'s
+  def browser, which is also the quickest way to try the three defs by hand.
+- Still open from before: `sidecar/dist/` caught by a blanket `dist/` in
+  `.gitignore`; every page staging all authored synthdefs; `droplet`'s `FX_BUS`;
+  the 70MB engine floor; the intermittent `/combo/` 404.

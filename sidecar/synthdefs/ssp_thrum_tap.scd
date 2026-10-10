@@ -27,12 +27,25 @@ SynthDef(\ssp_thrum_tap, { |out = 0, gate = 1, freq = 250, hard = 0.6,
     // has an amplitude you can predict — which matters when the limit being
     // managed is a physical excursion rather than a loudness.
     //
-    // `decay` is specced to stay under 25ms at both ends, and that is the
-    // single most load-bearing number here. The duration at which a vibrotactile
-    // burst stops being felt as a discrete pulse and starts being felt as a
-    // continuous vibration is about 25-30ms, and — unlike hearing — it is
-    // near-constant from 40Hz to 590Hz. So what makes this read as a *tap* is
-    // its length, not its pitch. A 40ms version of exactly this graph is a buzz.
+    // `decay` is the one control on this page that cannot be set correctly from
+    // theory, because two findings pull it in opposite directions.
+    //
+    // A burst stops being felt as a discrete pulse and becomes a continuous
+    // vibration at about 25-30ms, near-constant from 40Hz to 590Hz. So **length
+    // is what makes this read as a tap**, and under that boundary is where a tap
+    // lives.
+    //
+    // But the Pacinian channel — the one 250Hz addresses, and the only channel
+    // that does this — **summates energy over time up to about one second**, so
+    // its detection threshold falls as duration rises. A burst short enough to
+    // be unambiguously a tap is therefore close to the least detectable thing
+    // this transducer can produce, and reported as exactly that: felt-for by a
+    // hand that could not find it.
+    //
+    // Crispness and detectability trade off, the exchange rate depends on the
+    // device and the hand, and nothing here can pick the point. So the range is
+    // wide on purpose — 3ms to 400ms, both sides of the boundary — and the page
+    // puts it on a slider and names where the boundary is.
     bodyEnv = EnvGen.ar(Env.perc(0.0006, decay, 1, -4), gate, doneAction: 2);
     body = SinOsc.ar(freq) * bodyEnv;
 
@@ -68,10 +81,12 @@ SynthDef(\ssp_thrum_tap, { |out = 0, gate = 1, freq = 250, hard = 0.6,
 },
 metadata: (
     specs: (
-        // Both ends under the ~25ms pulse-to-vibration boundary, so there is no
-        // setting of this control at which a tap stops being a tap. Widening the
-        // top past 0.025 is not a tuning change, it is a change of category.
-        decay: ControlSpec(0.004, 0.025, \exp, 0, 0.012),
+        // Deliberately spans the ~25ms pulse-to-vibration boundary rather than
+        // stopping below it. Under 25ms is a tap and hard to feel; over it is
+        // easy to feel and not a tap. Both are legitimate places to be and only
+        // a hand can say which, so the control crosses the line and the UI says
+        // where the line is.
+        decay: ControlSpec(0.003, 0.4, \exp, 0, 0.012),
         amp: \amp
     ),
     frozen: (out: 0),

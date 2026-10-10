@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { RESTING, type Motion } from '@ss/motion'
-import { REGIMES, SILENCE_BELOW, regimeOf, thrumFrom } from '../src/mapping.ts'
+import {
+  DEFAULT_CONTROLS,
+  RANGES,
+  REGIMES,
+  SILENCE_BELOW,
+  TAP_BOUNDARY_S,
+  pulseReads,
+  regimeOf,
+  thrumFrom,
+  type Controls,
+} from '../src/mapping.ts'
 
 /**
  * The brief, not the plumbing.
@@ -24,6 +34,8 @@ const at = (over: Partial<Motion>): Motion => ({ ...RESTING, live: true, ...over
 const sweep = (key: 'shake' | 'turn', steps = 101) =>
   Array.from({ length: steps }, (_, n) => thrumFrom(at({ [key]: n / (steps - 1) })))
 
+const withControls = (over: Partial<Controls>): Controls => ({ ...DEFAULT_CONTROLS, ...over })
+
 describe('layer 1 — taps stay inside the regime that justifies them', () => {
   // Below about 6.3Hz the pulses of a periodic stimulus can be segregated and
   // counted. That is the only reason this layer is a separate layer, so no
@@ -44,19 +56,41 @@ describe('layer 1 — taps stay inside the regime that justifies them', () => {
     }
   })
 
-  // 25-30ms is where a vibrotactile burst stops being felt as a discrete pulse.
-  // A tap is defined by its length here, not by its pitch, so both ends of the
-  // decay range have to stay the right side of it.
-  it('keeps every tap under the 25ms pulse-to-vibration boundary', () => {
-    for (const now of sweep('shake')) {
-      expect(now.decay).toBeLessThan(0.025)
-      expect(now.decay).toBeGreaterThanOrEqual(0.004)
-    }
+  // This used to assert decay stayed under 25ms at every gesture, on the grounds
+  // that length is what makes a tap a tap. It was reported unfeelable by a hand,
+  // and the reason is the other half of the research: the Pacinian channel
+  // summates energy over time up to about a second, so a burst short enough to
+  // be unambiguously a tap is also close to undetectable.
+  //
+  // So the assertion is now the opposite shape. The control must *reach* both
+  // sides of the boundary, because which side is right is not a thing this file
+  // can know.
+  it('lets the pulse reach both sides of the boundary', () => {
+    expect(RANGES.pulse.min).toBeLessThan(TAP_BOUNDARY_S)
+    expect(RANGES.pulse.max).toBeGreaterThan(TAP_BOUNDARY_S * 4)
+
+    expect(pulseReads(RANGES.pulse.min)).toBe('tap')
+    expect(pulseReads(RANGES.pulse.max)).toBe('buzz')
   })
 
-  it('makes a harder tap sharper rather than longer', () => {
-    expect(thrumFrom(at({ shake: 1 })).decay).toBeLessThan(thrumFrom(at({ shake: 0.1 })).decay)
+  it('takes the pulse from the control and not from the gesture', () => {
+    // A duration you are trying to judge must not also be moving. In the first
+    // version shaking harder shortened the very thing being felt for, so the
+    // harder you looked the less there was to find.
+    const gentle = thrumFrom(at({ shake: 0.1 }), 0.5, withControls({ pulse: 0.08 }))
+    const hard = thrumFrom(at({ shake: 1 }), 0.5, withControls({ pulse: 0.08 }))
+
+    expect(gentle.decay).toBeCloseTo(0.08, 10)
+    expect(hard.decay).toBeCloseTo(0.08, 10)
+  })
+
+  it('still makes a harder tap louder', () => {
     expect(thrumFrom(at({ shake: 1 })).tapAmp).toBeGreaterThan(thrumFrom(at({ shake: 0.1 })).tapAmp)
+  })
+
+  it('gives the flutter the same pulse length, since one hand judges one burst', () => {
+    const now = thrumFrom(at({ turn: 0.5 }), 0.5, withControls({ pulse: 0.05 }))
+    expect(now.flutDecay).toBeCloseTo(now.decay, 10)
   })
 })
 
@@ -83,7 +117,10 @@ describe('layer 2 — the rate sweep is the instrument', () => {
     for (const now of sweep('turn')) {
       expect(now.flutRate).toBeGreaterThanOrEqual(4)
       expect(now.flutRate).toBeLessThanOrEqual(90)
-      expect(now.flutDecay).toBeLessThan(0.025)
+      // The def's declared range, which now spans the tap/buzz boundary rather
+      // than stopping below it.
+      expect(now.flutDecay).toBeGreaterThanOrEqual(RANGES.pulse.min)
+      expect(now.flutDecay).toBeLessThanOrEqual(RANGES.pulse.max)
       expect(now.flutAmp).toBeLessThanOrEqual(0.5)
     }
   })
@@ -167,7 +204,13 @@ describe('excursion is zero-sum', () => {
     // Ducking to zero would make a hard shake mute the other two layers, which
     // is a mode change rather than a mix.
     expect(thrumFrom(at({ shake: 1 })).duck).toBeGreaterThan(0.3)
-    expect(thrumFrom(at({ shake: 1 })).bedAmp).toBeGreaterThan(0.25)
+
+    // Relative, not absolute. `bedAmp` also carries the drive control now, so a
+    // fixed floor here would be asserting the default drive rather than the
+    // ducking — and would fail the moment someone turned the page down.
+    const quiet = thrumFrom(at({ turn: 0.6, pitch: 1, shake: 0 })).bedAmp
+    const struck = thrumFrom(at({ turn: 0.6, pitch: 1, shake: 1 })).bedAmp
+    expect(struck / quiet).toBeGreaterThan(0.3)
   })
 })
 
@@ -194,5 +237,107 @@ describe('a resting phone', () => {
     // The bed is silent, not detuned. A carFreq of 0 reaching a lagged SinOsc
     // would slide the pitch up from nothing on the first movement.
     expect(thrumFrom(RESTING).carFreq).toBeGreaterThan(150)
+  })
+})
+
+
+describe('the controls a hand needs', () => {
+  it('sounds with the phone completely still when free-running', () => {
+    // The control that makes the others usable. Judging a vibration while
+    // shaking the device producing it is close to impossible, so free run has to
+    // open the clock gate from a resting pose — the exact thing every other page
+    // here is careful never to do.
+    const still = thrumFrom(RESTING, 0.5, withControls({ freeRun: true }))
+
+    expect(still.level).toBeGreaterThan(SILENCE_BELOW)
+    expect(still.strike).toBeGreaterThan(0.02)
+    expect(still.carAmp).toBeGreaterThan(0)
+  })
+
+  it('takes both rates from the sliders when free-running', () => {
+    const now = thrumFrom(
+      RESTING,
+      0.5,
+      withControls({ freeRun: true, tapRate: 4, flutter: 40 }),
+    )
+
+    expect(1 / now.dur).toBeCloseTo(4, 6)
+    expect(now.flutRate).toBeCloseTo(40, 6)
+    expect(regimeOf(now.flutRate)).toBe('rough')
+  })
+
+  it('keeps every free-run rate inside the specs the defs declare', () => {
+    for (const tapRate of [RANGES.tapRate.min, 3, RANGES.tapRate.max]) {
+      for (const flutter of [RANGES.flutter.min, 40, RANGES.flutter.max]) {
+        const now = thrumFrom(RESTING, 0.5, withControls({ freeRun: true, tapRate, flutter }))
+        // ssp_thrum_clock's dur spec.
+        expect(now.dur).toBeGreaterThanOrEqual(0.12)
+        expect(now.dur).toBeLessThanOrEqual(1.4)
+        // ssp_thrum_bed's flutRate spec.
+        expect(now.flutRate).toBeGreaterThanOrEqual(4)
+        expect(now.flutRate).toBeLessThanOrEqual(90)
+      }
+    }
+  })
+
+  it('mutes the taps by stopping the clock, not by silencing the voice', () => {
+    // A muted layer must cost no nodes. Silencing the voice would still spawn
+    // one per beat, which is the thing the clock's second gate exists to avoid.
+    const muted = thrumFrom(at({ shake: 1 }), 0.5, withControls({ muteTaps: true }))
+    expect(muted.strike).toBe(0)
+    expect(muted.strike).toBeLessThan(0.02)
+  })
+
+  it('mutes each of the other two layers independently', () => {
+    const loud = at({ turn: 0.6, pitch: 1 })
+
+    expect(thrumFrom(loud, 0.5, withControls({ muteFlutter: true })).flutAmp).toBe(0)
+    expect(thrumFrom(loud, 0.5, withControls({ muteFlutter: true })).carAmp).toBeGreaterThan(0)
+
+    expect(thrumFrom(loud, 0.5, withControls({ muteCarrier: true })).carAmp).toBe(0)
+    expect(thrumFrom(loud, 0.5, withControls({ muteCarrier: true })).flutAmp).toBeGreaterThan(0)
+  })
+
+  it('can silence the whole page from the drive control', () => {
+    const dead = thrumFrom(at({ shake: 1, turn: 1, pitch: 1 }), 0.5, withControls({ drive: 0 }))
+    expect(dead.tapAmp).toBe(0)
+    expect(dead.bedAmp).toBe(0)
+  })
+
+  it('parks the carrier where the slider puts it, with roll as an offset', () => {
+    const centred = thrumFrom(at({ roll: 0 }), 0.5, withControls({ carrier: 200 }))
+    expect(centred.carFreq).toBeCloseTo(200, 6)
+
+    // Roll moves it but cannot carry it out of the def's declared range.
+    for (const roll of [-1, -0.5, 0.5, 1]) {
+      for (const carrier of [RANGES.carrier.min, 250, RANGES.carrier.max]) {
+        const now = thrumFrom(at({ roll }), 0.5, withControls({ carrier }))
+        expect(now.carFreq).toBeGreaterThanOrEqual(RANGES.carrier.min)
+        expect(now.carFreq).toBeLessThanOrEqual(RANGES.carrier.max)
+      }
+    }
+  })
+
+  it('opens in gesture mode with nothing muted', () => {
+    // The controls are opt-in: landing on the page gives you the three gestures,
+    // not a panel you have to understand first. Free run and the mutes are
+    // things you reach for, which is why none of them is the default.
+    expect(DEFAULT_CONTROLS.freeRun).toBe(false)
+    expect(DEFAULT_CONTROLS.muteTaps).toBe(false)
+    expect(DEFAULT_CONTROLS.muteFlutter).toBe(false)
+    expect(DEFAULT_CONTROLS.muteCarrier).toBe(false)
+
+    // And omitting the argument has to mean the same thing as passing the
+    // defaults, or the page and the tests are exercising different mappings.
+    const implicit = thrumFrom(at({ shake: 0.6, turn: 0.4, pitch: 0.5 }))
+    const explicit = thrumFrom(at({ shake: 0.6, turn: 0.4, pitch: 0.5 }), 0.5, DEFAULT_CONTROLS)
+    expect(implicit).toEqual(explicit)
+  })
+
+  it('starts louder than the version that was reported unfeelable', () => {
+    // The first thing to try when nothing arrives is more level, so the page
+    // should not need that discovered before it does anything. 0.6 was the old
+    // ceiling on tapAmp; the default now clears it.
+    expect(thrumFrom(at({ shake: 1 })).tapAmp).toBeGreaterThan(0.6)
   })
 })

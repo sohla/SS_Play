@@ -89,6 +89,21 @@ export interface MotionInstrumentProps {
   /** What each series is, in colour order — the p-file's own comment, as a legend. */
   plotLabels?: string[]
   /**
+   * The page's own controls, drawn under the sensitivity slider.
+   *
+   * For a page whose right settings cannot be known in advance — a device
+   * limit nobody has measured, something only a hand can judge — rather than
+   * for exposing a SynthDef's parameters, which `SynthDefControls` already does
+   * from the contract.
+   *
+   * **Keep the values in a ref as well as state.** The send loop runs at 30Hz
+   * off refs and `map` must stay referentially stable, because it is in the
+   * sending effect's dependency list: a `map` that changes identity on every
+   * slider frame tears down and re-arms both intervals mid-drag. `sensitivity`
+   * above is the pattern to copy.
+   */
+  controls?: ReactNode
+  /**
    * Hold the build until the page's own setup is done.
    *
    * A sampled instrument cannot be constructed until its buffers are loaded, and
@@ -136,6 +151,7 @@ export function MotionInstrument({
   plotMin = -1,
   plotMax = 1,
   plotLabels,
+  controls,
 }: MotionInstrumentProps) {
   const { status, boot, probe, session } = useSuperSonic()
   const [motion, setMotion] = useState<Motion>(RESTING)
@@ -366,6 +382,8 @@ export function MotionInstrument({
                 AirKit's number: lower saturates sooner
               </span>
             </label>
+
+            {controls}
 
             <dl className="ak-label grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[11px]">
               {mapped.values.map(([name, text]) => (

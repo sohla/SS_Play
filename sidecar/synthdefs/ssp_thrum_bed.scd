@@ -50,11 +50,16 @@ SynthDef(\ssp_thrum_bed, { |out = 0, gate = 1,
     // different jobs either side of the boundary.
     accent = Demand.ar(trig, 0, Dseq([1, 0.5, 0.75, 0.5, 0.9, 0.5, 0.75, 0.6], inf));
 
-    // Each pulse is its own short damped sinusoid, and stays under the ~25ms
-    // pulse-to-vibration threshold so that at low rates the individual pulses
-    // are still felt as pulses. Above about 80Hz they overlap and the overlap
-    // *is* the fusion — the DSP crosses the perceptual boundary on its own,
-    // with nothing in the graph testing for it.
+    // Each pulse is its own damped sinusoid. Its length is a control rather than
+    // a constant for the reason set out in ssp_thrum_tap: short enough to be
+    // unambiguously a pulse is also close to undetectable, because the Pacinian
+    // channel integrates energy over time.
+    //
+    // Above about 80Hz the pulses overlap whatever their length, and the overlap
+    // *is* the fusion — the DSP crosses the perceptual boundary on its own, with
+    // nothing in the graph testing for it. A long pulse reaches that point
+    // sooner, which is a real interaction between two controls and is why they
+    // are both on the page rather than one being chosen here.
     pulse = EnvGen.ar(Env.perc(0.0006, flutDecay, 1, -4), trig) * accent * flutAmp;
 
     // One oscillator for both layers, which is a choice and not a saving.
@@ -107,7 +112,7 @@ metadata: (
         // would be two layers wearing three names.
         flutRate: ControlSpec(4, 90, \exp, 0, 18),
         flutAmp: ControlSpec(0, 0.5, \lin, 0, 0),
-        flutDecay: ControlSpec(0.004, 0.025, \exp, 0, 0.012),
+        flutDecay: ControlSpec(0.003, 0.4, \exp, 0, 0.012),
 
         // The tactile window. 250Hz is the bottom of the detection-threshold
         // U-curve for glabrous skin and the middle of the Pacinian channel's
