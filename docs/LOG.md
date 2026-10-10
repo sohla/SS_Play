@@ -1439,3 +1439,89 @@ shared shell.
 - Still open from before: `sidecar/dist/` caught by a blanket `dist/` in
   `.gitignore`; every page staging all authored synthdefs; `droplet`'s `FX_BUS`;
   the 70MB engine floor; the intermittent `/combo/` 404.
+
+---
+
+## 2026-10-11 — thrum, settled by a hand
+
+Three rebuilds in a day, and the thing that fixed it was not an idea of mine.
+
+### What happened, in order
+
+1. **Three layers, each a mechanoreceptor channel.** Structurally sound, fully
+   tested, unfeelable. Reported as *"the short glitches are so short i don't feel
+   like i can feel them."*
+2. **Widened the envelopes and added a control panel.** Better, and still wrong:
+   the panel shipped burst *length* under the name "pulse", which is a different
+   control from pulse *width*, and left the onset and the audible tick hardcoded.
+3. **Gave every layer its own pitch and length.** Correct, and beside the point —
+   *"you seem to be guessing a bit and over complicating."* Three things were
+   shared because sharing them was defensible on paper, and each removed a
+   question the instrument needed to be able to ask.
+4. **One layer, nine parameters.** *"perhaps they are baked in?"* They were. The
+   pulse's envelope, its onset, its two halves and their balance were constants
+   in the SynthDef the whole time, chosen by me from the literature. Every round
+   of fixing had been fixing the structure around a pulse nobody could change.
+
+### The finding, which is the valuable part
+
+With the shape finally adjustable, a hand found settings that work. Three of them
+are nowhere near where the research points:
+
+| | found | the literature's instinct |
+|---|---|---|
+| `decay` | **91ms** | under 25ms, so it reads as a discrete tap |
+| `attack` | **14.5ms** | a fraction of a millisecond, so it has an edge |
+| `curve` | **+4, "held"** | negative, decaying like a struck object |
+
+Three independent votes for the same thing: **this channel wants sustained
+energy, not a sharp event.** Which is what Pacinian temporal summation predicts —
+detection threshold falls as duration rises, up to about a second — and what the
+pulse-to-vibration category literature obscures, because it describes where the
+percept changes *name* and says nothing about which side a phone speaker can
+reach.
+
+**A threshold tells you where a percept changes name. It does not tell you that
+the side with the better name is the side you can reach.** The crisp side of the
+25-30ms boundary was unreachable on this transducer from the start, and I spent
+three versions defending it.
+
+250Hz held up. It is the only default that came from reading and survived.
+
+### Also done
+
+- `carrier` narrowed to 100-400Hz from 60-600. The wide ends existed to find the
+  optimum and are not useful now it is found.
+- `rate` narrowed to 0.5-6Hz, below the 6.3Hz segregation rate, so the page
+  cannot leave the countable-events regime. Flutter and fusion are real percepts
+  and not what this instrument is for.
+- **IMU mode is two gestures, both quantised.** Acceleration steps the rate
+  between 1, 2, 3 and 4Hz — `multibeat`'s rule, where moving changes the
+  subdivision and never the tempo. Rolling sweeps the carrier up a chromatic
+  octave, 150Hz to 300Hz. Quantised because a carrier that slides is a siren and
+  one that steps is an instrument, and because a reading you cannot repeat is not
+  a reading.
+- Nothing is mapped to the envelope. The shape is the thing that was tuned, so a
+  gesture moving it would undo the tuning every time the page was played.
+- The six found values are pinned in both suites. They are the most valuable
+  numbers on the page and the easiest to lose to a tidy-up, because every one of
+  them looks wrong against the research it replaced.
+
+### Found in the tooling
+
+**`sc:build` does not prune.** Deleting the three old defs left their compiled
+output in `sidecar/out`, and `sc:promote` carried it into every page's vendor
+tree — 31 defs staged for 28 sources. `PAGES.md`'s removal recipe says to re-run
+build, test and promote, and none of those three removes a stale artefact.
+
+### Open
+
+- Whether the found defaults travel to another phone, or describe one speaker in
+  one palm.
+- `HAPTICS.md`'s channel table and `UI.md`'s notes on the conductor rate ceiling
+  both still describe the layered versions. The channels are real and the ceiling
+  is real, so both are kept — but neither is about this page any more.
+- Amplitude modulation, depth and rate on the carrier, is the one studied
+  dimension not exposed. The obvious next axis if the envelope proves enough.
+- Still open from before: every page staging all authored synthdefs; `droplet`'s
+  `FX_BUS`; the 70MB engine floor; the intermittent `/combo/` 404.

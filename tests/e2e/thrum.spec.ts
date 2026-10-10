@@ -90,7 +90,9 @@ test('every one of the nine parameters reaches the engine', async ({ page }) => 
   // nothing, the page still makes a noise and still looks right.
   const cases: [testId: string, set: string, readout: string, expected: string][] = [
     ['carrier', '140', 'carrier', '140Hz'],
-    ['rate', '30', 'rate', '30.0Hz flutter'],
+    // 5Hz, not 30: the range stops at 6 now, below the segregation rate, so
+    // every reachable setting reports `discrete`.
+    ['rate', '5', 'rate', '5.0Hz discrete'],
     ['decay', '0.004', 'decay', '4ms tap'],
     ['attack', '0.03', 'attack', '30.00ms'],
     ['curve', '0', 'curve', '0.0 linear'],
@@ -120,11 +122,11 @@ test('it still sounds, and does not clip, at the extremes of the envelope', asyn
   await page.locator('[data-testid=ctl-intensity]').fill('1')
   await page.locator('[data-testid=ctl-overdrive]').fill('6')
   await page.locator('[data-testid=ctl-decay]').fill('0.003')
-  await page.locator('[data-testid=ctl-rate]').fill('90')
+  await page.locator('[data-testid=ctl-rate]').fill('6')
   await page.waitForTimeout(900)
 
   const sharp = await measure(page)
-  expect(sharp.rms, 'short pulses at a fused rate produced nothing').toBeGreaterThan(0.002)
+  expect(sharp.rms, 'short pulses at the top rate produced nothing').toBeGreaterThan(0.002)
   expect(sharp.peak, 'short pulses at full overdrive clipped').toBeLessThan(0.99)
 
   await page.locator('[data-testid=ctl-decay]').fill('0.5')
@@ -158,4 +160,70 @@ test('turning free run off hands the page back to the gestures', async ({ page }
   await page.waitForTimeout(3600)
 
   await expect(page.locator('[data-testid=playing]')).toContainText('stopped')
+})
+
+
+test('the defaults are the ones a hand found, not the ones a paper suggested', async ({ page }) => {
+  await boot(page)
+  await page.waitForTimeout(1000)
+
+  // Pinned in the browser as well as the unit suite, because these six numbers
+  // are the most valuable thing on the page and the easiest to lose to a
+  // tidy-up: each one looks wrong against the research it came from. A 91ms
+  // decay is three times the tap boundary, a 14.5ms attack is a hundred and
+  // forty times what a click wants, and `held` is the opposite end of the
+  // envelope from a struck decay.
+  expect(await value(page, 'decay')).toBe('91ms buzz')
+  expect(await value(page, 'attack')).toBe('14.50ms')
+  expect(await value(page, 'curve')).toBe('4.0 held')
+  expect(await value(page, 'overdrive')).toBe('x1.0')
+  expect(await value(page, 'transient')).toBe('0.38')
+  expect(await value(page, 'sharpness')).toBe('0.48')
+  expect(await value(page, 'carrier')).toBe('250Hz')
+  expect(await value(page, 'rate')).toBe('2.4Hz discrete')
+})
+
+test('IMU mode steps the rate and steps the carrier', async ({ page }) => {
+  await boot(page)
+  await page.locator('[data-testid=ctl-free-run]').uncheck()
+
+  // Acceleration picks between whole-number rates, multibeat style. Rotation
+  // sweeps a chromatic octave. Both quantised, so a reading can be repeated.
+  const drive = (spin: number, force: number, beta: number, gamma: number, ms: number) =>
+    page.evaluate(
+      ([rate, accel, tilt, roll, duration]) => {
+        const tick = setInterval(() => {
+          window.dispatchEvent(
+            new DeviceOrientationEvent('deviceorientation', {
+              alpha: 0,
+              beta: tilt as number,
+              gamma: roll as number,
+            }),
+          )
+          window.dispatchEvent(
+            new DeviceMotionEvent('devicemotion', {
+              acceleration: { x: accel as number, y: accel as number, z: accel as number },
+              rotationRate: { alpha: rate as number, beta: rate as number, gamma: rate as number },
+            }),
+          )
+        }, 16)
+        setTimeout(() => clearInterval(tick), duration as number)
+      },
+      [spin, force, beta, gamma, ms] as const,
+    ).then(() => page.waitForTimeout(ms + 300))
+
+  await drive(0, 11, 20, 70, 3000)
+  const shaken = await value(page, 'rate')
+  const rolled = await value(page, 'note')
+
+  // Whole numbers only, and a semitone offset rather than an arbitrary Hz.
+  expect(shaken, `rate read "${shaken}"`).toMatch(/^[1-4]\.0Hz discrete$/)
+  expect(rolled, `note read "${rolled}"`).toMatch(/^\+\d{1,2}$/)
+
+  await drive(0, 0.2, 20, -70, 2500)
+  const gentle = await value(page, 'rate')
+  expect(gentle).toBe('1.0Hz discrete')
+
+  // Rolling the other way must land on a different semitone of the same root.
+  expect(await value(page, 'note')).not.toBe(rolled)
 })

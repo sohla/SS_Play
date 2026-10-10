@@ -109,23 +109,64 @@ export interface Controls {
   freeRun: boolean
 }
 
+/**
+ * Read off the sliders after a hand found settings that worked.
+ *
+ * Three of these are nowhere near where the literature would have put them, and
+ * they all point the same way:
+ *
+ *   decay    91ms     three times the 25-30ms tap boundary — well into "buzz"
+ *   attack   14.5ms   a hundred and forty times the 0.1ms a click wants
+ *   curve    +4       "held": the envelope sustains, then drops
+ *
+ * Which is what Pacinian temporal summation predicts and what the category
+ * literature obscures. **This channel wants sustained energy, not a sharp
+ * event.** Detection threshold falls as duration rises, up to about a second, so
+ * a long slow-rising plateau beats the crisp tap that the 25ms boundary points
+ * at. The research said where the percept changes name; it could not say which
+ * side of that line a phone speaker can actually reach.
+ *
+ * `intensity` is the only one still at its original value, because it is the one
+ * nobody had to search for.
+ */
 export const DEFAULT_CONTROLS: Controls = {
   carrier: 250,
-  rate: 4,
+  rate: 2.4,
   intensity: 0.75,
-  attack: 0.001,
-  decay: 0.06,
-  curve: -4,
+  attack: 0.0145,
+  decay: 0.091,
+  curve: 4,
   overdrive: 1,
-  transient: 0.3,
-  sharpness: 0.5,
+  transient: 0.38,
+  sharpness: 0.48,
   freeRun: true,
 }
 
+/**
+ * The rate steps acceleration picks between in IMU mode.
+ *
+ * Whole numbers, so the pulse train is a rhythm rather than a sweep — the same
+ * idea as `multibeat`, where moving changes the subdivision and never the tempo.
+ * A continuous rate between them would be a glissando nobody asked for.
+ */
+export const RATE_STEPS = [1, 2, 3, 4] as const
+
+/**
+ * The musical octave rotation sweeps in IMU mode: 150Hz to 300Hz, in semitones.
+ *
+ * Quantised rather than continuous because a carrier that slides is a siren and
+ * one that steps is an instrument. Twelve semitones from 150 lands exactly on
+ * 300, which is why the octave is the one it is — and it sits inside the
+ * 100-400Hz the slider allows, so the gesture covers the useful middle while the
+ * slider can still reach the ends.
+ */
+export const CARRIER_ROOT = 150
+export const CARRIER_SEMITONES = 12
+
 /** Every range, matching the specs `ssp_thrum` declares. */
 export const RANGES = {
-  carrier: { min: 60, max: 600 },
-  rate: { min: 0.5, max: 90 },
+  carrier: { min: 100, max: 400 },
+  rate: { min: 0.5, max: 6 },
   intensity: { min: 0, max: 1 },
   attack: { min: 0.0001, max: 0.05 },
   decay: { min: 0.003, max: 0.5 },
@@ -141,12 +182,12 @@ const held = (value: number, key: keyof typeof RANGES) =>
   clamp(value, RANGES[key].min, RANGES[key].max)
 
 /**
- * What a retrigger rate is felt as, in order.
+ * What a retrigger rate is felt as.
  *
- * The boundaries from the psychophysics rather than a scale someone liked: below
- * about 6.3Hz the pulses stay segregated and can be counted; between roughly 16
- * and 32Hz they take on a flutter quality; past 50-80Hz they fuse into something
- * smooth. The two gaps are genuinely gaps — the percept in them is neither.
+ * Only the first of these is now reachable — `rate` stops at 6Hz, below the
+ * 6.3Hz segregation rate — and the rest are kept because the readout saying
+ * `discrete` is the statement that matters: these pulses are meant to be
+ * countable. If the range is ever opened up again, the names are already here.
  */
 export const REGIMES: readonly { readonly below: number; readonly name: string }[] = [
   { below: 6.3, name: 'discrete' },
@@ -216,17 +257,40 @@ export function thrumFrom(
   const spin = Math.min(1, motion.turn * gain)
 
   // One rule, and it is the whole of the mode: **in free run every slider is
-  // exact; otherwise the two gestures take over intensity and rate.** Nothing
-  // else is ever gesture-driven, because a parameter being judged must not also
-  // be moving — the mistake that made the first version impossible to evaluate.
-  const intensity = controls.freeRun
-    ? held(controls.intensity, 'intensity')
-    : lincurve(mass, 0, 1, 0, 1, -2)
+  // exact; otherwise two gestures take over, and only two.** Everything else
+  // stays where the slider put it, because a parameter being judged must not
+  // also be moving.
+  //
+  // Acceleration picks the rate, rotation picks the carrier. Nothing is mapped
+  // to the envelope at all — the shape is the thing you tuned, so a gesture
+  // moving it would undo the tuning every time you played.
 
-  const rate = controls.freeRun ? held(controls.rate, 'rate') : lincurve(spin, 0, 1, 1, 80, 2)
+  // Acceleration steps the rate between whole numbers, `multibeat` style: round
+  // then clip, which is the original p-files' own
+  // `lincurve(...).round.clip(0, n)`. A positive curve keeps the low rates
+  // across most of the travel, so a firm shake is what reaches 4Hz.
+  const step = Math.min(
+    Math.max(Math.round(lincurve(mass, 0, 1, 0, RATE_STEPS.length - 1, 1)), 0),
+    RATE_STEPS.length - 1,
+  )
+  const rate = controls.freeRun ? held(controls.rate, 'rate') : (RATE_STEPS[step] ?? 1)
+
+  // Movement decides whether, the slider decides how loud. Acceleration is
+  // already doing a job here, so the alternative was leaving the page droning on
+  // a desk — which is the one behaviour every other page in this project is
+  // careful to avoid.
+  const gate = controls.freeRun ? 1 : Math.min(1, Math.max(mass, spin) * 2.5)
+  const intensity = held(controls.intensity, 'intensity') * gate
+
+  // Roll sweeps a chromatic octave, 150Hz to 300Hz. Quantised, because a carrier
+  // that slides is a siren and one that steps is an instrument.
+  const semitone = Math.round(lincurve(motion.roll, -1, 1, 0, CARRIER_SEMITONES, 0))
 
   return {
-    carrier: held(controls.carrier, 'carrier'),
+    carrier: held(
+      controls.freeRun ? controls.carrier : CARRIER_ROOT * 2 ** (semitone / 12),
+      'carrier',
+    ),
     rate,
     intensity,
     attack: held(controls.attack, 'attack'),
@@ -268,6 +332,9 @@ export function mapThrum(
     values: [
       ['carrier', `${now.carrier.toFixed(0)}Hz`],
       ['rate', `${now.rate.toFixed(1)}Hz ${regimeOf(now.rate)}`],
+      // The semitone above the 150Hz root, so a quantised carrier reads as a
+      // step rather than as a number that refuses to land where you put it.
+      ['note', `+${Math.round(12 * Math.log2(now.carrier / CARRIER_ROOT))}`],
       ['decay', `${(now.decay * 1000).toFixed(0)}ms ${decayReads(now.decay)}`],
       ['attack', `${(now.attack * 1000).toFixed(2)}ms`],
       ['curve', `${now.curve.toFixed(1)} ${curveReads(now.curve)}`],

@@ -106,10 +106,42 @@ The general form, worth carrying to anything else built on numbers like these: a
 threshold from the literature tells you where a percept *changes category*. It
 does not tell you that one side of it is the side you want.
 
-## Three channels, which is where three layers came from
+## Settled by a hand: the channel wants sustained energy
 
-The layers of `/thrum/` are not a stack of sounds. They are the three
-mechanoreceptor channels, and each one is a **rate** regime:
+Everything above is published and everything below is measured, and where the
+two disagree the measurement wins.
+
+`/thrum/` went through a three-layer version, a nine-parameter version, and
+finally a single pulse with its whole shape on sliders. Someone then found
+settings that worked on a real phone, and **three of the six are nowhere near
+where the literature points**:
+
+| | found | the literature's instinct |
+|---|---|---|
+| `decay` | **91ms** | under 25ms, so it reads as a discrete tap |
+| `attack` | **14.5ms** | a fraction of a millisecond, so it has an edge |
+| `curve` | **+4, "held"** | negative, decaying like a struck object |
+
+Read together they say one thing, and it is the thing Pacinian temporal
+summation predicts rather than anything the category research suggests: **this
+channel wants sustained energy, not a sharp event.** Detection threshold falls as
+duration rises, up to about a second, so a long slow-rising plateau is far more
+detectable than a crisp tap — and a crisp tap through a phone speaker is simply
+not felt. 250Hz was confirmed; the envelope was not.
+
+The transferable form, which cost three rebuilds to learn: **a threshold from the
+literature tells you where a percept changes name. It does not tell you that the
+side with the better name is the side you can reach.** The 25-30ms boundary is
+real and the crisp side of it was unreachable on this transducer the whole time.
+
+The rate range was narrowed to 0.5-6Hz afterwards, keeping the page inside the
+countable-events regime on purpose. Flutter and fusion are reachable percepts and
+not what this instrument is for.
+
+## Three channels, which is where the layered versions came from
+
+Kept because the channels are real and the next thing built on them will need
+them, even though `/thrum/` is now one layer. Each one is a **rate** regime:
 
 | channel | rate | felt as |
 |---|---|---|
@@ -192,20 +224,20 @@ psychophysics, and the test suite proves the engine renders the result without
 clipping. Neither says that a particular phone in a particular hand produces a
 sensation, and that is the only claim that matters.
 
-**One report in, and it moved the design.** A hand on a real phone could not feel
-the short taps — see the trade-off above — which cost the 25ms cap and gained a
-control panel. So the page now exposes pulse length, drive, carrier, per-layer
-mutes and a free-run mode, on the principle that the settings which depend on a
-particular speaker in a particular palm are the user's to find rather than
-this file's to assert.
+**Four reports in, and they rebuilt the page twice.** The short taps could not be
+felt; the layers were not the problem; the pulse's own shape was baked in. What
+is left is one pulse with nine controls and a set of defaults that came off a
+hand — see [the section above](#settled-by-a-hand-the-channel-wants-sustained-energy).
 
-Still unverified as of 2026-10-10:
+Still unverified as of 2026-10-11:
 
-- Whether a *long* burst is felt, now that one can be asked for. The short ones
-  are not; that is the only firm result so far.
+- Whether the found defaults travel to another phone, or whether they describe
+  one speaker in one palm. Nothing here can tell the difference yet.
 - How much of what reaches the hand is the diaphragm versus the chassis it is
-  mounted in, and therefore whether `carrier` has a useful optimum per device or
-  is flat across its range.
+  mounted in. 250Hz was confirmed by hand, but not against its neighbours.
+- Amplitude modulation — depth and rate on the carrier — is the one studied
+  dimension this page does not expose. It is the roughness/texture axis, and the
+  obvious next thing to add if the envelope controls turn out to be enough.
 - Whether the three layers are distinguishable by touch, or whether they collapse
   into one buzz with a tremolo. The research says the channels are separate; it
   does not say this transducer can address them separately.

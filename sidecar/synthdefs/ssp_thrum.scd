@@ -30,17 +30,28 @@
 //
 // ## The numbers, and where each comes from
 //
+// ## The defaults came off a hand, not out of a paper
+//
+// Every default below except `intensity` was read off the sliders after someone
+// found settings that worked on a real phone, and three of them are nowhere near
+// where the literature would have put them:
+//
+//   decay     91ms     three times the 25-30ms tap boundary. Well into "buzz".
+//   attack    14.5ms   a hundred and forty times the 0.1ms a click wants.
+//   curve     +4       "held" — the envelope sustains and then drops, rather
+//                      than decaying like a struck object.
+//
+// Read together those three say the same thing, and it is the thing Pacinian
+// temporal summation predicts: **this channel wants sustained energy, not a
+// sharp event.** The threshold falls as duration rises, up to about a second, so
+// a long slow-rising plateau is far more detectable than the crisp tap the
+// category literature points at. The research said where the percept changes
+// name; it could not say which side of that a phone speaker can actually reach.
+//
 //   carrier   250Hz    the minimum of the vibrotactile threshold curve for
 //                      glabrous skin, and the middle of the Pacinian channel's
 //                      250-300Hz maximum. Phone LRAs sit at 125-300Hz for the
-//                      same reason.
-//   decay     60ms     above the 25-30ms boundary at which a burst stops being
-//                      felt as a discrete pulse — deliberately. The Pacinian
-//                      channel summates energy over about a second, so its
-//                      detection threshold *falls* as duration rises: a burst
-//                      short enough to read as a crisp tap is also close to
-//                      undetectable. 60ms is the compromise, and it is a
-//                      compromise rather than an optimum.
+//                      same reason. This one the hand confirmed.
 //   intensity 0.75     applied as `intensity ** (1/0.6)`, because subjective
 //                      magnitude grows as amplitude^0.6 at 250Hz on the finger.
 //                      The exponent is frequency-dependent — 0.95 at 60Hz — so
@@ -51,13 +62,16 @@
 //   sharpness 0.5      Core Haptics' own parameter, where it is described as the
 //                      "clickiness" of a transient. Here it is literally the
 //                      band the transient lives in, 400Hz to 6kHz.
-//   rate      4Hz      below the ~6.3Hz critical segregation rate, so pulses
-//                      arrive as countable events. Sweeping up crosses flutter
-//                      (16-32Hz) and fusion (past ~80Hz).
+//   rate      2.4Hz    and the range now stops at 6Hz, below the ~6.3Hz
+//                      critical segregation rate. Flutter and fusion are
+//                      deliberately out of reach: this is a rhythmic instrument
+//                      whose pulses are meant to be countable, and a control
+//                      that can leave that regime is a control that can leave
+//                      the instrument.
 SynthDef(\ssp_thrum, { |out = 0, gate = 1,
-                       carrier = 250, rate = 4, intensity = 0.75,
-                       attack = 0.001, decay = 0.06, curve = -4,
-                       overdrive = 1, transient = 0.3, sharpness = 0.5,
+                       carrier = 250, rate = 2.4, intensity = 0.75,
+                       attack = 0.0145, decay = 0.091, curve = 4,
+                       overdrive = 1, transient = 0.38, sharpness = 0.48,
                        amp = 1|
     var env, trig, level, body, kick, shape, tone, click, sig;
 
@@ -117,36 +131,37 @@ SynthDef(\ssp_thrum, { |out = 0, gate = 1,
 },
 metadata: (
     specs: (
-        // Wider than the Pacinian optimum on both sides. 250Hz is a population
-        // average and a hand is not a population; the only way to find out where
-        // one device works is to be able to look outside the average.
-        carrier: ControlSpec(60, 600, \exp, 0, 250),
+        // 100-400Hz, narrowed from 60-600 once a hand had confirmed 250Hz. The
+        // ends that are gone were there to find the optimum; they are not useful
+        // now that it is found, and a range you cannot get lost in is worth
+        // more than one you can.
+        carrier: ControlSpec(100, 400, \exp, 0, 250),
 
-        // 0.5Hz to 90Hz: one every two seconds, up through the flutter band and
-        // past the fusion point.
-        rate: ControlSpec(0.5, 90, \exp, 0, 4),
+        // 0.5 to 6Hz. Stops below the ~6.3Hz segregation rate on purpose — see
+        // the note above.
+        rate: ControlSpec(0.5, 6, \exp, 0, 2.4),
 
         intensity: ControlSpec(0, 1, \lin, 0, 0.75),
 
         // 0.1ms to 50ms. The bottom is a click; the top has no transient left
         // and the pulse swells in.
-        attack: ControlSpec(0.0001, 0.05, \exp, 0, 0.001),
+        attack: ControlSpec(0.0001, 0.05, \exp, 0, 0.0145),
 
         // 3ms to 500ms, spanning the 25-30ms tap/vibration boundary and running
         // well into the region where Pacinian summation is still improving
         // detection.
-        decay: ControlSpec(0.003, 0.5, \exp, 0, 0.06),
+        decay: ControlSpec(0.003, 0.5, \exp, 0, 0.091),
 
         // Negative is a resonant decay — fast at first, long tail. Positive
         // holds then drops. Zero is linear.
-        curve: ControlSpec(-8, 4, \lin, 0, -4),
+        curve: ControlSpec(-8, 4, \lin, 0, 4),
 
         // 1 is no boost. 6 is a six-fold kick on the first 4ms, which the
         // softclip turns into harmonics as well as excursion.
         overdrive: ControlSpec(1, 6, \lin, 0, 1),
 
-        transient: ControlSpec(0, 1, \lin, 0, 0.3),
-        sharpness: ControlSpec(0, 1, \lin, 0, 0.5),
+        transient: ControlSpec(0, 1, \lin, 0, 0.38),
+        sharpness: ControlSpec(0, 1, \lin, 0, 0.48),
         amp: \amp
     ),
     frozen: (out: 0),

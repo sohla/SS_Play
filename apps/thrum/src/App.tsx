@@ -152,7 +152,7 @@ function Panel({ controls, set }: PanelProps) {
       <div className="ak-panel flex flex-col gap-3 rounded border p-3">
         <Toggle
           label="free run"
-          hint="sound at these settings with the phone still. Off: shake drives intensity, turning drives rate"
+          hint="sound at these settings with the phone still. Off: shaking steps the rate between 1, 2, 3 and 4Hz, and rolling sweeps the carrier up a chromatic octave"
           on={controls.freeRun}
           onChange={(next) => set('freeRun', next)}
         />
@@ -160,7 +160,7 @@ function Panel({ controls, set }: PanelProps) {
 
       <Fieldset
         name="the envelope"
-        note="The shape of one pulse, and the half that was baked in before."
+        note="The shape of one pulse. No gesture is mapped to any of it — the shape is the thing you tuned."
       >
         {slider(
           'decay',
@@ -215,14 +215,14 @@ function Panel({ controls, set }: PanelProps) {
           'carrier',
           1,
           (v) => `${v.toFixed(0)}Hz`,
-          '250Hz is the most felt frequency on average, and an average is not a hand',
+          'confirmed by hand at 250Hz. In IMU mode rolling takes this over, stepping a chromatic octave from 150 to 300Hz',
         )}
         {slider(
           'rate',
           'rate',
           0.1,
           (v) => `${v.toFixed(1)}Hz ${regimeOf(v)}`,
-          'retriggers per second. Under ~6Hz they stay countable; 16-32Hz is a flutter; past ~80Hz they fuse',
+          'retriggers per second, stopping below the 6.3Hz rate at which pulses stop being countable. In IMU mode acceleration steps this between 1, 2, 3 and 4Hz',
         )}
         {slider(
           'intensity',

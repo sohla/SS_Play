@@ -3,7 +3,9 @@ import { RESTING, type Motion } from '@ss/motion'
 import {
   DEFAULT_CONTROLS,
   RANGES,
-  REGIMES,
+  CARRIER_ROOT,
+  CARRIER_SEMITONES,
+  RATE_STEPS,
   SILENCE_BELOW,
   STEVENS,
   TAP_BOUNDARY_S,
@@ -67,14 +69,18 @@ describe('every parameter is independent', () => {
     })
   })
 
-  it('never lets a gesture touch anything but intensity and rate', () => {
-    // A parameter being judged must not also be moving. Only the two the page
-    // says are gesture-driven may differ between a still phone and a shaken one.
+  it('never lets a gesture touch the envelope', () => {
+    // The shape is the thing that was tuned by hand, so no gesture may move it.
+    // Only rate, carrier and the intensity gate are gesture-driven.
     const still = thrumFrom(RESTING, 0.5, withControls({ freeRun: false }))
-    const moving = thrumFrom(at({ shake: 1, turn: 1, roll: 1, pitch: 1 }), 0.5, withControls({ freeRun: false }))
+    const moving = thrumFrom(
+      at({ shake: 1, turn: 1, roll: 1, pitch: 1 }),
+      0.5,
+      withControls({ freeRun: false }),
+    )
 
     for (const key of PARAMS) {
-      if (key === 'intensity' || key === 'rate') continue
+      if (key === 'intensity' || key === 'rate' || key === 'carrier') continue
       expect(moving[key], `${key} moved with the hand`).toBeCloseTo(still[key], 10)
     }
   })
@@ -115,19 +121,13 @@ describe('the defaults are the ones the research gives', () => {
     expect(decayReads(RANGES.decay.min)).toBe('tap')
   })
 
-  it('starts the rate below the segregation rate, and can reach fusion', () => {
-    expect(regimeOf(DEFAULT_CONTROLS.rate)).toBe('discrete')
-    expect(regimeOf(RANGES.rate.max)).toBe('fused')
-  })
-
-  it('reaches every regime across the rate range, in order', () => {
-    const seen: string[] = []
-    for (let n = 0; n <= 400; n++) {
-      const rate = RANGES.rate.min + ((RANGES.rate.max - RANGES.rate.min) * n) / 400
-      const name = regimeOf(rate)
-      if (seen[seen.length - 1] !== name) seen.push(name)
-    }
-    expect(seen).toEqual(REGIMES.map((regime) => regime.name))
+  it('cannot leave the countable regime at all, at either end of the range', () => {
+    // Narrowed deliberately. Flutter and fusion are out of reach now: this is a
+    // rhythmic instrument whose pulses are meant to be counted, and a control
+    // that can leave that regime is a control that can leave the instrument.
+    expect(regimeOf(RANGES.rate.min)).toBe('discrete')
+    expect(regimeOf(RANGES.rate.max)).toBe('discrete')
+    expect(RANGES.rate.max).toBeLessThan(6.3)
   })
 
   it('starts with no overdrive, so the boost is something you add', () => {
@@ -135,11 +135,26 @@ describe('the defaults are the ones the research gives', () => {
     expect(RANGES.overdrive.min).toBe(1)
   })
 
-  it('starts with a struck envelope rather than a linear one', () => {
-    expect(curveReads(DEFAULT_CONTROLS.curve)).toBe('struck')
-    // And can reach linear and held, since nothing says which a hand prefers.
+  it('starts held rather than struck, which is what the hand chose', () => {
+    // The literature points at a struck decay; the hand picked the opposite end.
+    // Together with a 91ms decay and a 14.5ms attack that is three independent
+    // votes for sustained energy over a sharp event, which is what Pacinian
+    // temporal summation predicts and the category literature obscures.
+    expect(curveReads(DEFAULT_CONTROLS.curve)).toBe('held')
+    expect(DEFAULT_CONTROLS.curve).toBe(RANGES.curve.max)
     expect(curveReads(0)).toBe('linear')
-    expect(curveReads(RANGES.curve.max)).toBe('held')
+    expect(curveReads(RANGES.curve.min)).toBe('struck')
+  })
+
+  it('keeps the three hand-found values that contradict the literature', () => {
+    // Pinned because they are the most valuable numbers on the page and the
+    // easiest to lose to a tidy-up: each one looks wrong against the research.
+    expect(DEFAULT_CONTROLS.decay).toBe(0.091)
+    expect(DEFAULT_CONTROLS.attack).toBe(0.0145)
+    expect(DEFAULT_CONTROLS.curve).toBe(4)
+    expect(DEFAULT_CONTROLS.transient).toBe(0.38)
+    expect(DEFAULT_CONTROLS.sharpness).toBe(0.48)
+    expect(DEFAULT_CONTROLS.rate).toBe(2.4)
   })
 })
 
@@ -175,28 +190,42 @@ describe('free run', () => {
     expect(thrumFrom(RESTING).level).toBeGreaterThan(SILENCE_BELOW)
   })
 
-  it('makes every slider exact', () => {
-    const shaken = thrumFrom(at({ shake: 1, turn: 1 }), 0.5, withControls({ intensity: 0.4, rate: 7 }))
+  it('makes every slider exact, with no gesture reaching any of them', () => {
+    const shaken = thrumFrom(
+      at({ shake: 1, turn: 1, roll: 1 }),
+      0.5,
+      withControls({ intensity: 0.4, rate: 5, carrier: 380 }),
+    )
     expect(shaken.intensity).toBeCloseTo(0.4, 10)
-    expect(shaken.rate).toBeCloseTo(7, 10)
+    expect(shaken.rate).toBeCloseTo(5, 10)
+    // Including the carrier, which rolling takes over as soon as free run is off.
+    expect(shaken.carrier).toBeCloseTo(380, 10)
   })
 
-  it('hands intensity and rate to the gestures when switched off', () => {
+  it('hands rate and carrier to the gestures when switched off', () => {
     const off = withControls({ freeRun: false })
     expect(thrumFrom(RESTING, 0.5, off).level).toBeLessThan(SILENCE_BELOW)
-    expect(thrumFrom(at({ shake: 1 }), 0.5, off).intensity).toBeGreaterThan(
-      thrumFrom(at({ shake: 0.05 }), 0.5, off).intensity,
+
+    // Acceleration steps the rate — not rotation, which drives the carrier now.
+    expect(thrumFrom(at({ shake: 1 }), 0.5, off).rate).toBeGreaterThan(
+      thrumFrom(at({ shake: 0 }), 0.5, off).rate,
     )
-    expect(thrumFrom(at({ turn: 1 }), 0.5, off).rate).toBeGreaterThan(
-      thrumFrom(at({ turn: 0.05 }), 0.5, off).rate,
+    expect(thrumFrom(at({ turn: 1 }), 0.5, off).rate).toBe(
+      thrumFrom(at({ turn: 0 }), 0.5, off).rate,
+    )
+
+    expect(thrumFrom(at({ roll: 1 }), 0.5, off).carrier).toBeGreaterThan(
+      thrumFrom(at({ roll: -1 }), 0.5, off).carrier,
     )
   })
 
-  it('keeps the gesture-driven rate inside the declared range', () => {
+  it('keeps the gesture-driven rate and carrier inside the declared ranges', () => {
     const off = withControls({ freeRun: false })
     for (const sens of [0.05, 0.5, 1]) {
       for (let n = 0; n <= 50; n++) {
-        const now = thrumFrom(at({ turn: n / 50, shake: n / 50 }), sens, off)
+        const now = thrumFrom(at({ turn: n / 50, shake: n / 50, roll: n / 25 - 1 }), sens, off)
+        expect(now.carrier).toBeGreaterThanOrEqual(RANGES.carrier.min)
+        expect(now.carrier).toBeLessThanOrEqual(RANGES.carrier.max)
         expect(now.rate).toBeGreaterThanOrEqual(RANGES.rate.min)
         expect(now.rate).toBeLessThanOrEqual(RANGES.rate.max)
         expect(now.intensity).toBeGreaterThanOrEqual(0)
@@ -215,5 +244,65 @@ describe('the plot shows the diagnostic pair', () => {
       expect(value).toBeGreaterThanOrEqual(0)
       expect(value).toBeLessThanOrEqual(1)
     }
+  })
+})
+
+
+describe('IMU mode: two gestures, both quantised', () => {
+  const imu = (over: Partial<Motion>) => thrumFrom(at(over), 0.5, withControls({ freeRun: false }))
+
+  it('steps the rate between whole numbers rather than sweeping it', () => {
+    // multibeat's rule: moving changes the subdivision, never the tempo. A
+    // continuous rate between the steps would be a glissando nobody asked for.
+    const seen = new Set<number>()
+    for (let n = 0; n <= 200; n++) seen.add(imu({ shake: n / 200 }).rate)
+
+    for (const rate of seen) expect(RATE_STEPS).toContain(rate)
+    // Every step has to be reachable, or the range is lying about itself.
+    expect([...seen].sort((a, b) => a - b)).toEqual([...RATE_STEPS])
+  })
+
+  it('gives the lowest rate when still and the highest on a firm shake', () => {
+    expect(imu({ shake: 0 }).rate).toBe(RATE_STEPS[0])
+    expect(imu({ shake: 1 }).rate).toBe(RATE_STEPS[RATE_STEPS.length - 1])
+  })
+
+  it('moves the rate monotonically up with acceleration', () => {
+    let previous = 0
+    for (let n = 0; n <= 100; n++) {
+      const rate = imu({ shake: n / 100 }).rate
+      expect(rate).toBeGreaterThanOrEqual(previous)
+      previous = rate
+    }
+  })
+
+  it('sweeps the carrier up exactly one octave, in semitones', () => {
+    expect(imu({ roll: -1 }).carrier).toBeCloseTo(CARRIER_ROOT, 6)
+    expect(imu({ roll: 1 }).carrier).toBeCloseTo(CARRIER_ROOT * 2, 6)
+
+    // Every value it can take is a semitone of the root, and there are exactly
+    // thirteen of them across the travel.
+    const notes = new Set<number>()
+    for (let n = 0; n <= 400; n++) {
+      const carrier = imu({ roll: n / 200 - 1 }).carrier
+      const semitone = 12 * Math.log2(carrier / CARRIER_ROOT)
+      expect(semitone).toBeCloseTo(Math.round(semitone), 6)
+      notes.add(Math.round(semitone))
+    }
+    expect(notes.size).toBe(CARRIER_SEMITONES + 1)
+  })
+
+  it('keeps the gesture octave inside the range the slider allows', () => {
+    // The gesture covers the useful middle; the slider can still reach the ends.
+    expect(CARRIER_ROOT).toBeGreaterThanOrEqual(RANGES.carrier.min)
+    expect(CARRIER_ROOT * 2).toBeLessThanOrEqual(RANGES.carrier.max)
+  })
+
+  it('is silent when still, and the slider still sets how loud', () => {
+    // Movement decides whether, the slider decides how loud. Without the gate
+    // the page would drone on a desk, which every other page here avoids.
+    expect(imu({}).intensity).toBe(0)
+    expect(imu({ shake: 1 }).intensity).toBeCloseTo(DEFAULT_CONTROLS.intensity, 6)
+    expect(thrumFrom(at({ shake: 1 }), 0.5, withControls({ freeRun: false, intensity: 0.3 })).intensity).toBeCloseTo(0.3, 6)
   })
 })
