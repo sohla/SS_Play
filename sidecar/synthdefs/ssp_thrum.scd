@@ -62,12 +62,14 @@
 //   sharpness 0.5      Core Haptics' own parameter, where it is described as the
 //                      "clickiness" of a transient. Here it is literally the
 //                      band the transient lives in, 400Hz to 6kHz.
-//   rate      2.4Hz    and the range now stops at 6Hz, below the ~6.3Hz
-//                      critical segregation rate. Flutter and fusion are
-//                      deliberately out of reach: this is a rhythmic instrument
-//                      whose pulses are meant to be countable, and a control
-//                      that can leave that regime is a control that can leave
-//                      the instrument.
+//   rate      2.4Hz    over a 0.5-16Hz range. The page's rhythmic steps are
+//                      1, 2, 3, 4, 8 and 16Hz, and the top two leave the
+//                      countable regime on purpose: 8Hz is past the ~6.3Hz
+//                      critical segregation rate and 16Hz is exactly where
+//                      flutter begins. So the same gesture that picks a
+//                      subdivision at the bottom of its travel changes what
+//                      *kind* of thing is being felt at the top — a rhythm
+//                      becomes a texture without becoming a different control.
 SynthDef(\ssp_thrum, { |out = 0, gate = 1,
                        carrier = 250, rate = 2.4, intensity = 0.75,
                        attack = 0.0145, decay = 0.091, curve = 4,
@@ -137,9 +139,8 @@ metadata: (
         // more than one you can.
         carrier: ControlSpec(100, 400, \exp, 0, 250),
 
-        // 0.5 to 6Hz. Stops below the ~6.3Hz segregation rate on purpose — see
-        // the note above.
-        rate: ControlSpec(0.5, 6, \exp, 0, 2.4),
+        // 0.5 to 16Hz, so the two octave steps above 4Hz are reachable.
+        rate: ControlSpec(0.5, 16, \exp, 0, 2.4),
 
         intensity: ControlSpec(0, 1, \lin, 0, 0.75),
 

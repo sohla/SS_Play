@@ -148,8 +148,15 @@ export const DEFAULT_CONTROLS: Controls = {
  * Whole numbers, so the pulse train is a rhythm rather than a sweep — the same
  * idea as `multibeat`, where moving changes the subdivision and never the tempo.
  * A continuous rate between them would be a glissando nobody asked for.
+ *
+ * 1, 2, 3, 4 and then doublings. **The top two leave the countable regime**, and
+ * that is the interesting part of the range rather than an overshoot: 8Hz is past
+ * the ~6.3Hz critical segregation rate, and 16Hz is exactly where flutter begins.
+ * So one gesture picks a subdivision across the bottom of its travel and changes
+ * what *kind* of thing is being felt at the top — a rhythm becomes a texture
+ * without becoming a different control. The readout names which you have.
  */
-export const RATE_STEPS = [1, 2, 3, 4] as const
+export const RATE_STEPS = [1, 2, 3, 4, 8, 16] as const
 
 /**
  * The musical octave rotation sweeps in IMU mode: 150Hz to 300Hz, in semitones.
@@ -166,7 +173,7 @@ export const CARRIER_SEMITONES = 12
 /** Every range, matching the specs `ssp_thrum` declares. */
 export const RANGES = {
   carrier: { min: 100, max: 400 },
-  rate: { min: 0.5, max: 6 },
+  rate: { min: 0.5, max: 16 },
   intensity: { min: 0, max: 1 },
   attack: { min: 0.0001, max: 0.05 },
   decay: { min: 0.003, max: 0.5 },
@@ -184,10 +191,15 @@ const held = (value: number, key: keyof typeof RANGES) =>
 /**
  * What a retrigger rate is felt as.
  *
- * Only the first of these is now reachable — `rate` stops at 6Hz, below the
- * 6.3Hz segregation rate — and the rest are kept because the readout saying
- * `discrete` is the statement that matters: these pulses are meant to be
- * countable. If the range is ever opened up again, the names are already here.
+ * The boundaries from the psychophysics rather than a scale someone liked: below
+ * about 6.3Hz the pulses stay segregated and can be counted; between roughly 16
+ * and 32Hz they take on a flutter quality; past 50-80Hz they fuse. The two gaps
+ * are genuinely gaps — the percept in them is neither thing.
+ *
+ * `rate` reaches 16Hz, so the first three of these are live and the last two are
+ * not. Kept whole because the names are the vocabulary, and because a readout
+ * that said `flutter` at the top of the range and nothing at all above it would
+ * be hiding where the range stops.
  */
 export const REGIMES: readonly { readonly below: number; readonly name: string }[] = [
   { below: 6.3, name: 'discrete' },

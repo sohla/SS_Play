@@ -171,6 +171,52 @@ printing each measurement beside it. The point is that the numbers and what you 
 against each other: if a row looks right and the note sounds wrong, the engine rendered correct
 samples that never reached the device — which nothing in the automated suite can tell you.
 
+## When the whole suite fails at boot
+
+Both known causes are **outside the suite**, and both present identically: every
+Tier 3 test fails in `beforeEach`, waiting for `[data-testid=playing]` that never
+appears. The page renders, the button clicks, and the engine never answers.
+
+| Symptom in the page | Cause | Fix |
+|---|---|---|
+| `Timed out after 5000ms waiting for /notify` | **A stray `scsynth` holding the audio device** | `pkill -f scsynth` |
+| `ERR_CONNECTION_REFUSED` on `:4173` | Two runs contending for the port | kill the other run, or `lsof -ti:4173` |
+
+### The stray scsynth is the nastier one
+
+`npm run sc:continuity` boots a real server — `scsynth -u <port> -i 2 -o 2` —
+and if it does not exit it keeps the audio input and output. Chrome then cannot
+get the device, so the AudioWorklet never starts and `/notify` never arrives.
+
+Nothing about that symptom points at its cause. The engine looks broken, the
+build looks suspect, and the suite blames whatever you changed last. It survives
+across sessions, so the run that leaves the process behind and the run that fails
+can be an hour and several commits apart.
+
+```sh
+pgrep -fl scsynth    # before blaming anything else
+```
+
+### Run the known-good build first
+
+**The one diagnostic that separates "my change" from "my machine":** point the
+same browser at the deployed site.
+
+```sh
+SS_BASE_URL=https://playground.soh.la npx playwright test tests/e2e/boot.spec.ts
+```
+
+If a build that is known to work fails the same way, the problem is local and
+nothing in the working tree is worth reading yet. This costs thirty seconds and
+is the first thing to do, not the last — a trivial one-line change was once
+debugged for an hour against a Chrome version, swap usage, a byte-compared
+vendor tree and a red-herring 404, all of which were fine, because this check
+was run sixth instead of first.
+
+A page-level 404 is especially misleading here: `/thrum/`'s engine logs one from
+inside a worker (invisible to a response listener and to request interception),
+and `/gendy/` logs none at all. Both failed. The 404 was unrelated.
+
 ## CI
 
 Runs tiers 1 and 2, typecheck, the build, and the Caddyfile drift check. It does **not** run

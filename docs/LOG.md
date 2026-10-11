@@ -1525,3 +1525,67 @@ build, test and promote, and none of those three removes a stale artefact.
   dimension not exposed. The obvious next axis if the envelope proves enough.
 - Still open from before: every page staging all authored synthdefs; `droplet`'s
   `FX_BUS`; the 70MB engine floor; the intermittent `/combo/` 404.
+
+---
+
+## 2026-10-11 — a stray scsynth, and an hour spent looking at the wrong thing
+
+Two rate steps were added — 8Hz and 16Hz, plus the range to carry them. Four
+files, no new mechanism. Then the entire e2e suite failed at boot, and the fix
+took an hour and had nothing whatsoever to do with the change.
+
+### What actually broke
+
+**A stray `scsynth` was holding the audio device.** `npm run sc:continuity`
+boots a real server with `-i 2 -o 2`; that one had not exited, so Chrome could
+not get the device, the AudioWorklet never started, and every page timed out
+waiting for `/notify`. One `pkill` fixed it.
+
+The process had been running since a `sc:verify` several commits earlier. The run
+that left it behind and the run that failed were an hour and three commits apart,
+which is most of why it was so hard to see.
+
+### Why it took an hour
+
+Six hypotheses, in the order I tried them. Only the last one was a test rather
+than a guess:
+
+1. **Machine load** — plausible, and it reproduced, so no.
+2. **My change** — wrong, and I should have ruled it out immediately: the
+   failures included `boot.spec.ts`, which exercises the playground and does not
+   touch `thrum` at all. That was visible in the first failure list.
+3. **A Chrome auto-update** — five days old, and the suite had passed on it an
+   hour before.
+4. **Memory pressure** — swap was nearly full, which looked damning and was not.
+5. **A 404 during boot** — real, and a red herring. It comes from inside a
+   worker, so it is invisible to a response listener; `/gendy/` logged none at
+   all and failed identically.
+6. **Point the same browser at the deployed site.** It failed too. Thirty
+   seconds, and it proves the problem is local before anything in the working
+   tree is worth reading.
+
+**That sixth check should have been first.** Every one of the five guesses before
+it was an attempt to explain a symptom; the sixth was the only one that
+*partitioned* the problem — my change versus my machine — and once it came back
+"the live site fails too", everything above it was irrelevant.
+
+The correctable error is not the misdiagnosis, it is the order. Documented in
+[TESTING.md](TESTING.md#when-the-whole-suite-fails-at-boot) alongside the
+port-4173 flake, which presents the same way: whole suite red for a reason that
+is nothing to do with the suite.
+
+### Done, incidentally
+
+- `rate` steps are now **1, 2, 3, 4, 8, 16Hz** and the range runs 0.5-16Hz. The
+  top two leave the countable regime on purpose: 8Hz is past the ~6.3Hz
+  segregation rate and 16Hz is exactly where flutter begins, so one gesture picks
+  a subdivision at the bottom of its travel and changes what *kind* of thing is
+  felt at the top. The readout names which you have.
+- Fusion stays out of reach, so the page cannot become a continuous tone.
+
+### Open
+
+- `sc:continuity` should kill its own server on the way out, or the suite should
+  refuse to start while one is listening. Either would have turned an hour into a
+  one-line error message. Not fixed here — it is a change to the SuperCollider
+  tooling rather than to this page, and worth doing deliberately.

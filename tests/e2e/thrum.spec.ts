@@ -90,9 +90,10 @@ test('every one of the nine parameters reaches the engine', async ({ page }) => 
   // nothing, the page still makes a noise and still looks right.
   const cases: [testId: string, set: string, readout: string, expected: string][] = [
     ['carrier', '140', 'carrier', '140Hz'],
-    // 5Hz, not 30: the range stops at 6 now, below the segregation rate, so
-    // every reachable setting reports `discrete`.
+    // Two settings, because the range now crosses a boundary: 5Hz is still
+    // countable and 16Hz is where flutter begins, and the readout has to say so.
     ['rate', '5', 'rate', '5.0Hz discrete'],
+    ['rate', '16', 'rate', '16.0Hz flutter'],
     ['decay', '0.004', 'decay', '4ms tap'],
     ['attack', '0.03', 'attack', '30.00ms'],
     ['curve', '0', 'curve', '0.0 linear'],
@@ -122,7 +123,7 @@ test('it still sounds, and does not clip, at the extremes of the envelope', asyn
   await page.locator('[data-testid=ctl-intensity]').fill('1')
   await page.locator('[data-testid=ctl-overdrive]').fill('6')
   await page.locator('[data-testid=ctl-decay]').fill('0.003')
-  await page.locator('[data-testid=ctl-rate]').fill('6')
+  await page.locator('[data-testid=ctl-rate]').fill('16')
   await page.waitForTimeout(900)
 
   const sharp = await measure(page)
@@ -217,7 +218,7 @@ test('IMU mode steps the rate and steps the carrier', async ({ page }) => {
   const rolled = await value(page, 'note')
 
   // Whole numbers only, and a semitone offset rather than an arbitrary Hz.
-  expect(shaken, `rate read "${shaken}"`).toMatch(/^[1-4]\.0Hz discrete$/)
+  expect(shaken, `rate read "${shaken}"`).toMatch(/^(1|2|3|4|8|16)\.0Hz (discrete|stutter|flutter)$/)
   expect(rolled, `note read "${rolled}"`).toMatch(/^\+\d{1,2}$/)
 
   await drive(0, 0.2, 20, -70, 2500)

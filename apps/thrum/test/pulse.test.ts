@@ -121,13 +121,19 @@ describe('the defaults are the ones the research gives', () => {
     expect(decayReads(RANGES.decay.min)).toBe('tap')
   })
 
-  it('cannot leave the countable regime at all, at either end of the range', () => {
-    // Narrowed deliberately. Flutter and fusion are out of reach now: this is a
-    // rhythmic instrument whose pulses are meant to be counted, and a control
-    // that can leave that regime is a control that can leave the instrument.
+  it('starts countable and reaches the start of flutter, and no further', () => {
+    // The range crosses one boundary and stops on the second. That is the point
+    // of its top end rather than an overshoot: a rhythm becomes a texture.
+    // Fusion stays out of reach, so the page cannot turn into a continuous tone.
+    expect(regimeOf(DEFAULT_CONTROLS.rate)).toBe('discrete')
     expect(regimeOf(RANGES.rate.min)).toBe('discrete')
-    expect(regimeOf(RANGES.rate.max)).toBe('discrete')
-    expect(RANGES.rate.max).toBeLessThan(6.3)
+    expect(regimeOf(RANGES.rate.max)).toBe('flutter')
+    expect(RANGES.rate.max).toBeLessThan(32)
+  })
+
+  it('steps through three regimes, which is what the doublings buy', () => {
+    const named = RATE_STEPS.map(regimeOf)
+    expect(named).toEqual(['discrete', 'discrete', 'discrete', 'discrete', 'stutter', 'flutter'])
   })
 
   it('starts with no overdrive, so the boost is something you add', () => {
@@ -250,6 +256,16 @@ describe('the plot shows the diagnostic pair', () => {
 
 describe('IMU mode: two gestures, both quantised', () => {
   const imu = (over: Partial<Motion>) => thrumFrom(at(over), 0.5, withControls({ freeRun: false }))
+
+  it('includes the two doublings above 4Hz', () => {
+    expect([...RATE_STEPS]).toEqual([1, 2, 3, 4, 8, 16])
+    // Every step has to be inside what the SynthDef will accept, or the top of
+    // the gesture silently clamps and two of the six become the same rate.
+    for (const rate of RATE_STEPS) {
+      expect(rate).toBeGreaterThanOrEqual(RANGES.rate.min)
+      expect(rate).toBeLessThanOrEqual(RANGES.rate.max)
+    }
+  })
 
   it('steps the rate between whole numbers rather than sweeping it', () => {
     // multibeat's rule: moving changes the subdivision, never the tempo. A

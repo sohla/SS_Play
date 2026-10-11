@@ -222,7 +222,7 @@ function Panel({ controls, set }: PanelProps) {
           'rate',
           0.1,
           (v) => `${v.toFixed(1)}Hz ${regimeOf(v)}`,
-          'retriggers per second, stopping below the 6.3Hz rate at which pulses stop being countable. In IMU mode acceleration steps this between 1, 2, 3 and 4Hz',
+          'retriggers per second. In IMU mode acceleration steps this through 1, 2, 3, 4, 8 and 16Hz — the top two cross out of countable pulses into a flutter, which the readout names',
         )}
         {slider(
           'intensity',
