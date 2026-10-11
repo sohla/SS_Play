@@ -198,6 +198,12 @@ sclang and kills anything new on the way out, from an `exit` handler plus
 explicit `SIGINT`/`SIGTERM`/`SIGHUP` handlers. The script also quits its own
 server politely, which covers the ordinary path.
 
+It kills **sclang** first, and the order is load-bearing. Killing this wrapper
+does not kill its children, so an interrupted run used to leave sclang behind
+even once the server was handled — and that orphan sits inside `waitForBoot`, so
+it can boot a *replacement* server minutes later and recreate the problem.
+Reaping the server first would be a race against the thing being cleaned up.
+
 Both layers are needed, because two routes skip the polite one entirely:
 
 - **the SIGKILL this wrapper sends when a script hangs.** sclang sits at its REPL

@@ -1645,3 +1645,24 @@ The other half of the idea — **the e2e suite refusing to start while a server 
 listening** — is not here. It would turn the same failure into a one-line message
 instead of a silent five-second timeout, and it is a change to the Playwright
 setup rather than to the SuperCollider tooling. Worth doing separately.
+
+### Follow-up, same day: it also has to kill sclang
+
+Found by checking for strays after the fix, which is the one habit this whole
+episode earns. The reaping killed the server and left **sclang** running, because
+killing a Node process does not kill its children — they are not in a killed
+process group.
+
+Benign-looking and not benign: the continuity script sits inside `waitForBoot`,
+so a leftover sclang can boot a *replacement* server minutes later and recreate
+exactly the failure the reaping exists to prevent. The orphan from testing the
+fix had been sitting there for forty minutes with a live `waitForBoot`.
+
+So cleanup kills sclang **first**, then diffs the servers. That order is
+load-bearing: reaping the server first is a race against the process that can
+start another one. SIGKILL rather than SIGTERM, for the same reason `runSclang`
+already uses it on a timeout — sclang at its REPL does not take the hint.
+
+Re-verified all three ways, plus the new one: wrapper killed mid-run now leaves
+neither process, a normal run still passes 5/5 and leaves nothing, and a
+pre-existing server still survives untouched.

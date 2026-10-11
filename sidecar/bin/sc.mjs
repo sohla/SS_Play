@@ -42,6 +42,29 @@ function serverPids() {
   return pids
 }
 
+/**
+ * The sclang this run spawned, so cleanup can end it.
+ *
+ * Killing this process does not kill its children — they are not in a killed
+ * process group — so an interrupted run left sclang behind even once the server
+ * was being reaped. That orphan is worse than it first looks: the continuity
+ * script sits inside `waitForBoot`, so a leftover sclang can **boot a new
+ * server** minutes later and recreate exactly the problem the reaping fixes.
+ */
+let sclangChild = null
+
+/** End the sclang this run spawned, if it is still alive. */
+function reapOwnSclang() {
+  if (!sclangChild || sclangChild.exitCode !== null || sclangChild.signalCode !== null) return
+  try {
+    // SIGKILL rather than SIGTERM, for the same reason `runSclang` uses it on a
+    // timeout: sclang at its REPL does not take the hint.
+    sclangChild.kill('SIGKILL')
+  } catch {
+    // Already gone.
+  }
+}
+
 /** A synchronous pause, for use from an exit handler where nothing can await. */
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
@@ -151,13 +174,13 @@ const TIMEOUT_MS = Number(process.env['SSP_TIMEOUT_MS'] ?? 120_000)
 
 function runSclang(sclangPath, configPath, script, args) {
   return new Promise((resolveRun) => {
-    const child = spawn(
+    const child = (sclangChild = spawn(
       sclangPath,
       ['-l', configPath, '-d', sidecar, join(sidecar, script), ...args],
       // Close stdin: sclang's is an interactive REPL and a batch run that
       // never sees EOF waits at the prompt forever.
       { stdio: ['ignore', 'pipe', 'pipe'] },
-    )
+    ))
 
     let stdout = ''
     let stderr = ''
@@ -225,9 +248,18 @@ const serversBefore = serverPids()
 // `exit` is the catch-all: it covers a normal return, an explicit `process.exit`
 // and an uncaught throw. The signal handlers are separate because a signal
 // terminates the process *without* running exit handlers unless it is handled.
-process.on('exit', () => reapServers(serversBefore))
+//
+// sclang is killed *before* the servers are reaped, and the order matters: a
+// live sclang sitting in `waitForBoot` can boot a replacement the moment the
+// old one dies, so reaping first would be a race against the thing being
+// cleaned up.
+process.on('exit', () => {
+  reapOwnSclang()
+  reapServers(serversBefore)
+})
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(signal, () => {
+    reapOwnSclang()
     reapServers(serversBefore)
     process.exit(130)
   })
