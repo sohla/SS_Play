@@ -79,6 +79,21 @@ Server.default.waitForBoot({
 
         Pdef(\sspContinuity).stop;
         Server.default.freeAll;
+
+        // Quit the server this script booted. `freeAll` frees nodes and leaves
+        // the process running, and a leftover scsynth holds the audio device —
+        // which makes every browser test fail at boot with a `/notify` timeout,
+        // a symptom that points nowhere near this line.
+        //
+        // The wait is load-bearing: `quit` posts /quit and returns, so exiting
+        // immediately can tear down the interpreter before the message is sent.
+        //
+        // `bin/sc.mjs` reaps any survivor regardless, because this path only
+        // runs when the script reaches its own end — not when sclang is killed
+        // for hanging, and not when the npm run is interrupted.
+        Server.default.quit;
+        0.5.wait;
+
         ~sspFinish.();
     }).play(TempoClock.default);
 });

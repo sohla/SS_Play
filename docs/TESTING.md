@@ -182,19 +182,39 @@ appears. The page renders, the button clicks, and the engine never answers.
 | `Timed out after 5000ms waiting for /notify` | **A stray `scsynth` holding the audio device** | `pkill -f scsynth` |
 | `ERR_CONNECTION_REFUSED` on `:4173` | Two runs contending for the port | kill the other run, or `lsof -ti:4173` |
 
-### The stray scsynth is the nastier one
+### The stray scsynth — fixed, and worth knowing anyway
 
-`npm run sc:continuity` boots a real server — `scsynth -u <port> -i 2 -o 2` —
-and if it does not exit it keeps the audio input and output. Chrome then cannot
-get the device, so the AudioWorklet never starts and `/notify` never arrives.
+`npm run sc:continuity` boots a real server — `scsynth -u <port> -i 2 -o 2` — and
+if it does not exit it keeps the audio input and output. Chrome then cannot get
+the device, so the AudioWorklet never starts and `/notify` never arrives.
 
 Nothing about that symptom points at its cause. The engine looks broken, the
 build looks suspect, and the suite blames whatever you changed last. It survives
-across sessions, so the run that leaves the process behind and the run that fails
-can be an hour and several commits apart.
+across sessions, so the run that leaks the process and the run that fails can be
+an hour and several commits apart.
+
+**`bin/sc.mjs` now reaps it.** It snapshots the running servers before spawning
+sclang and kills anything new on the way out, from an `exit` handler plus
+explicit `SIGINT`/`SIGTERM`/`SIGHUP` handlers. The script also quits its own
+server politely, which covers the ordinary path.
+
+Both layers are needed, because two routes skip the polite one entirely:
+
+- **the SIGKILL this wrapper sends when a script hangs.** sclang sits at its REPL
+  when a `.scd` throws, so `runSclang` kills it on a timeout — and a killed
+  sclang never runs the shutdown hook that posts `/quit`.
+- **anything that kills `npm run` from outside.** Which is how the one that cost
+  an hour was created.
+
+> **The diff against the snapshot is a safety property, not an optimisation.** A
+> SuperCollider user very often has a server running from the IDE, and killing
+> that would be a worse bug than the one being fixed. Only PIDs that appeared
+> while the wrapper was alive are ever signalled. Verified three ways: a normal
+> run leaves nothing; a wrapper killed mid-run reaps its own server; and a server
+> started beforehand survives a full continuity run untouched.
 
 ```sh
-pgrep -fl scsynth    # before blaming anything else
+pgrep -x scsynth    # still the first thing to check, if ever in doubt
 ```
 
 ### Run the known-good build first

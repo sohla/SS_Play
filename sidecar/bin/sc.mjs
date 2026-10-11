@@ -7,7 +7,7 @@
 // sclang is not on PATH, prints its results rather than returning them, and
 // hangs forever on an open stdin. This wraps all three.
 
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -19,6 +19,85 @@ const CANDIDATES = [
   '/Applications/SuperCollider/SuperCollider.app/Contents/MacOS/sclang',
   '/Applications/SuperCollider.app/Contents/MacOS/sclang',
 ].filter(Boolean)
+
+/**
+ * PIDs of every SuperCollider server currently running.
+ *
+ * `pgrep -x` matches the executable name, so it finds the server wherever the
+ * app bundle lives. It exits 1 when nothing matches, which is the ordinary case
+ * and not an error. `supernova` is included because `ServerOptions` can select
+ * it even though nothing here does today.
+ */
+function serverPids() {
+  const pids = new Set()
+  for (const name of ['scsynth', 'supernova']) {
+    try {
+      for (const line of execFileSync('pgrep', ['-x', name], { encoding: 'utf8' }).split('\n')) {
+        if (line.trim()) pids.add(line.trim())
+      }
+    } catch {
+      // Nothing of that name is running.
+    }
+  }
+  return pids
+}
+
+/** A synchronous pause, for use from an exit handler where nothing can await. */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/**
+ * Kill any server *this run* started, and only those.
+ *
+ * `continuity` boots a real server and the script's own `quit` only runs when
+ * sclang exits normally. Two paths skip it entirely: the SIGKILL this file sends
+ * when a script hangs at the REPL, and anything that kills `npm run` from
+ * outside. Either way scsynth is orphaned — and it keeps the audio device, which
+ * then makes **every** browser test fail at boot with a five-second `/notify`
+ * timeout. That symptom points nowhere near this cause; it cost an hour once.
+ *
+ * The diff against `before` is the whole safety property. A SuperCollider user
+ * very often has their own server running from the IDE, and killing that would
+ * be a far worse bug than the one being fixed — so only PIDs that appeared while
+ * this process was alive are touched.
+ */
+function reapServers(before) {
+  const strays = [...serverPids()].filter((pid) => !before.has(pid))
+  if (strays.length === 0) return
+
+  const alive = () =>
+    strays.filter((pid) => {
+      try {
+        // Signal 0 tests for existence without delivering anything.
+        process.kill(Number(pid), 0)
+        return true
+      } catch {
+        return false
+      }
+    })
+
+  for (const pid of strays) {
+    try {
+      process.kill(Number(pid), 'SIGTERM')
+    } catch {
+      // Already gone, which is the good case.
+    }
+  }
+
+  // SIGTERM is a request, and a server inside a callback can miss it. Wait
+  // briefly, then stop asking.
+  for (let waited = 0; waited < 2000 && alive().length > 0; waited += 100) sleepSync(100)
+  for (const pid of alive()) {
+    try {
+      process.kill(Number(pid), 'SIGKILL')
+    } catch {
+      // Raced with its own exit.
+    }
+  }
+
+  console.log(`[sc] stopped ${strays.length} orphaned server(s) this run started`)
+}
 
 function findSclang() {
   for (const candidate of CANDIDATES) {
@@ -138,6 +217,21 @@ if (!command || !['build', 'test', 'continuity'].includes(command)) {
 }
 
 const sclangPath = findSclang()
+
+// Snapshotted before anything is spawned, so the diff can only ever contain
+// servers this run is responsible for.
+const serversBefore = serverPids()
+
+// `exit` is the catch-all: it covers a normal return, an explicit `process.exit`
+// and an uncaught throw. The signal handlers are separate because a signal
+// terminates the process *without* running exit handlers unless it is handled.
+process.on('exit', () => reapServers(serversBefore))
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(signal, () => {
+    reapServers(serversBefore)
+    process.exit(130)
+  })
+}
 const outDir = join(sidecar, 'out')
 mkdirSync(outDir, { recursive: true })
 

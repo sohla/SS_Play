@@ -1589,3 +1589,59 @@ is nothing to do with the suite.
   refuse to start while one is listening. Either would have turned an hour into a
   one-line error message. Not fixed here — it is a change to the SuperCollider
   tooling rather than to this page, and worth doing deliberately.
+
+---
+
+## 2026-10-11 — sc:continuity kills its own server
+
+The open item from this morning, closed. `sc:continuity` boots a real `scsynth`
+and could orphan it; an orphaned server holds the audio device, which makes every
+browser test fail at boot with a `/notify` timeout that points nowhere near its
+cause.
+
+### Two layers, because the polite one has two holes
+
+`tests/reload_continuity.scd` now calls `Server.default.quit` and waits half a
+second before exiting — `freeAll` frees nodes and leaves the process running, and
+`quit` posts a message rather than blocking, so exiting immediately can tear the
+interpreter down before it is sent.
+
+That covers the ordinary path only. Two routes skip it:
+
+- **`runSclang`'s own SIGKILL.** sclang sits at its REPL when a script throws, so
+  this file kills it on a timeout — and a killed sclang never runs the shutdown
+  hook that posts `/quit`. The guard against a hang was quietly manufacturing
+  orphans.
+- **Anything that kills `npm run` from outside.** Which is how the one that cost
+  an hour was made: I killed a background task mid-run.
+
+So `bin/sc.mjs` reaps as well. It snapshots the running servers before spawning
+sclang and kills anything new on the way out, from an `exit` handler — which
+catches a normal return, an explicit `process.exit` and an uncaught throw — plus
+explicit `SIGINT`/`SIGTERM`/`SIGHUP` handlers, because a signal terminates a Node
+process *without* running exit handlers unless it is handled.
+
+### The snapshot diff is the safety property
+
+A SuperCollider user very often has a server running from the IDE. Killing that
+would be a considerably worse bug than the one being fixed, so only PIDs that
+appeared while the wrapper was alive are ever signalled. SIGTERM first, then
+SIGKILL for anything still alive after two seconds.
+
+### Verified three ways
+
+| | |
+|---|---|
+| a normal run | 5/5 continuity checks pass, no server left |
+| the wrapper killed mid-run | `stopped 1 orphaned server(s) this run started`, nothing left |
+| a server started beforehand | survives a full continuity run untouched |
+
+The middle one is the test that matters: it is the path that produced the
+original orphan, and it is the one the script-level `quit` cannot reach.
+
+### Not done
+
+The other half of the idea — **the e2e suite refusing to start while a server is
+listening** — is not here. It would turn the same failure into a one-line message
+instead of a silent five-second timeout, and it is a change to the Playwright
+setup rather than to the SuperCollider tooling. Worth doing separately.
