@@ -120,11 +120,12 @@ One synth, opened at boot, played by moving its controls. No events, no allocati
 `maxNodes`.
 
 ```tsx
-{ kind: 'held', def: 'ssp_gendy', initial: { gate: 1, amp: 0 } }
+{ kind: 'held', def: 'ssp_pluck', initial: { gate: 1, amp: 0 } }
 ```
 
-Right whenever the instrument is continuous: a drone, a texture, a filter being swept. `gendy`,
-`leaves`, `pluck` and `thrum`'s bed are this.
+Right whenever the instrument is continuous: a drone, a texture, a filter being swept. `pluck` and
+`thrum` are this. `gendy` and `leaves` were the other two and their pages are gone — worth knowing,
+because they were the only ones that held a voice and ran *no* pattern at all.
 
 ### `conductor`
 
@@ -219,13 +220,18 @@ Three schedulers that merely *started* together would be three machines within a
 
 ### Pages that are none of these
 
-`droplet`, `imu`, `touch`, `playground` and `sample` do not use `MotionInstrument` at all. The first
-two predate it and roll the shell by hand; the last three are genuinely different — a multitouch
-surface, a def browser, and a loader.
+`droplet` and `touch` do not use `MotionInstrument` at all. The first predates it and rolls the shell
+by hand; the second is genuinely different — a multitouch surface with its own layout and gestures.
 
-`droplet` and `imu` **do** now carry the plotter, sensitivity and the palette — wired by hand into
-their own shells rather than inherited. They are the two places where any change to the shell has to
-be made twice, which is the cost of their predating it.
+`imu`, `playground` and `sample` were also on this list and their pages are gone. The def browser is
+the one worth missing: it was the only page that drew a control surface from a SynthDef's contract,
+so `SynthDefControls` and the whole inferred-contract path it exercised now ship in `@ss/ui` with
+nothing using them. The code and [its documentation](#generated-controls) are kept — a page that
+picks defs at runtime would want them again — but nothing is testing them any more.
+
+`droplet` **does** carry the plotter, sensitivity and the palette, wired by hand into its own shell
+rather than inherited. It is the one place where a change to the shell has to be made twice, which is
+the cost of predating it.
 
 `droplet` is worth knowing about because it is `conductor`-shaped and hand-rolled: its own `Shower`
 class drives a Demand clock and spawns voices, written before `Conductor` existed. It also picks its

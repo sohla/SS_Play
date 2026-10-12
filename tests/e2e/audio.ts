@@ -1,4 +1,4 @@
-import { PLAYGROUND } from './pages.ts'
+import { ENGINE_HOST } from './pages.ts'
 import type { Page } from '@playwright/test'
 
 export interface CaptureRequest {
@@ -164,7 +164,12 @@ export async function captureNote(page: Page, request: CaptureRequest): Promise<
 
 /** Boot the engine with the debug handle the capture helper drives. */
 export async function bootForCapture(page: Page): Promise<void> {
-  await page.goto(`${PLAYGROUND}?debug=1`)
+  // `ENGINE_HOST` rather than a hardcoded path, so the one place this suite
+  // depends on a particular page is named. See the note in `pages.ts`.
+  //
+  // Nothing here needs that page's markup — the helper loads and plays defs
+  // through the session itself — only a booted engine and the `?debug=1` handle.
+  await page.goto(`${ENGINE_HOST}?debug=1`)
   await page.getByRole('button', { name: 'Start audio' }).click()
-  await page.getByRole('heading', { name: 'SynthDefs' }).waitFor({ timeout: 30_000 })
+  await page.locator('[data-testid=surface]').waitFor({ timeout: 30_000 })
 }

@@ -296,12 +296,15 @@ than its own duration suggests.
 
 ## The pages
 
-Decoded totals are at the AudioContext's 48kHz, measured from `getLoadedBuffers()`. All six are
+Decoded totals are at the AudioContext's 48kHz, measured from `getLoadedBuffers()`. All five are
 under the 3.7MB an iPhone will take.
+
+`/sample/` — which loaded an arbitrary file and looped it — is gone, and with it the one page here
+that reloaded a buffer rather than claiming a set at boot. The note below on reuse is kept because
+the measurement behind it still holds and is the reason every remaining page loads once.
 
 | page | samples | audio | decoded | shape |
 |---|---|---|---|---|
-| `/sample/` | 1 at a time | — | ≤3.7MB | loads any file, loops it |
 | `/kit/` | 12 | 13.5s mono | 2.47MB | 3-way subdivision, kick on the downbeat |
 | `/piano/` | 6 | 10.0s stereo | 3.68MB | nearest-sample, stretched up to 11 semitones |
 | `/marimba/` | 10 | 18.5s mono | 3.39MB | 4-way subdivision, octave walks per event |

@@ -9,7 +9,7 @@ existing page is the same *shape* as the one you want:
 
 | shape | copy | what it is |
 |---|---|---|
-| held voice | `apps/gendy` | one synth, controls moved by the phone. The smallest engine page. |
+| held voice | `apps/pluck` | one synth, controls moved by the phone. The smallest engine page. |
 | sequence in the server | `apps/suz` | a Demand clock, `SendReply`, a voice spawned per event |
 | sequence in JS | `apps/multibeat` | `ClientConductor` with OSC timetags, for a pattern whose shape changes while it plays |
 | sampled | `apps/marimba` | the above plus a buffer set loaded before anything can play |
@@ -56,7 +56,7 @@ can import from `tests/e2e/pages.ts`.
 ## 2. Create the app
 
 ```sh
-cp -r apps/gendy apps/drone
+cp -r apps/pluck apps/drone
 rm -rf apps/drone/dist apps/drone/public
 ```
 
@@ -69,6 +69,10 @@ Then edit four things:
 - **`vite.config.ts`** — `name: 'drone'`, `basePath: '/drone/'`, and a port matching the above
 - **`index.html`** — the `<title>`
 - **`src/App.tsx`** — the page itself
+
+**Put the new entry at the top of `pages`.** The landing page renders them in
+file order, newest first, so a page appended to the end arrives at the bottom of
+the list where nobody looks.
 
 **`basePath` must equal the `path` in `sites.json`.** Vite joins it onto every asset URL and onto
 the engine's base, so a page built for one path and served from another fetches its worklet and wasm

@@ -26,7 +26,9 @@ async function driveFor(page: import('@playwright/test').Page, ms: number, force
             new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 10, gamma: 10 }),
           )
           window.dispatchEvent(
-            new DeviceMotionEvent('devicemotion', { acceleration: { x: f, y: f, z: f } }),
+            new DeviceMotionEvent('devicemotion', {
+              acceleration: { x: f ?? 0, y: f ?? 0, z: f ?? 0 },
+            }),
           )
         }
       }, 40)

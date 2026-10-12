@@ -171,6 +171,23 @@ printing each measurement beside it. The point is that the numbers and what you 
 against each other: if a row looks right and the note sounds wrong, the engine rendered correct
 samples that never reached the device — which nothing in the automated suite can tell you.
 
+## The engine specs need a host page
+
+`boot.spec.ts`, `isolation.spec.ts` and the capture helper in `audio.ts` are about
+the engine and the build rather than about any page — but they still have to load
+*something*. That used to be `/playground/`, the def browser, and when it was
+removed they moved to `pages.ts`'s two named hosts:
+
+| | | why |
+|---|---|---|
+| `ENGINE_HOST` | `/touch/` | boots the engine and **makes no sound of its own** — a capture is worthless if something else is already playing into it |
+| `CONTROLS_HOST` | `/thrum/` | the busiest page after boot: nine sliders, a canvas, the longest hint strings here, so it is what catches horizontal overflow |
+
+Both read through `?debug=1` and `window.__ss` rather than through markup, which
+is why repointing them was a few lines. **Anything that asserts against a page's
+own UI belongs in that page's spec, not here** — six tests in `boot.spec.ts` did
+not follow that rule and had to be deleted with the page they were really about.
+
 ## When the whole suite fails at boot
 
 Both known causes are **outside the suite**, and both present identically: every

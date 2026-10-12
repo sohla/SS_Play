@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ctl } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
-import { BootGate, EngineFooter, PageHeader, Plotter } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader, Plotter, SourceFooter } from '@ss/ui'
 import { RESTING, requestMotion, watchMotion, type Motion } from '@ss/motion'
 import {
   PLOT_LABELS,
@@ -215,6 +215,14 @@ export function App() {
       </div>
 
       {booted ? <EngineFooter /> : null}
+
+      {/* Unconditional, unlike the engine footer: the AGPL source link is a
+          licence obligation and a page that has not booted is still a conveyed
+          copy of the bundled client. It was missing from every instrument page
+          until now — `/playground/` was the only page that carried it, and the
+          isolation spec only ever checked that page, so nothing reported it. */}
+      <SourceFooter />
+
     </main>
   )
 }

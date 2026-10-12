@@ -20,7 +20,11 @@ async function hold(page: import('@playwright/test').Page, beta: number, gamma =
     ([b, g]) => {
       for (let n = 0; n < 60; n++) {
         window.dispatchEvent(
-          new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: b, gamma: g }),
+          new DeviceOrientationEvent('deviceorientation', {
+            alpha: 0,
+            beta: b ?? 0,
+            gamma: g ?? 0,
+          }),
         )
       }
     },

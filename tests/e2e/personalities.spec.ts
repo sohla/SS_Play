@@ -12,7 +12,8 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 // spawns a voice per event; a held one opens a single voice and plays it by
 // moving its controls — which is why those have no Pbind at all.
 const CONDUCTED = ['suz', 'beast', 'moog'] as const
-const HELD = ['pluck', 'leaves', 'gendy'] as const
+// `leaves` and `gendy` were the other two and their pages are gone.
+const HELD = ['pluck'] as const
 const PORTED = [...CONDUCTED, ...HELD] as const
 
 /**
@@ -23,7 +24,11 @@ const PORTED = [...CONDUCTED, ...HELD] as const
  * not a port bug — see the note on SILENCE_BELOW in its mapping — so it is
  * exempted here rather than having the threshold moved to satisfy the test.
  */
-const ALWAYS_ON: readonly string[] = ['leaves']
+// `leaves` was the only page that sounded at rest by design, so this is empty
+// now. Kept rather than deleted along with the skip it drives: the next
+// always-on page should not have to rediscover why the silent-at-rest check
+// needs an exception list.
+const ALWAYS_ON: readonly string[] = []
 
 const pathOf = (app: string) => {
   const page = sites.pages.find((candidate) => candidate.app === app)

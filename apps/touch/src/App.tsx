@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mapSpec, unmapSpec, type ControlSpec, type SynthDefContract } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
-import { BootGate, EngineFooter, PageHeader } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
 import { NOTE_NAMES, SCALES, midiToFreq, noteName, stripHue, stripNotes, type ScaleName } from './scale.ts'
 import { DEF, Voices, type VoiceParams } from './voices.ts'
 
@@ -227,8 +227,17 @@ export function App() {
           </div>
 
           <EngineFooter />
+
         </>
       )}
+
+      {/* Outside the boot gate on purpose. The AGPL source link is a licence
+          obligation, and a page that has not booted is still a conveyed copy of
+          the bundled client — so it cannot be behind a conditional. It was
+          missing from every instrument page until now: the def browser was the
+          only page that carried it, and the isolation spec only ever checked
+          that page, so nothing ever reported it. */}
+      <SourceFooter />
     </main>
   )
 }

@@ -70,12 +70,14 @@ const SERIES: Record<string, number> = {
   multibeat: 3, // multiBeatSynth1: raw, filtered, drone level
   beast: 2, // movingBeast: raw, filtered
   moog: 2, // miniMoog: raw turn, scaled turn
-  gendy: 1, // gendy2: tilt alone
-  leaves: 1, // leaves: filtered turn alone
-  // The two pages with hand-rolled shells, which predate MotionInstrument.
+  // The one page with a hand-rolled shell, which predates MotionInstrument.
   droplet: 3, // droplet: folded roll, tilt, side movement
-  imu: 3, // not a port — roll, tilt and turn, chosen rather than carried over
 }
+
+// `gendy` and `leaves` were the two single-series entries and `imu` the second
+// hand-rolled shell. All three pages are gone, so nothing is left here that
+// plots fewer than two — worth knowing if this is ever used to argue that the
+// one-series path still works.
 
 for (const [app, count] of Object.entries(SERIES)) {
   test(`${app} plots ${count} series in AirKit's colour order`, async ({ page }) => {
@@ -151,11 +153,7 @@ for (const app of ['marimba', 'suz', 'pluck', 'droplet']) {
   })
 }
 
-test('imu leaves the compass bearing alone', async ({ page }) => {
-  // Sensitivity means nothing on a wrapping heading, so it is not applied there
-  // rather than given a plausible-looking behaviour. The slider is still present,
-  // and the page says which axis it skips.
-  await boot(page, 'imu')
-  await expect(page.locator('[data-testid=sensitivity]')).toBeVisible()
-  await expect(page.getByText('a compass bearing has no sensitivity')).toBeVisible()
-})
+// `imu leaves the compass bearing alone` lived here. It asserted the one place
+// sensitivity is deliberately *not* applied — a wrapping compass heading, where
+// it would have no meaning — and it went with the page. The reasoning is still
+// in docs/UI.md, which is now its only record.

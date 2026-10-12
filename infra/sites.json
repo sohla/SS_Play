@@ -7,115 +7,10 @@
   "landing": "landing",
   "pages": [
     {
-      "app": "touch",
-      "path": "/touch/",
-      "title": "touch",
-      "blurb": "A strip per note. Press anywhere to sound it, slide up for louder, use as many fingers as you have.",
-      "engine": true
-    },
-    {
-      "app": "imu",
-      "path": "/imu/",
-      "title": "imu",
-      "blurb": "A drone that never stops. Tilt, turn and shake the phone to play it.",
-      "engine": true
-    },
-    {
-      "app": "droplet",
-      "path": "/droplet/",
-      "title": "droplet",
-      "blurb": "Synth droplets. Hold the phone flat to play, stand it upright to stop. Flick it to lengthen the tails.",
-      "engine": true
-    },
-    {
-      "app": "multibeat",
-      "path": "/multibeat/",
-      "title": "multibeat",
-      "blurb": "A half-second bar cut into one, two or four. Move to change the subdivision, not the tempo.",
-      "engine": true
-    },
-    {
-      "app": "leaves",
-      "path": "/leaves/",
-      "title": "leaves",
-      "blurb": "Noise chopped into grains \u2014 a surface being disturbed. Tilt from soft to crisp, turn for the grain rate.",
-      "engine": true
-    },
-    {
-      "app": "gendy",
-      "path": "/gendy/",
-      "title": "gendy",
-      "blurb": "Twenty oscillators inventing their own waveform by a random walk. Move to play, tilt for the note.",
-      "engine": true
-    },
-    {
-      "app": "trainmelody",
-      "path": "/trainmelody/",
-      "title": "train melody",
-      "blurb": "A five-note figure. Tilt down to raise the octave, roll to sweep the filter against its resonance.",
-      "engine": true
-    },
-    {
-      "app": "pluck",
-      "path": "/pluck/",
-      "title": "pluck",
-      "blurb": "A plucked string you knock to pitch and move to play.",
-      "engine": true
-    },
-    {
-      "app": "moog",
-      "path": "/moog/",
-      "title": "moog",
-      "blurb": "Three detuned oscillators through a resonant lowpass. Five against six against two.",
-      "engine": true
-    },
-    {
-      "app": "suz",
-      "path": "/suz/",
-      "title": "suz",
-      "blurb": "A nine-note melody against a sixteen-step octave, drifting apart. Move to play, tilt to change register.",
-      "engine": true
-    },
-    {
-      "app": "beast",
-      "path": "/beast/",
-      "title": "beast",
-      "blurb": "Five against four against seven. Shake it to drive it, turn it to open the filter, tilt and roll for the timbre.",
-      "engine": true
-    },
-    {
-      "app": "playground",
-      "path": "/playground/",
-      "title": "scsynth tester",
-      "blurb": "Boot the engine, play any SynthDef from the library, and watch the OSC traffic and audio thread while it runs.",
-      "engine": true
-    },
-    {
-      "app": "kit",
-      "path": "/kit/",
-      "title": "kit",
-      "blurb": "A half-second bar cut into two, four or eight. Move to change how finely, not how fast.",
-      "engine": true
-    },
-    {
-      "app": "piano",
-      "path": "/piano/",
-      "title": "piano",
-      "blurb": "Six samples, one per octave, and an arpeggio that stretches the wrong one to reach every note.",
-      "engine": true
-    },
-    {
-      "app": "dulcimer",
-      "path": "/dulcimer/",
-      "title": "dulcimer",
-      "blurb": "A hammered string walking down three octaves. A finer bar reaches further down the pool.",
-      "engine": true
-    },
-    {
-      "app": "marimba",
-      "path": "/marimba/",
-      "title": "marimba",
-      "blurb": "Struck bars over a bar cut four ways. The octave walks per note, so the figure changes shape with it.",
+      "app": "thrum",
+      "path": "/thrum/",
+      "title": "thrum",
+      "blurb": "Sound aimed at the hand, not the ear. Shake for separate taps, turn until they fuse into one buzz, tilt to set the carrier.",
       "engine": true
     },
     {
@@ -126,17 +21,87 @@
       "engine": true
     },
     {
-      "app": "thrum",
-      "path": "/thrum/",
-      "title": "thrum",
-      "blurb": "Sound aimed at the hand, not the ear. Shake for separate taps, turn until they fuse into one buzz, tilt to set the carrier.",
+      "app": "marimba",
+      "path": "/marimba/",
+      "title": "marimba",
+      "blurb": "Struck bars over a bar cut four ways. The octave walks per note, so the figure changes shape with it.",
       "engine": true
     },
     {
-      "app": "sample",
-      "path": "/sample/",
-      "title": "sample",
-      "blurb": "Load an audio file into a buffer and loop it. Pitch and level by hand.",
+      "app": "dulcimer",
+      "path": "/dulcimer/",
+      "title": "dulcimer",
+      "blurb": "A hammered string walking down three octaves. A finer bar reaches further down the pool.",
+      "engine": true
+    },
+    {
+      "app": "piano",
+      "path": "/piano/",
+      "title": "piano",
+      "blurb": "Six samples, one per octave, and an arpeggio that stretches the wrong one to reach every note.",
+      "engine": true
+    },
+    {
+      "app": "kit",
+      "path": "/kit/",
+      "title": "kit",
+      "blurb": "A half-second bar cut into two, four or eight. Move to change how finely, not how fast.",
+      "engine": true
+    },
+    {
+      "app": "beast",
+      "path": "/beast/",
+      "title": "beast",
+      "blurb": "Five against four against seven. Shake it to drive it, turn it to open the filter, tilt and roll for the timbre.",
+      "engine": true
+    },
+    {
+      "app": "suz",
+      "path": "/suz/",
+      "title": "suz",
+      "blurb": "A nine-note melody against a sixteen-step octave, drifting apart. Move to play, tilt to change register.",
+      "engine": true
+    },
+    {
+      "app": "moog",
+      "path": "/moog/",
+      "title": "moog",
+      "blurb": "Three detuned oscillators through a resonant lowpass. Five against six against two.",
+      "engine": true
+    },
+    {
+      "app": "pluck",
+      "path": "/pluck/",
+      "title": "pluck",
+      "blurb": "A plucked string you knock to pitch and move to play.",
+      "engine": true
+    },
+    {
+      "app": "trainmelody",
+      "path": "/trainmelody/",
+      "title": "train melody",
+      "blurb": "A five-note figure. Tilt down to raise the octave, roll to sweep the filter against its resonance.",
+      "engine": true
+    },
+    {
+      "app": "multibeat",
+      "path": "/multibeat/",
+      "title": "multibeat",
+      "blurb": "A half-second bar cut into one, two or four. Move to change the subdivision, not the tempo.",
+      "engine": true
+    },
+    {
+      "app": "droplet",
+      "path": "/droplet/",
+      "title": "droplet",
+      "blurb": "Synth droplets. Hold the phone flat to play, stand it upright to stop. Flick it to lengthen the tails.",
+      "engine": true
+    },
+    {
+      "app": "touch",
+      "path": "/touch/",
+      "title": "touch",
+      "blurb": "A strip per note. Press anywhere to sound it, slide up for louder, use as many fingers as you have.",
       "engine": true
     }
   ]

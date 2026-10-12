@@ -13,6 +13,7 @@ import { BootGate } from './BootGate.tsx'
 import { Plotter } from './Plotter.tsx'
 import { EngineFooter } from './EngineFooter.tsx'
 import { PageHeader } from './PageHeader.tsx'
+import { SourceFooter } from './SourceFooter.tsx'
 
 /**
  * One trace of AirKit's `~plot`: a value the mapping reads, and what it does.
@@ -410,6 +411,14 @@ export function MotionInstrument({
       </div>
 
       {booted ? <EngineFooter /> : null}
+
+      {/* Unconditional, unlike the engine footer: the AGPL source link is a
+          licence obligation and a page that has not booted is still a conveyed
+          copy of the bundled client. It was missing from every instrument page
+          until now — `/playground/` was the only page that carried it, and the
+          isolation spec only ever checked that page, so nothing reported it. */}
+      <SourceFooter />
+
     </main>
   )
 }

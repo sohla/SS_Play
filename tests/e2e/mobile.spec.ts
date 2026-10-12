@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import sites from '../../infra/sites.json' with { type: 'json' }
-import { LANDING, PLAYGROUND, TOUCH } from './pages.ts'
+import { CONTROLS_HOST, LANDING, TOUCH } from './pages.ts'
 
 // Mobile is the primary target, so these run at phone width rather than as an
 // afterthought at the end of a desktop suite. The IMU and multitouch work to
@@ -40,10 +40,12 @@ for (const { path } of everyPage) {
   })
 }
 
-test('the playground does not scroll sideways once it is running', async ({ page }) => {
-  // The panels that overflow only exist after boot, so the check above cannot
-  // see them.
-  await page.goto(PLAYGROUND)
+test('the busiest page does not scroll sideways once it is running', async ({ page }) => {
+  // The controls that can overflow only exist after boot, so the sweep above
+  // cannot see them. This used to run against the def browser, whose OSC log
+  // held the longest strings on the site; it runs against the pulse bench now,
+  // which has nine sliders, a canvas and the longest hint text here.
+  await page.goto(CONTROLS_HOST)
   await page.click(bootButton)
   await expect(page.locator('input[type=range]').first()).toBeVisible({ timeout: 30_000 })
 
@@ -64,7 +66,7 @@ test('the gesture that starts audio is big enough to hit', async ({ page }) => {
 })
 
 test('sliders are draggable with a thumb, not a 4px line', async ({ page }) => {
-  await page.goto(PLAYGROUND)
+  await page.goto(CONTROLS_HOST)
   await page.click(bootButton)
   const slider = page.locator('input[type=range]').first()
   await expect(slider).toBeVisible({ timeout: 30_000 })
@@ -81,10 +83,16 @@ test('sliders are draggable with a thumb, not a 4px line', async ({ page }) => {
 })
 
 test('a slider responds to a touch drag', async ({ page }) => {
-  await page.goto(PLAYGROUND)
+  await page.goto(CONTROLS_HOST)
   await page.click(bootButton)
   const slider = page.locator('input[type=range]').first()
   await expect(slider).toBeVisible({ timeout: 30_000 })
+
+  // Scrolled into view before it is measured. `touchscreen.tap` takes raw
+  // viewport coordinates and does no scrolling of its own, so on a long page the
+  // box can be below the fold and the tap lands on whatever is there instead —
+  // which reads as "the slider ignored the touch".
+  await slider.scrollIntoViewIfNeeded()
 
   const before = await slider.inputValue()
   const box = (await slider.boundingBox()) as { x: number; y: number; width: number; height: number }
