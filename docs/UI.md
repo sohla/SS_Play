@@ -218,6 +218,33 @@ and the others (kit at 2, 4 or 8 per bar, bass at 1 or 2, melody at 4 or 8, all 
 2.0s), so nothing drifts. `tests/e2e/combo.spec.ts` asserts the division rather than trusting it.
 Three schedulers that merely *started* together would be three machines within a minute.
 
+### And a fourth scheduler that is not one of these
+
+`GridConductor` is a peer of `Conductor` and `ClientConductor` in `@ss/engine`,
+and it is deliberately **not** in the `Instrument` union above, because it
+answers to a clock rather than to a gesture — there is nothing for
+`MotionInstrument` to feed it. `/sync/` uses it directly.
+
+The difference is where the phase comes from:
+
+| | phase starts at |
+|---|---|
+| `conductor` | whenever the clock synth was created |
+| `client` | whenever `start()` was called |
+| `GridConductor` | `floor(wallClock / stepMs)`, anchored at the **Unix epoch** |
+
+Which is the one thing the other two cannot do. Both keep excellent time against
+themselves and none at all against another device: two phones that began a
+second apart stay a second apart for ever. An absolute grid needs no master, no
+server and no handshake — agreeing about the time *is* agreeing about the beat —
+and it also means joining late lands in phase, and a stall resumes in phase
+having dropped the steps it missed rather than catching up in a burst.
+
+The cost is that the clock becomes load-bearing. See
+[HAPTICS.md](HAPTICS.md)'s neighbour in spirit: the numbers are in
+`grid-conductor.ts`, and the short version is that wi-fi is worth 1-10ms and
+cellular has been measured past 800ms, which is a beat and a half at 120bpm.
+
 ### Pages that are none of these
 
 `droplet` and `touch` do not use `MotionInstrument` at all. The first predates it and rolls the shell

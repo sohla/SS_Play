@@ -49,6 +49,16 @@ export {
 } from './client-conductor.ts'
 
 export {
+  GridConductor,
+  NTP_EPOCH_OFFSET,
+  stepAt,
+  stepStartMs,
+  wallClockMs,
+  type GridConductorOptions,
+  type GridEvent,
+} from './grid-conductor.ts'
+
+export {
   bind,
   hold,
   isRest,

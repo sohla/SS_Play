@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "sync",
+      "path": "/sync/",
+      "title": "sync",
+      "blurb": "The same rhythm on every device, from the clock alone. Open it on two phones and see how well they agree.",
+      "engine": true
+    },
+    {
       "app": "thrum",
       "path": "/thrum/",
       "title": "thrum",

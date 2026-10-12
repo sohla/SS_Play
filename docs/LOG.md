@@ -1666,3 +1666,101 @@ already uses it on a timeout — sclang at its REPL does not take the hint.
 Re-verified all three ways, plus the new one: wrapper killed mid-run now leaves
 neither process, a normal run still passes 5/5 and leaves nothing, and a
 pre-existing server still survives untouched.
+
+---
+
+## 2026-10-13 — sync: one rhythm on every device, from the clock alone
+
+A new page and a new mechanism, to measure how well separate devices agree.
+
+### The sync source was already there
+
+The intent was to find the most accurate shared clock a static page can reach
+and schedule against it. Reading the library first turned out to answer the
+question: SuperSonic's OSC timetags are built from
+
+    ntpNow() = (performance.timeOrigin + performance.now())/1000 + 2208988800
+
+and `performance.timeOrigin + performance.now()` **is** wall-clock Unix
+milliseconds, at sub-millisecond resolution. So the scheduler already takes
+absolute wall-clock instants; nothing needed inventing, and `getOutputTimestamp`
+— which was the plan — turned out to be unnecessary.
+
+Using that expression rather than `Date.now()` is deliberate three times over:
+it is the same clock the scheduler uses, so the grid and the scheduler cannot
+disagree; it is monotonic, so an NTP correction mid-session cannot jerk a
+rhythm that is already playing; and it is a double rather than integer
+milliseconds.
+
+### GridConductor
+
+A third scheduler in `@ss/engine`, and the distinction is only about phase:
+
+| | phase starts at |
+|---|---|
+| `Conductor` | when the clock synth was created |
+| `ClientConductor` | when `start()` was called |
+| `GridConductor` | `floor(wallClock / stepMs)`, anchored at the Unix epoch |
+
+The first two keep excellent time against themselves and none at all against
+another device — two phones that began a second apart stay a second apart for
+ever. An absolute grid needs **no master, no server and no handshake**. It also
+gets two things for free: joining late lands in phase, and a stall resumes in
+phase having dropped what it missed rather than catching up in a burst or
+limping along behind.
+
+Not in `MotionInstrument`'s `Instrument` union, because it answers to a clock
+rather than to a gesture and there is nothing for the shell to feed it.
+
+### The page is a measurement, not an instrument
+
+120bpm in sixteenths: 125ms steps, 16 to a bar, **two-second bars that land on
+even whole seconds** of wall-clock time, so a downbeat is a round number against
+any other clock in the room. Four on the floor, snare on two and four, offbeat
+hats, from three kit samples — about 0.25MB against the ~3.7MB a phone will
+take, because a sync test should not be able to fail for want of memory.
+
+The rhythm is the most obvious one available on purpose. A flam on a kick is the
+most audible error a rhythm can have, and anything syncopated would hide exactly
+what is being measured.
+
+The readouts separate the three reasons two devices might disagree, which are
+indistinguishable by ear:
+
+- **step / bar** — the same number at the same moment means the grids agree, so
+  anything audible is latency rather than clock
+- **skipped** — a stalled main thread dropping steps, which sounds identical to
+  bad sync and is a different fault
+- **server Δ** — coarse, ±1s, and labelled as such: an HTTP `Date` header has
+  one-second resolution and this site is static files behind Caddy, so there is
+  no endpoint to run a real handshake against. It catches the failure that
+  actually ruins everything — a clock wrong by seconds — and says nothing about
+  the tens of milliseconds being tested.
+
+Plus four flashing beat lights, which read across a room where two step counters
+do not.
+
+### What the numbers will probably say
+
+Not yet measured on hardware, which is the point of shipping it. The literature
+says wi-fi with automatic time is worth 1-10ms, and iOS has been measured at
+~720µs average — but SNTP on a *cellular* connection has a measured mean offset
+near 190ms and has been seen past 840ms. That is a beat and a half at 120bpm, so
+a device can be confidently, exactly one beat out while working perfectly.
+
+Output latency is the other term and is independent of the clock: two devices
+with perfect clocks and different output paths still sound apart, which is why
+the engine footer's latency figures matter here more than on any other page.
+
+### Open
+
+- Nothing is measured yet. Two phones on the same wi-fi, then one on cellular,
+  is the experiment.
+- The grid maths has unit coverage at real wall-clock magnitudes — ~1.4e10 steps,
+  well inside a double's safe range — because the day that stops holding the
+  rhythm would quietly granulate.
+- The e2e proves two independent contexts agree about the step having exchanged
+  nothing, which is the mechanism. It cannot prove anything about NTP: both
+  share one machine clock.
+- Still open from before: the e2e fixture lives in `/touch/` rather than outside
+  `apps/`; `SynthDefControls` ships unused; every page stages all authored defs.
