@@ -75,6 +75,28 @@ Then edit four things:
 file order, newest first, so a page appended to the end arrives at the bottom of
 the list where nobody looks.
 
+## 2b. Draw it an icon
+
+One entry in [`packages/ui/src/icons.tsx`](../packages/ui/src/icons.tsx), keyed
+by the same `app` name. Nothing else: `PageHeader` finds it from
+`__SS_APP_NAME__`, so the page itself passes nothing, and the landing page picks
+it up from `sites.json`.
+
+**Draw it from the def and the mapping**, not from the name — the envelope the
+page actually uses, the subdivisions it actually cuts. Fifteen small marks only
+stay distinguishable while they differ for a reason, and the first draft of this
+set had two pages rendering as the same fuzzy ring because both were "circles,
+sort of".
+
+A 24×24 box, `currentColor`, stroke only at 1.5. `currentColor` matters: the
+index is grey-on-dark and the pages are AirKit's yellow-on-black, and one icon
+serves both.
+
+`packages/ui/test/icons.test.ts` compares the icon map against `sites.json` in
+both directions, so a page without an icon fails and an icon left behind after a
+removal fails too. That is the only thing in this project keyed by page name, so
+it is the only thing a deletion can orphan.
+
 **`basePath` must equal the `path` in `sites.json`.** Vite joins it onto every asset URL and onto
 the engine's base, so a page built for one path and served from another fetches its worklet and wasm
 from somewhere that does not exist — which arrives as an opaque boot failure, not a 404 you can see.

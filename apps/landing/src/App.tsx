@@ -1,4 +1,4 @@
-import { SourceFooter } from '@ss/ui'
+import { PageIcon, SourceFooter } from '@ss/ui'
 import sites from '../../../infra/sites.json'
 
 // The list comes from infra/sites.json, the same file that generates the
@@ -23,7 +23,13 @@ export function App() {
               href={page.path}
               className="group block rounded-lg border border-neutral-800 bg-surface p-5 transition-colors hover:border-neutral-600"
             >
-              <span className="flex items-baseline gap-3">
+              <span className="flex items-center gap-3">
+                {/* Drawn from the page's own SynthDef and mapping, so the list
+                    reads as fifteen instruments rather than fifteen links. */}
+                <PageIcon
+                  app={page.app}
+                  className="h-7 w-7 shrink-0 text-neutral-500 transition-colors group-hover:text-neutral-300"
+                />
                 <span className="text-lg text-neutral-100 group-hover:text-white">
                   {page.title}
                 </span>

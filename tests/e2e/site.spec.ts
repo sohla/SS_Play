@@ -139,3 +139,31 @@ test('every engine page reports what the engine is doing', async ({ page }) => {
     await expect(page.locator('[data-testid=voices]')).toContainText('voices')
   }
 })
+
+test('the landing page shows an icon for every page it lists', async ({ page }) => {
+  await page.goto(LANDING)
+
+  // Drawn from each page's own SynthDef and mapping, so the index reads as a
+  // set of instruments rather than a list of links.
+  for (const declared of sites.pages) {
+    await expect(
+      page.locator(`[data-testid="icon-${declared.app}"]`),
+      `no icon rendered for ${declared.app}`,
+    ).toBeVisible()
+  }
+})
+
+test('every page draws its own icon in its header, with nothing passed to it', async ({ page }) => {
+  // The icon follows from `__SS_APP_NAME__`, which the bundler replaces inside
+  // the shared `@ss/ui` source rather than inside the app. That substitution is
+  // the thing worth testing: if it ever stopped happening, `PageHeader` would
+  // fall back to no icon and every page would look subtly plain with nothing
+  // failing. Checked without booting, so it is fifteen cheap page loads.
+  for (const declared of sites.pages) {
+    await page.goto(declared.path)
+    await expect(
+      page.locator(`header [data-testid="icon-${declared.app}"]`),
+      `${declared.path} header has no icon — is __SS_APP_NAME__ still being replaced?`,
+    ).toBeVisible()
+  }
+})

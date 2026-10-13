@@ -1764,3 +1764,58 @@ the engine footer's latency figures matter here more than on any other page.
   share one machine clock.
 - Still open from before: the e2e fixture lives in `/touch/` rather than outside
   `apps/`; `SynthDefControls` ships unused; every page stages all authored defs.
+
+---
+
+## 2026-10-13 — an icon per page, from its own SynthDef
+
+Fifteen marks, each a reading of what its page actually does: `thrum` is the
+envelope a hand chose — 14.5ms rise, held plateau, drop — with the transient
+spiking off it; `kit` is a ruler, because its mapping changes how finely the bar
+is cut and never how fast; `beast` is three nested cycles that do not close
+together; `suz` is nine marks against sixteen across one width, so the drift is
+the picture. They stay distinguishable because the instruments differ, which is
+the only thing that scales to fifteen.
+
+### Two decisions
+
+**No page changed.** `PageHeader` looks up its own icon from `__SS_APP_NAME__`,
+which the bundler already injects, so all fifteen pages get one without passing
+anything. The alternative was threading an app name through `MotionInstrument`
+and into the twelve pages that use it, to tell the component something the build
+already knew. An e2e loads every page and asserts the header icon renders,
+because that substitution happens inside `@ss/ui` rather than inside an app —
+and if it ever stopped, every page would go quietly plain with nothing failing.
+
+**The icons are shared, and they are the one thing that cannot be a silo.** The
+landing page renders all of them, so it has to reach them all. It already
+reaches every page's title, path and blurb through `sites.json`, so an icon
+keyed by app name is the dependency that is already there rather than a new one
+— but it is also now the only thing in the project keyed by page name, which
+makes it the only thing a page deletion can orphan. So the test compares the map
+against `sites.json` **in both directions**: a page without an icon fails, and an
+icon left behind after a removal fails too.
+
+### The first draft was worse, and looking at it is how I found out
+
+Rendered, screenshotted and read back rather than reasoned about. Four were
+wrong at the size they are actually seen:
+
+- `beast` and `suz` were both dashed concentric rings. At 28px the dash counts
+  were unresolvable, so two different mechanisms drew the same fuzzy circle.
+  Redrawn as nested arcs and as two rows of differently-spaced ticks — different
+  *forms*, not different parameters of one form.
+- `combo` was three rows of ticks over three full-width rules, which at that size
+  is mush. The rules went.
+- `piano` had an arrow for the nearest-sample stretch that was illegible. Filled
+  black keys instead.
+
+An icon is the one kind of code where reading the source tells you almost
+nothing about whether it works.
+
+### Open
+
+- The four rhythm pages — `kit`, `multibeat`, `combo`, `suz` — share a comb-like
+  vocabulary. Left deliberately: they are all "a bar cut n ways", so the
+  resemblance is the instruments resembling each other. Worth revisiting only if
+  someone mistakes one for another in use.

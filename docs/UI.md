@@ -104,6 +104,7 @@ loads a def when you select it. Worth remembering for any page that picks defs a
 | `OscLog` | the tail of the OSC stream, both directions |
 | `NodeTree` | the server's nodes, with a warning when the count only climbs |
 | `SourceFooter` | the AGPL source link every page must carry |
+| `PageIcon` | a page's icon, drawn from its own SynthDef and mapping |
 
 `BootGate` and `SourceFooter` are in the shared kit specifically because every page needs them and
 none should write them twice — the source link is a licence obligation, not decoration.

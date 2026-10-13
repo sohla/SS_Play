@@ -12,5 +12,6 @@ export {
 export { Plotter, PLOT_COLOURS, PLOT_FRAMES, type PlotterProps } from './Plotter.tsx'
 export { OscLog, type OscLogEntry, type OscLogProps } from './OscLog.tsx'
 export { PageHeader, type PageHeaderProps } from './PageHeader.tsx'
+export { ICON_APPS, PageIcon, hasPageIcon, type PageIconProps } from './icons.tsx'
 export { SourceFooter } from './SourceFooter.tsx'
 export { SynthDefControls, type SynthDefControlsProps } from './SynthDefControls.tsx'
