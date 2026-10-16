@@ -58,6 +58,34 @@ export function stepStartMs(step: number, stepMs: number): number {
   return step * stepMs
 }
 
+/** The parts of an `AudioContext` that say how late its output is heard. */
+export interface OutputClock {
+  readonly currentTime: number
+  readonly baseLatency?: number
+  readonly outputLatency?: number
+  getOutputTimestamp(): { contextTime?: number }
+}
+
+/**
+ * Output latency, in seconds, that SuperSonic's timing anchor does not absorb.
+ *
+ * SuperSonic anchors timetags to `getOutputTimestamp()`, whose `contextTime` is
+ * meant to be the frame reaching the speaker. Where it trails `currentTime` —
+ * Chrome, ~35ms on a MacBook — the anchor already renders that much early and
+ * sounds on the grid, so there is nothing to add. Safari 27 returns
+ * `contextTime === currentTime`, so the anchor absorbs nothing and every hit
+ * sounds late by the latency Safari itself reports. Measured on one laptop:
+ * Chrome compensated 32ms, Safari 0ms against a reported 18ms.
+ *
+ * Detected by that behaviour rather than by user agent, so a Safari that fixes
+ * `getOutputTimestamp` stops being compensated twice.
+ */
+export function uncompensatedLatencyS(audio: OutputClock): number {
+  const trailing = audio.currentTime - (audio.getOutputTimestamp().contextTime ?? 0)
+  if (trailing > 0.001) return 0
+  return (audio.baseLatency ?? 0) + (audio.outputLatency ?? 0)
+}
+
 /** One voice on one step. Several may land on the same step. */
 export interface GridEvent {
   /** SynthDef to play. */
@@ -110,6 +138,8 @@ export class GridConductor {
   readonly #eventsFor: (step: number) => readonly GridEvent[]
   readonly #group: number
   readonly #osc: OscCodec
+  /** Seconds each timetag is brought forward so it is heard, not rendered, on the step. */
+  readonly #latencyS: number
 
   #timer: ReturnType<typeof setInterval> | null = null
   /** The next step not yet scheduled. Absolute, not relative to start. */
@@ -131,6 +161,11 @@ export class GridConductor {
       throw new Error('This build of SuperSonic has no OSC bundle codec to schedule with')
     }
     this.#osc = codec
+
+    // Read once: the engine is booted, so the context is running and the
+    // latency is settled. A mid-session route change is not picked up.
+    const audio = (session.sonic as unknown as { audioContext?: OutputClock }).audioContext
+    this.#latencyS = audio ? uncompensatedLatencyS(audio) : 0
 
     this.#group = session.sonic.nextNodeId()
     session.sonic.send('/g_new', this.#group, 0, 0)
@@ -209,9 +244,11 @@ export class GridConductor {
     }
   }
 
-  /** The OSC timetag for an absolute step. */
+  /** The OSC timetag for an absolute step, early by whatever the anchor leaves out. */
   #ntpOf(step: number): number {
-    return stepStartMs(step, this.#options.stepMs) / 1000 + this.#osc.NTP_EPOCH_OFFSET
+    return (
+      stepStartMs(step, this.#options.stepMs) / 1000 + this.#osc.NTP_EPOCH_OFFSET - this.#latencyS
+    )
   }
 
   #emit(at: number, event: GridEvent) {

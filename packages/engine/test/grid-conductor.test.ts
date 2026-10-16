@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NTP_EPOCH_OFFSET, stepAt, stepStartMs } from '../src/grid-conductor.ts'
+import { NTP_EPOCH_OFFSET, stepAt, stepStartMs, uncompensatedLatencyS } from '../src/grid-conductor.ts'
 
 /**
  * The grid maths, which is the only part that has to be identical on two
@@ -82,5 +82,30 @@ describe('the OSC timetag', () => {
     const ntp = stepStartMs(stepAt(1_760_000_000_000, STEP), STEP) / 1000 + NTP_EPOCH_OFFSET
     const nextSample = ntp + 1 / 48_000
     expect(nextSample).toBeGreaterThan(ntp)
+  })
+})
+
+describe('output latency the engine anchor leaves out', () => {
+  // The two readings taken on one MacBook, Chrome 154 and Safari 27.
+  const clock = (currentTime: number, contextTime: number, base: number, output: number) => ({
+    currentTime,
+    baseLatency: base,
+    outputLatency: output,
+    getOutputTimestamp: () => ({ contextTime }),
+  })
+
+  it('adds nothing where contextTime trails currentTime, as in Chrome', () => {
+    // The anchor already renders this much early, so adding it again would put
+    // Chrome 38ms ahead of the grid.
+    expect(uncompensatedLatencyS(clock(10, 10 - 0.0355, 0.0058, 0.032))).toBe(0)
+  })
+
+  it('adds the reported latency where contextTime is currentTime, as in Safari', () => {
+    expect(uncompensatedLatencyS(clock(10, 10, 0.00267, 0.01576))).toBeCloseTo(0.01843, 5)
+  })
+
+  it('adds nothing a browser does not report', () => {
+    const silent = { currentTime: 10, getOutputTimestamp: () => ({ contextTime: 10 }) }
+    expect(uncompensatedLatencyS(silent)).toBe(0)
   })
 })
