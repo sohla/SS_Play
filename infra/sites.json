@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "birthday",
+      "path": "/birthday/",
+      "title": "happy birthday",
+      "blurb": "Happy Birthday on a loop, from a MIDI file, with a second voice above it that only plays what fits. Shake to bring it in, turn to let it climb.",
+      "engine": true
+    },
+    {
       "app": "sync",
       "path": "/sync/",
       "title": "sync",

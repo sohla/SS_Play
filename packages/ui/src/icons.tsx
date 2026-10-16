@@ -29,6 +29,23 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `birthday` — the tune's first phrase, and the descant above it.
+   *
+   * The line is "Hap-py birth-day to you" at its real pitches: C C D C F E. The
+   * dots are the descant arpeggiating up and back through the chord, held above
+   * the melody's highest note, which is the rule that keeps the two from crossing.
+   */
+  birthday: (
+    <>
+      <path d="M3 19h3.5l3-2.5 3 2.5 3.5-5.5 3 2" />
+      <circle cx="5" cy="9" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="14" cy="4" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  ),
+
+  /**
    * `sync` — four quarters on an absolute grid.
    *
    * The downbeat is taller because the grid is anchored: step 0 of a bar is a
