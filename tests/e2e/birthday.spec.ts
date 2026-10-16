@@ -86,7 +86,7 @@ test('the tune plays with nothing moving, and does not clip', async ({ page }) =
   expect(heard.peak, 'the melody clipped').toBeLessThan(0.99)
 })
 
-test('shaking brings the descant in over the chord of the bar', async ({ page }) => {
+test('shaking brings the descant in over the chord of the bar, and the drums', async ({ page }) => {
   await boot(page)
   await shake(page, 6000)
   await page.waitForTimeout(2500)
@@ -94,7 +94,9 @@ test('shaking brings the descant in over the chord of the bar', async ({ page })
   expect(await value(page, 'descant')).toMatch(/^every [124] \/ 16$/)
   expect(['I', 'IV', 'V']).toContain(await value(page, 'chord'))
   expect(Number(await value(page, 'note'))).toBeGreaterThan(72)
+  // The kit loaded, its grid is running, and shaking is past the drums' floor.
+  expect(await value(page, 'drums')).not.toMatch(/^(resting|—)$/)
 
   const heard = await listen(page)
-  expect(heard.peak, 'melody and descant together clipped').toBeLessThan(0.99)
+  expect(heard.peak, 'melody, descant and drums together clipped').toBeLessThan(0.99)
 })

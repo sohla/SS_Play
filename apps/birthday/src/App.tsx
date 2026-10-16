@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { GridConductor, stepAt, wallClockMs } from '@ss/engine'
-import { useSuperSonic } from '@ss/react'
+import { useSampleSet, useSuperSonic } from '@ss/react'
 import { MotionInstrument, type Mapped } from '@ss/ui'
 import type { Motion } from '@ss/motion'
+import {
+  DRUM_LIBRARY,
+  TICKS_PER_STEP,
+  drumsAt,
+  freshDrummer,
+  kitFrom,
+} from './drums.ts'
 import { HAPPY_BIRTHDAY } from './happy-birthday.ts'
 import { chordsPerBar } from './harmony.ts'
 import { PLOT_LABELS, RESTING_GESTURE, gestureFrom, plotOf, type Gesture } from './mapping.ts'
@@ -28,6 +35,10 @@ export function App() {
   // Read by the scheduler off a timer, so refs rather than state.
   const gesture = useRef<Gesture>({ ...RESTING_GESTURE })
   const descant = useRef(freshDescant())
+  const drummer = useRef(freshDrummer())
+
+  const { samples, progress, error } = useSampleSet(DRUM_LIBRARY)
+  const kit = useMemo(() => (samples ? kitFrom(samples) : null), [samples])
 
   useEffect(() => {
     const engine = session()
@@ -49,6 +60,22 @@ export function App() {
     return () => grid.dispose()
   }, [booted, session])
 
+  // The drums on a grid six times finer, built only once the kit has loaded —
+  // the tune above does not wait for it. Same epoch anchor, so tick 6k is
+  // sixteenth k of the song.
+  useEffect(() => {
+    const engine = session()
+    if (!booted || !engine || !kit) return
+
+    const grid = new GridConductor({
+      session: engine,
+      stepMs: HAPPY_BIRTHDAY.stepMs / TICKS_PER_STEP,
+      eventsFor: (tick) => drumsAt(HAPPY_BIRTHDAY, tick, gesture.current, kit, drummer.current),
+    })
+    grid.start()
+    return () => grid.dispose()
+  }, [booted, session, kit])
+
   const map = useCallback((motion: Motion, sensitivity: number): Mapped => {
     const next = gestureFrom(motion, sensitivity, gesture.current)
     gesture.current = next
@@ -69,6 +96,7 @@ export function App() {
         ['descant', now.every === 0 ? 'resting' : `every ${now.every} / 16`],
         ['register', now.register || '—'],
         ['note', now.last ? String(now.last) : '—'],
+        ['drums', drummer.current.doing || '—'],
       ],
     }
   }, [])
@@ -83,7 +111,8 @@ export function App() {
           never a semitone off the melody and never across it. <strong>Shake</strong> to bring it
           in and quicken it, <strong>tilt</strong> the phone up to lift it above the tune or down
           for a bass line, <strong>turn</strong> to let it climb further, and{' '}
-          <strong>flick</strong> for an accent an octave up.
+          <strong>flick</strong> for an accent an octave up. Shake harder and the drums come in
+          &mdash; a waltz break that cuts itself up, rolls and stutters the more you put in.
         </>
       }
       instrument={PLACEHOLDER}
@@ -91,6 +120,12 @@ export function App() {
       silenceBelow={SILENT_BELOW}
       plot={plotOf}
       plotLabels={PLOT_LABELS}
+      ready={kit !== null}
+      pending={
+        error
+          ? `Could not load ${error}`
+          : `Loading the drums — ${progress.done} of ${progress.total}.`
+      }
     />
   )
 }
