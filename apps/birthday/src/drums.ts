@@ -69,6 +69,27 @@ const dbamp = (db: number) => 10 ** (db * 0.05)
 /** Energy below which the drums are silent and the tune plays alone. */
 export const DRUMS_BELOW = 0.06
 
+/**
+ * Where each stage of the escalation begins, by energy.
+ *
+ * Set high on purpose: everything that cuts between the sixteenths — rolls,
+ * buzzes, the stutters that replay them — waits until 0.8 and over, which takes
+ * a hard, sustained shake. Below that the break stays on the grid.
+ */
+export const GHOSTS_ABOVE = 0.5
+export const ZAPS_ABOVE = 0.65
+export const SEVENS_ABOVE = 0.75
+export const ROLLS_ABOVE = 0.8
+export const STUTTERS_ABOVE = 0.88
+
+/**
+ * The kick, at one level whatever the energy.
+ *
+ * Everything else rides the energy curve; the kick is the floor the rest is cut
+ * up over, so it does not get quieter when the rest does.
+ */
+export const KICK_AMP = 0.8
+
 /** What carries over from one tick to the next. */
 export interface Drummer {
   /** A roll in progress: until which tick, every how many ticks, from which. */
@@ -108,15 +129,19 @@ const GHOSTS = new Set([6, 9, 11])
  * | energy | adds |
  * |---|---|
  * | any    | the waltz break: kick, backbeat, eighth hats |
- * | > 0.3  | ghost snares, sixteenth hats, the first snare rolls |
- * | > 0.45 | resonant zaps in place of hats — the high-pass ringing at a pitch |
- * | > 0.6  | the kick cuts in sevens across the bar line, against the waltz |
- * | > 0.7  | beat-repeats: a beat replays the one before it, reversed or bent |
+ * | > 0.5  | ghost snares, sixteenth hats |
+ * | > 0.65 | resonant zaps in place of hats — the high-pass ringing at a pitch |
+ * | > 0.75 | the kick cuts in sevens across the bar line, against the waltz |
+ * | > 0.8  | snare rolls, the first hits between the sixteenths |
+ * | > 0.88 | beat-repeats: a beat replays the one before it, reversed or bent |
  *
  * Rolls get both commoner and finer as energy rises: 32nds, then
  * 32nd-triplets, then the one-tick buzz, with the snare's playback rate climbing
  * through the roll — the pitched-up roll into a downbeat that is the most
  * recognisable gesture in the genre.
+ *
+ * Yaw sets the playback rate of everything but the kick, 0.5 to 2 — the whole
+ * kit an octave down or up, while the kick holds the floor where it is.
  */
 export function drumsAt(
   pattern: Pattern,
@@ -142,6 +167,7 @@ export function drumsAt(
   const inBeat = ((tick % beatTicks) + beatTicks) % beatTicks
   const level = dbamp(-16 + energy * 10)
   const sixteenthS = pattern.stepMs / 1000
+  const tune = gesture.drumRate
 
   // A beat-repeat replays the previous beat's hits at the same offsets, so it
   // stays on the grid however cut up the source was.
@@ -151,7 +177,11 @@ export function drumsAt(
   state.stutter = null
 
   if (inBeat === 0) {
-    if (energy > 0.7 && state.heard.size > 0 && chance(step, 1) < (energy - 0.7) * 1.6) {
+    if (
+      energy > STUTTERS_ABOVE &&
+      state.heard.size > 0 &&
+      chance(step, 1) < (energy - STUTTERS_ABOVE) * 2.5
+    ) {
       // Half a beat or a whole one, replayed for one beat: the stutter.
       const length = chance(step, 2) < 0.5 ? beatTicks / 2 : beatTicks
       const bend = chance(step, 3) < 0.5 ? -1 : 0.5
@@ -188,9 +218,9 @@ export function drumsAt(
 
   if (state.roll && tick >= state.roll.until) state.roll = null
 
-  const rollChance = energy > 0.3 ? (energy - 0.3) * 0.5 : 0
+  const rollChance = energy > ROLLS_ABOVE ? (energy - ROLLS_ABOVE) * 1.5 : 0
   if (!state.roll && sub === 0 && !BACKBEATS.has(inBar) && chance(step, 6) < rollChance) {
-    const every = energy > 0.85 ? 1 : energy > 0.6 ? 2 : 3
+    const every = energy > 0.96 ? 1 : energy > 0.9 ? 2 : 3
     // One to three sixteenths, and longer as the bar runs out — a roll is
     // likeliest leading into a downbeat, where it has somewhere to land.
     const span = 1 + Math.floor(chance(step, 7) * (inBar > 8 ? 3 : 2))
@@ -205,7 +235,7 @@ export function drumsAt(
       events.push(
         hit(kit.snares[Math.floor(chance(tick, 4) * kit.snares.length)] as number, {
           amp: level * (0.35 + 0.5 * through),
-          rate: 1 + through * (0.5 + energy),
+          rate: (1 + through * (0.5 + energy)) * tune,
           pan: (chance(tick, 5) - 0.5) * 0.6,
           cutoff: 220,
           seconds: (state.roll.every / TICKS_PER_STEP) * sixteenthS,
@@ -218,34 +248,36 @@ export function drumsAt(
   // Everything below starts on a sixteenth; the ticks between belong to rolls
   // and stutters.
   if (sub !== 0) return remember()
-  state.doing = energy > 0.6 ? 'cutting in sevens' : energy > 0.3 ? 'breaking' : 'waltz'
+  state.doing =
+    energy > SEVENS_ABOVE ? 'cutting in sevens' : energy > GHOSTS_ABOVE ? 'breaking' : 'waltz'
 
-  const sevens = energy > 0.6
+  const sevens = energy > SEVENS_ABOVE
   const kicked = sevens ? [0, 3].includes(((step % 7) + 7) % 7) : KICKS.has(inBar)
   if (kicked || inBar === 0) {
-    events.push(hit(kit.kick, { amp: level * 1.1, rate: 1, pan: 0, cutoff: 40, seconds: 2 * sixteenthS }))
+    // Held for the whole sample, not cut to the step: the body of a kick is its tail.
+    events.push(hit(kit.kick, { amp: KICK_AMP, rate: 1, pan: 0, cutoff: 40, seconds: 1 }))
   }
 
   if (BACKBEATS.has(inBar) || (sevens && ((step % 7) + 7) % 7 === 5)) {
     const which = Math.floor(chance(step, 8) * kit.snares.length)
     events.push(
-      hit(kit.snares[which] as number, { amp: level * 0.9, rate: 1, pan: 0.05, cutoff: 220, seconds: 2 * sixteenthS }),
+      hit(kit.snares[which] as number, { amp: level * 0.9, rate: tune, pan: 0.05, cutoff: 220, seconds: 2 * sixteenthS }),
     )
-  } else if (energy > 0.3 && GHOSTS.has(inBar)) {
+  } else if (energy > GHOSTS_ABOVE && GHOSTS.has(inBar)) {
     events.push(
-      hit(kit.snares[2] as number, { amp: level * 0.3, rate: 1.1, pan: -0.15, cutoff: 220, seconds: 1 * sixteenthS }),
+      hit(kit.snares[2] as number, { amp: level * 0.3, rate: 1.1 * tune, pan: -0.15, cutoff: 220, seconds: 1 * sixteenthS }),
     )
   }
 
-  const hatEvery = energy > 0.3 ? 1 : 2
+  const hatEvery = energy > GHOSTS_ABOVE ? 1 : 2
   if (position % hatEvery === 0) {
-    const zap = energy > 0.45 && chance(step, 9) < (energy - 0.45) * 0.6
+    const zap = energy > ZAPS_ABOVE && chance(step, 9) < (energy - ZAPS_ABOVE) * 0.6
     const hat = kit.hats[position % 2 === 0 ? 0 : 1] as number
     events.push(
       zap
         ? hit(hat, {
             amp: level * 0.5,
-            rate: 1.5 + chance(step, 10) * 2.5,
+            rate: (1.5 + chance(step, 10) * 2.5) * tune,
             pan: (chance(step, 11) - 0.5) * 1.4,
             // The kit's high-pass is resonant — rq 0.01 — so pushed up into the
             // kilohertz it rings at the cutoff instead of filtering. That ring
@@ -255,7 +287,7 @@ export function drumsAt(
           })
         : hit(hat, {
             amp: level * (inBar % 2 === 0 ? 0.45 : 0.28),
-            rate: 1,
+            rate: tune,
             pan: 0.35,
             cutoff: 220,
             seconds: 1 * sixteenthS,
@@ -264,7 +296,7 @@ export function drumsAt(
   }
 
   if (position === 0 && energy > 0.5) {
-    events.push(hit(kit.crash, { amp: level * 0.5, rate: 1, pan: -0.3, cutoff: 220, seconds: 6 * sixteenthS }))
+    events.push(hit(kit.crash, { amp: level * 0.5, rate: tune, pan: -0.3, cutoff: 220, seconds: 6 * sixteenthS }))
   }
 
   return remember()

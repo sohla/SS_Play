@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { chance, freshDrummer, TICKS_PER_STEP, drumsAt, type Kit } from '../src/drums.ts'
+import {
+  KICK_AMP,
+  ROLLS_ABOVE,
+  TICKS_PER_STEP,
+  chance,
+  drumsAt,
+  freshDrummer,
+  type Kit,
+} from '../src/drums.ts'
 import { HAPPY_BIRTHDAY } from '../src/happy-birthday.ts'
 import { RESTING_GESTURE } from '../src/mapping.ts'
 
@@ -13,10 +21,10 @@ const FROM =
   Math.floor(1_760_000_000_000 / P.stepMs / P.loopSteps) * P.loopSteps * TICKS_PER_STEP
 
 /** Every hit over some bars at a fixed energy, with the tick each landed on. */
-function play(energy: number, bars = 16) {
+function play(energy: number, bars = 16, drumRate = 1) {
   const state = freshDrummer()
-  const gesture = { ...RESTING_GESTURE, energy }
-  const hits: { tick: number; bufnum: number; rate: number; cutoff: number }[] = []
+  const gesture = { ...RESTING_GESTURE, energy, drumRate }
+  const hits: { tick: number; bufnum: number; rate: number; cutoff: number; amp: number }[] = []
   for (let n = 0; n < bars * P.stepsPerBar * TICKS_PER_STEP; n++) {
     for (const event of drumsAt(P, FROM + n, gesture, KIT, state)) {
       expect(event.def).toBe('ssp_kit')
@@ -26,6 +34,7 @@ function play(energy: number, bars = 16) {
         bufnum: event.controls.bufnum as number,
         rate: event.controls.rate as number,
         cutoff: event.controls.cutoff as number,
+        amp: event.controls.amp as number,
       })
     }
   }
@@ -50,10 +59,37 @@ describe('the drums', () => {
   it('cut finer as energy rises: more hits, and more of them between the sixteenths', () => {
     const between = (energy: number) => play(energy).filter((one) => one.tick % TICKS_PER_STEP).length
     const total = (energy: number) => play(energy).length
-    expect(total(0.5)).toBeGreaterThan(total(0.15))
-    expect(total(0.95)).toBeGreaterThan(total(0.5))
-    expect(between(0.15)).toBe(0)
-    expect(between(0.95)).toBeGreaterThan(between(0.5))
+    expect(total(0.6)).toBeGreaterThan(total(0.15))
+    expect(total(0.95)).toBeGreaterThan(total(0.6))
+    expect(between(0.95)).toBeGreaterThan(0)
+  })
+
+  it('keep to the sixteenths until there is a lot of energy', () => {
+    for (const energy of [0.15, 0.4, 0.6, ROLLS_ABOVE]) {
+      expect(play(energy, 32).filter((one) => one.tick % TICKS_PER_STEP), `at ${energy}`).toHaveLength(0)
+    }
+  })
+
+  it('keep the kick loud and steady whatever the energy', () => {
+    for (const energy of [0.1, 0.5, 0.99]) {
+      const kicks = play(energy).filter((one) => one.bufnum === KIT.kick)
+      expect(kicks.length).toBeGreaterThan(0)
+      for (const kick of kicks) expect(kick.amp).toBe(KICK_AMP)
+    }
+  })
+
+  it('retune with yaw, all but the kick', () => {
+    for (const rate of [0.5, 2]) {
+      const hits = play(0.6, 4, rate)
+      for (const one of hits) {
+        if (one.bufnum === KIT.kick) expect(one.rate).toBe(1)
+        // Zaps carry their own random pitch on top; everything else is the
+        // yaw rate, or 1.1 times it for a ghost snare.
+        else if (one.cutoff < 1000) {
+          expect([rate, 1.1 * rate].some((r) => Math.abs(one.rate - r) < 1e-9)).toBe(true)
+        }
+      }
+    }
   })
 
   it('roll at one tick apart only at the very top', () => {
@@ -61,12 +97,12 @@ describe('the drums', () => {
       const ticks = play(energy).map((one) => one.tick)
       return new Set(ticks.slice(1).map((tick, n) => tick - (ticks[n] as number)))
     }
-    expect(gaps(0.5).has(1)).toBe(false)
-    expect(gaps(0.95).has(1)).toBe(true)
+    expect(gaps(0.9).has(1)).toBe(false)
+    expect(gaps(0.99).has(1)).toBe(true)
   })
 
   it('glitch at high energy: zaps, bent and reversed hits', () => {
-    const hits = play(0.95, 32)
+    const hits = play(0.99, 32)
     expect(hits.some((one) => one.cutoff > 1000), 'no resonant zaps').toBe(true)
     expect(hits.some((one) => one.rate < 0), 'no reversed stutter').toBe(true)
     expect(hits.some((one) => one.rate > 1.4), 'no pitched-up roll').toBe(true)

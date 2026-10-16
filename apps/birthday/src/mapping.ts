@@ -17,11 +17,20 @@ export interface Gesture {
   height: number
   /** 0..1, tilt left/right. The filter. */
   bright: number
+  /** 0.5..2, from yaw. The drums' playback rate, kick excepted. */
+  drumRate: number
   /** Set on a hard flick, cleared by the descant when it plays the accent. */
   accent: boolean
 }
 
-export const RESTING_GESTURE: Gesture = { energy: 0, span: 0, height: 0.5, bright: 0.5, accent: false }
+export const RESTING_GESTURE: Gesture = {
+  energy: 0,
+  span: 0,
+  height: 0.5,
+  bright: 0.5,
+  drumRate: 1,
+  accent: false,
+}
 
 /** How hard a flick has to be to accent the next note. */
 export const ACCENT_THRESHOLD = 0.55
@@ -45,6 +54,10 @@ export function gestureFrom(motion: Motion, sensitivity: number, previous: Gestu
     span: clamp01(motion.turn * scale),
     height: clamp01((motion.pitch + 1) / 2),
     bright: clamp01((motion.roll + 1) / 2),
+    // Exponential, so the middle of the heading is rate 1 and each half of the
+    // circle is one octave. Yaw is a compass, so it wraps: turning past north
+    // jumps from 2 straight back to 0.5.
+    drumRate: 0.5 * 4 ** motion.yaw,
     accent: previous.accent || motion.shakeRaw > ACCENT_THRESHOLD,
   }
 }
