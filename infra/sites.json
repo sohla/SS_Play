@@ -10,7 +10,7 @@
       "app": "birthday",
       "path": "/birthday/",
       "title": "happy birthday",
-      "blurb": "Happy Birthday on a loop, from a MIDI file, with a second voice above it that only plays what fits. Shake to bring it in, turn to let it climb.",
+      "blurb": "Happy Birthday on a loop, from a MIDI file, with a second voice that only plays what fits. Shake to bring it in, tilt up for a descant or down for a bass line.",
       "engine": true
     },
     {

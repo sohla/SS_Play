@@ -60,12 +60,38 @@ export interface Descant {
   every: number
   /** The chord under the current bar. */
   chord: string
+  /** Which of REGISTERS the line is in. */
+  register: string
 }
 
-export const freshDescant = (): Descant => ({ last: 0, direction: 1, every: 0, chord: '' })
+export const freshDescant = (): Descant => ({
+  last: 0,
+  direction: 1,
+  every: 0,
+  chord: '',
+  register: '',
+})
 
 /**
- * A line above the melody that only ever plays notes that fit under it.
+ * The octaves tilt chooses between, low to high, as octaves below the line that
+ * sits over the melody.
+ *
+ * Two go under the tune and none through it: the octave below the descant would
+ * put the line in the melody's own register, where it stops being a second voice
+ * and starts being a second melody.
+ */
+export const REGISTERS = [
+  { name: 'bass', octavesDown: 3 },
+  { name: 'tenor', octavesDown: 2 },
+  { name: 'descant', octavesDown: 0 },
+] as const
+
+export const registerAt = (height: number) =>
+  REGISTERS[Math.min(REGISTERS.length - 1, Math.floor(height * REGISTERS.length))] as
+    (typeof REGISTERS)[number]
+
+/**
+ * A line around the melody that only ever plays notes that fit with it.
  *
  * The harmony is PyTrackMusic's rule at its simplest: **chord tones on the beat,
  * scale tones between** — so at sixteenths the line runs through passing notes,
@@ -74,8 +100,9 @@ export const freshDescant = (): Descant => ({ last: 0, direction: 1, every: 0, c
  *
  * Two further rules keep it out of the melody's way:
  *
- * - **Above it.** The floor is a step over the tune's highest note, so the two
- *   never cross and the melody stays the melody.
+ * - **Never across it.** Above, the floor is a step over the tune's highest note;
+ *   below, the ceiling is a step under its lowest. Tilt picks the octave, and in
+ *   none of them do the two cross, so the melody stays the melody.
  * - **No semitone against it.** A note a semitone from whatever the melody is
  *   sounding is skipped — the one clash a chord tone can still make, as when the
  *   melody's E passes under the I chord's F.
@@ -85,8 +112,9 @@ export const freshDescant = (): Descant => ({ last: 0, direction: 1, every: 0, c
  * descant comes forward to fill it.
  *
  * The walk is a scan, not a random choice: the next pool note in the direction
- * of travel, turning at the edges. Tilt chooses the direction; held level, it
- * bounces — an arpeggio up and down the chord.
+ * of travel, turning at the edges — an arpeggio up and down the chord. In the
+ * bass it lands on the chord's root at every bar line, which is what makes it
+ * a bass line rather than a low arpeggio.
  */
 export function descantAt(
   pattern: Pattern,
@@ -108,8 +136,13 @@ export function descantAt(
   const onBeat = position % pattern.stepsPerBeat === 0
   const pool = onBeat ? chord.tones : scaleOf(pattern)
 
-  const floor = Math.max(...pattern.notes.map((note) => note.midi)) + 2
-  const ceiling = floor + 7 + Math.round(gesture.span * 17)
+  const register = registerAt(gesture.height)
+  state.register = register.name
+  const above = Math.max(...pattern.notes.map((note) => note.midi)) + 2
+  const below = Math.min(...pattern.notes.map((note) => note.midi)) - 1
+  const floor = above - 12 * register.octavesDown
+  let ceiling = floor + 7 + Math.round(gesture.span * 17)
+  if (register.octavesDown > 0) ceiling = Math.min(ceiling, below)
   const melody = soundingAt(pattern, position)
 
   const candidates: number[] = []
@@ -120,8 +153,6 @@ export function descantAt(
   }
   if (candidates.length === 0) return []
 
-  if (Math.abs(gesture.lean) > 0.25) state.direction = gesture.lean > 0 ? 1 : -1
-
   const ahead = (direction: 1 | -1) =>
     direction === 1
       ? candidates.find((midi) => midi > state.last)
@@ -131,6 +162,13 @@ export function descantAt(
   if (next === undefined) {
     state.direction = state.direction === 1 ? -1 : 1
     next = ahead(state.direction) ?? (candidates[0] as number)
+  }
+
+  const root = chord.tones[0] as number
+  if (register.name === 'bass' && position % pattern.stepsPerBar === 0) {
+    // Searched over a whole octave rather than the window: at rest the window is
+    // a fifth, which need not contain the root, and an octave always does.
+    next = floor + ((((root - floor) % 12) + 12) % 12)
   }
 
   let amp = dbamp(-26 + gesture.energy * 14)

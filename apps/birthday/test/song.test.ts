@@ -5,7 +5,7 @@ import { chordsPerBar, scaleOf, soundingAt } from '../src/harmony.ts'
 import { RESTING_GESTURE, type Gesture } from '../src/mapping.ts'
 import { parseMidi } from '../src/midi.ts'
 import { patternFrom } from '../src/pattern.ts'
-import { descantAt, freshDescant, melodyAt, midiToFreq, positionOf } from '../src/song.ts'
+import { descantAt, freshDescant, melodyAt, midiToFreq, positionOf, registerAt } from '../src/song.ts'
 
 const MIDI = readFileSync(new URL('../midi/happy-birthday.mid', import.meta.url))
 const P = HAPPY_BIRTHDAY
@@ -78,6 +78,7 @@ function run(gesture: Partial<Gesture>, passes = 3) {
 
 describe('the descant fits the tune', () => {
   const top = Math.max(...P.notes.map((note) => note.midi))
+  const bottom = Math.min(...P.notes.map((note) => note.midi))
 
   it('is silent while the phone is still', () => {
     expect(run({ energy: 0 })).toHaveLength(0)
@@ -91,15 +92,20 @@ describe('the descant fits the tune', () => {
   })
 
   for (const gesture of [
-    { energy: 0.1, span: 0, lean: 0 },
-    { energy: 0.5, span: 0.5, lean: 1 },
-    { energy: 0.95, span: 1, lean: -1 },
+    { energy: 0.1, span: 0, height: 1 },
+    { energy: 0.5, span: 0.5, height: 0.5 },
+    { energy: 0.95, span: 1, height: 0 },
+    { energy: 0.95, span: 1, height: 1 },
   ]) {
     describe(`at ${JSON.stringify(gesture)}`, () => {
       const notes = run(gesture)
 
-      it('stays above the melody', () => {
-        for (const note of notes) expect(note.midi).toBeGreaterThan(top)
+      it('never crosses the melody', () => {
+        const over = registerAt(gesture.height).octavesDown === 0
+        for (const note of notes) {
+          if (over) expect(note.midi).toBeGreaterThan(top)
+          else expect(note.midi).toBeLessThan(bottom)
+        }
       })
 
       it('plays chord tones on the beat and scale tones between', () => {
@@ -122,8 +128,26 @@ describe('the descant fits the tune', () => {
     })
   }
 
+  it('drops by octaves as the phone tilts down, to a bass line at the bottom', () => {
+    const lowest = (height: number) => Math.min(...run({ energy: 0.95, height }).map((n) => n.midi))
+    expect(registerAt(0).name).toBe('bass')
+    expect(registerAt(1).name).toBe('descant')
+    expect(lowest(0)).toBeLessThan(lowest(0.5))
+    expect(lowest(0.5)).toBeLessThan(lowest(1))
+    expect(lowest(0)).toBeLessThan(48)
+  })
+
+  it('puts the bass on the chord root at every bar line', () => {
+    const downbeats = run({ energy: 0.5, height: 0 }).filter((n) => n.position % P.stepsPerBar === 0)
+    expect(downbeats.length).toBeGreaterThan(0)
+    for (const note of downbeats) {
+      expect(note.midi % 12).toBe(CHORDS[note.position / P.stepsPerBar]!.tones[0])
+    }
+  })
+
   it('climbs higher as the phone turns', () => {
-    const highest = (span: number) => Math.max(...run({ energy: 0.95, span }).map((n) => n.midi))
+    const highest = (span: number) =>
+      Math.max(...run({ energy: 0.95, span, height: 1 }).map((n) => n.midi))
     expect(highest(1)).toBeGreaterThan(highest(0))
   })
 

@@ -67,7 +67,7 @@ export function App() {
         ['bar', `${bar + 1} of ${HAPPY_BIRTHDAY.loopSteps / HAPPY_BIRTHDAY.stepsPerBar}`],
         ['chord', now.chord || '—'],
         ['descant', now.every === 0 ? 'resting' : `every ${now.every} / 16`],
-        ['direction', now.direction === 1 ? 'up' : 'down'],
+        ['register', now.register || '—'],
         ['note', now.last ? String(now.last) : '—'],
       ],
     }
@@ -78,11 +78,12 @@ export function App() {
       title="happy birthday"
       blurb={
         <>
-          The tune loops on its own, from a MIDI file. Above it, a second voice plays only the
+          The tune loops on its own, from a MIDI file. Around it, a second voice plays only the
           notes that fit the bar it is in &mdash; chord tones on the beat, scale tones between,
-          never a semitone off the melody. <strong>Shake</strong> to bring it in and quicken it,
-          <strong> turn</strong> to let it climb higher, <strong>tilt</strong> forward or back to
-          send it up or down, and <strong>flick</strong> for an accent an octave up.
+          never a semitone off the melody and never across it. <strong>Shake</strong> to bring it
+          in and quicken it, <strong>tilt</strong> the phone up to lift it above the tune or down
+          for a bass line, <strong>turn</strong> to let it climb further, and{' '}
+          <strong>flick</strong> for an accent an octave up.
         </>
       }
       instrument={PLACEHOLDER}
