@@ -26,6 +26,7 @@ library surface this is built against.
 | Doc | |
 |---|---|
 | [`docs/PAGES.md`](docs/PAGES.md) | Adding a page: the one source of truth, and the step that fails silently |
+| [`docs/FLOCK.md`](https://github.com/sohla/SS_Play/blob/main/docs/FLOCK.md)                   | A herd shared by every screen from the clock alone; tilt herds it, shake scatters it |
 | [`docs/UI.md`](docs/UI.md) | The React layer: hooks, re-render rules, generated controls |
 | [`docs/MOBILE.md`](docs/MOBILE.md) | Mobile first: touch targets, the overflow trap, IMU and multitouch notes |
 | [`docs/HAPTICS.md`](docs/HAPTICS.md) | Sound aimed at the hand: the speaker's excursion band, 250Hz, and the 25ms rule |

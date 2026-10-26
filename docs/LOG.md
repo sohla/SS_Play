@@ -1764,3 +1764,30 @@ the engine footer's latency figures matter here more than on any other page.
   share one machine clock.
 - Still open from before: the e2e fixture lives in `/touch/` rather than outside
   `apps/`; `SynthDefControls` ships unused; every page stages all authored defs.
+
+---
+
+## 2026-10-26 — `flock`: a clock-driven herd across screens
+
+### Done
+
+- `apps/flock`: a flock that is a pure function of wall-clock time, so every device shows the same
+  herd with nothing exchanged. Each device is a window onto a 5-unit torus at its own slot.
+- Tilt is a local gravity well, shake a local scatter, both identity at rest. Visible particles
+  fire `ssp_sine` grains on a 125ms `GridConductor` grid, capped at 8 per step.
+- `?view=all` for the whole world, `?slot=x,y` to place a window. Registered in `infra/sites.json`,
+  Caddyfile regenerated.
+- `docs/FLOCK.md`.
+
+### Verified
+
+- `npm run typecheck`, `npx vitest run` (1039 passed, 10 new in `apps/flock/test`), `npm run
+  build -w @ss/flock`, `npm run infra:check`.
+- Loaded the built page in Chromium at the overview and two phone-sized slots: no page errors, and
+  the two windows show different parts of the same herd.
+
+### Open
+
+- Nothing audible has been heard: `sclang` was not available, so `ssp_sine` was not compiled.
+- Not tried on a phone; tilt and shake signs are from reading `pose.ts`.
+- No e2e spec. No relay, so a sensor reading never leaves its own device.
