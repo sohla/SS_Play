@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "flock",
+      "path": "/flock/",
+      "title": "flock",
+      "blurb": "One herd on every screen, from the clock alone. Each phone is a window onto it: tilt to pull the flock toward you, shake to scatter it. Add ?view=all for the whole world.",
+      "engine": true
+    },
+    {
       "app": "sync",
       "path": "/sync/",
       "title": "sync",
