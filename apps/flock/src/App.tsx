@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GridConductor, wallClockMs } from '@ss/engine'
 import { requestMotion, watchMotion } from '@ss/motion'
 import { useSuperSonic } from '@ss/react'
-import { BootGate, EngineFooter, SourceFooter } from '@ss/ui'
+import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
 import {
   AT_REST,
   COUNT,
@@ -280,6 +280,10 @@ export function App() {
       />
 
       <div className="pointer-events-none relative z-10 flex min-h-dvh flex-col">
+        <div className="pointer-events-auto">
+          <PageHeader title="flock" />
+        </div>
+
         <div className="pad-safe-x mx-auto flex w-full max-w-md flex-col gap-3 pt-4">
           {overview ? (
             <p className="ak-label font-mono text-[11px]">
