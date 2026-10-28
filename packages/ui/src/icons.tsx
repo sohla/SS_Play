@@ -29,6 +29,25 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `chroma` — the colour wheel, and the jumps across it.
+   *
+   * Each accent moves the hue at least 100° from the last, so the path between
+   * successive colours cuts across the wheel rather than walking round it. The
+   * dots are the colours it landed on; the wheel itself is dotted so it recedes
+   * behind them.
+   */
+  chroma: (
+    <>
+      <circle cx="12" cy="12" r="8.5" strokeDasharray="0 3" />
+      <path d="M12 3.5l4 15.4-11.5-9.6h15" />
+      <circle cx="12" cy="3.5" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="18.9" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="4.5" cy="9.3" r="1.9" fill="currentColor" stroke="none" />
+      <circle cx="19.5" cy="9.3" r="1.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+
+  /**
    * `flock` — one herd on a slow path, seen through one screen's window.
    *
    * The curve is a flock's centre wandering its Lissajous path, and the dots are
@@ -132,7 +151,7 @@ const SHAPES: Record<string, ReactNode> = {
     <>
       <path d="M3 6h17M3 11h12M3 16h7" />
       <path d="M3 21c6 0 9-2 11-5" opacity="0.5" />
-      <circle cx="20" cy="6" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="20" cy="6" r="1.9" fill="currentColor" stroke="none" />
     </>
   ),
 
@@ -227,7 +246,7 @@ const SHAPES: Record<string, ReactNode> = {
     <>
       <path d="M3 12h4l2-5 2 10 1.5-5h2" />
       <path d="M17 12h4" strokeDasharray="1.6 2.4" />
-      <circle cx="9" cy="7" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="9" cy="7" r="1.9" fill="currentColor" stroke="none" />
     </>
   ),
 

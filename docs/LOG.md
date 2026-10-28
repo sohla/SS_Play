@@ -1846,3 +1846,37 @@ nothing about whether it works.
 - Nothing audible has been heard: `sclang` was not available, so `ssp_sine` was not compiled.
 - Not tried on a phone; tilt and shake signs are from reading `pose.ts`.
 - No e2e spec. No relay, so a sensor reading never leaves its own device.
+
+---
+
+## 2026-10-28 — `chroma`: a phrase on the sync clock, in colour
+
+### Done
+
+- `apps/chroma`: a two-bar drum phrase on the epoch-anchored grid, cut into 48 ticks a bar so
+  dotted rhythms (9, 18) and triplets (2, 4, 8) land exactly. Three densities — dotted, triplets,
+  dense — written as notation in `phrase.ts`, indexed by absolute tick so every device at the same
+  density plays the same bar. `ssp_kit` with five kit samples; no new SynthDef.
+- Motion as `multibeat`: filtered shake picks the density and the level, silent below the floor.
+  The amp range is -34..-4dB rather than multibeat's -40..-10, because kit samples through a phone
+  speaker vanish at -10. Starting values, not tuned.
+- Each accent turns the whole page a new hue, 100–260° from the last, painted per frame at the
+  accent's own wall-clock time rather than when it was scheduled. Capped at three changes a second:
+  full-screen colour change is a flash, and WCAG 2.3.1's threshold is three.
+- `MotionInstrument` untouched: the page's own CSS points `main.ak`'s background at a variable it
+  sets on the root, because `.ak` declares `--ak-bg` on the element and a root override never
+  reaches it.
+- Icon: the colour wheel, and the jumps across it. `tests/e2e/chroma.spec.ts`.
+
+### Verified
+
+- `npm run typecheck`, `npx vitest run` (1366 passed), `npm run build`, `npm run infra:check`.
+- e2e: `chroma`, `site` and `mobile` specs pass (37). The colour test reads frames for four seconds
+  at the dense level and asserts every change is a new colour and more than 300ms after the last.
+- Screenshots at phone size mid-phrase: the page changes hue, the panels stay black.
+
+### Open
+
+- Not heard on a phone, and not level-checked for clipping the way `birthday` is.
+- The blurb's grey text and the header are hard to read on light hues such as lime.
+- Not in `plotter.spec.ts`'s series table.

@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "chroma",
+      "path": "/chroma/",
+      "title": "chroma",
+      "blurb": "A drum phrase in dotted rhythms and triplets, on the shared clock. Move to push it denser; every accent turns the whole screen a new colour.",
+      "engine": true
+    },
+    {
       "app": "flock",
       "path": "/flock/",
       "title": "flock",
