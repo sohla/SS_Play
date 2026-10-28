@@ -29,6 +29,24 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `flock` — one herd on a slow path, seen through one screen's window.
+   *
+   * The curve is a flock's centre wandering its Lissajous path, and the dots are
+   * the particles following it a little late. The square is this device's slot:
+   * the herd is the same on every screen, and each one frames a different part.
+   */
+  flock: (
+    <>
+      <rect x="10" y="3" width="11" height="11" rx="1" />
+      <path d="M3 20c4 0 6-3 8-7s4-6 8-6" />
+      <circle cx="13.5" cy="9" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="11.5" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="17.5" cy="5.5" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="16.5" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  ),
+
+  /**
    * `birthday` — the tune's first phrase, and the descant above it.
    *
    * The line is "Hap-py birth-day to you" at its real pitches: C C D C F E. The
