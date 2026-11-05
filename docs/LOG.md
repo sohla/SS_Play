@@ -1984,3 +1984,33 @@ nothing about whether it works.
 
 - Not heard with a real voice: hook latency and word-event support are per device and voice.
 - Speech is not routed through scsynth and cannot be; the bells are the only part that is.
+
+---
+
+## 2026-11-05 — `mic`: the drone follows the sung pitch, an octave down
+
+### Done
+
+- `ssp_mic_pitch_follow`: `Pitch` on the first hardware input, held through unvoiced moments, times
+  `ratio` (0.5) onto control bus 1. `ssp_mic_follow` and `ssp_mb_drone` are unchanged; the drone's
+  `freq` is `/n_map`ped to bus 1 alongside its `amp`.
+- The page shows the heard pitch and the drone's note, e.g. `E4 330 Hz → E3`.
+
+### Verified
+
+- `sc:test` 370 passed. `vitest` 1421 passed. e2e `mic-pitch`, `mic`, `site` (14): Chrome's fake
+  microphone plays a WAV of E4 then A4, and the control bus the drone reads reaches 165Hz and
+  220Hz within 2%.
+
+### Found on the way
+
+- The first version held the pitch with `Latch` on `hasFreq`. `Latch` samples on a rising edge,
+  and `hasFreq` rises once per note and stays up, so the drone froze on the first reading — the
+  e2e caught it at the start value, 110Hz. Replaced with a `LocalIn` feedback hold; the test now
+  sings two notes, which a frozen follower cannot pass.
+
+### Open
+
+- Not sung into on a device. Without headphones, the drone is an octave below the voice, and if
+  echo cancellation lets it back into the mic the tracker can lock onto it and walk down in
+  octaves to its 60Hz floor.

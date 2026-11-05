@@ -4,17 +4,20 @@ import { useOscTap, useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
 
 /**
- * The microphone, into scsynth, driving a voice's amp.
+ * The microphone, into scsynth, driving a voice's amp and pitch.
  *
  * The mic is a `MediaStreamSource` connected to the engine's worklet input, so
  * it arrives on scsynth's first hardware input bus. `ssp_mic_follow` follows its
  * level onto a control bus, and `ssp_mb_drone` — unchanged — has its `amp`
- * mapped to that bus. The level never passes through JavaScript on its way to
- * the sound; the page only listens in, for the meter.
+ * mapped to that bus. `ssp_mic_pitch_follow` tracks the pitch the same way, an
+ * octave down, onto a second bus the drone's `freq` is mapped to. Neither passes
+ * through JavaScript on its way to the sound; the page only listens in.
  */
 
 /** The control bus the follower writes and the drone reads. This page's own engine, so any is free. */
 const LEVEL_BUS = 0
+/** And the one for pitch. */
+const PITCH_BUS = 1
 
 /**
  * What the browser was asked for.
@@ -102,10 +105,18 @@ export function App() {
       def: 'ssp_mic_follow',
       initial: { bus: LEVEL_BUS },
     })
+    const pitch = new HeldVoice({
+      session: engine,
+      def: 'ssp_mic_pitch_follow',
+      initial: { bus: PITCH_BUS },
+    })
     // /n_map's bus index is an int, unlike a control value.
-    if (voice.node !== null) engine.sonic.send('/n_map', voice.node, 'amp', i(LEVEL_BUS))
+    if (voice.node !== null) {
+      engine.sonic.send('/n_map', voice.node, 'amp', i(LEVEL_BUS), 'freq', i(PITCH_BUS))
+    }
 
     return () => {
+      pitch.dispose()
       follower.dispose()
       voice.dispose()
       source.disconnect()
@@ -119,6 +130,18 @@ export function App() {
   const level = useRef(0)
   const bar = useRef<HTMLDivElement>(null)
   const readout = useRef<HTMLSpanElement>(null)
+
+  // Pitch, the same way: the tap writes, the frame loop draws.
+  const tracked = useRef<{ freq: number; sure: boolean }>({ freq: 0, sure: false })
+  const pitchText = useRef<HTMLSpanElement>(null)
+  useOscTap(
+    '/ssp_mic_pitch',
+    (message) => {
+      const [freq, sure] = message.slice(3) as number[]
+      if (typeof freq === 'number') tracked.current = { freq, sure: (sure ?? 0) > 0.5 }
+    },
+    [booted],
+  )
 
   useOscTap(
     '/ssp_mic',
@@ -143,6 +166,12 @@ export function App() {
       const fill = Math.max(0, Math.min(1, (db - FLOOR_DB) / -FLOOR_DB))
       if (bar.current) bar.current.style.width = `${(fill * 100).toFixed(1)}%`
       if (readout.current) readout.current.textContent = db > FLOOR_DB ? `${db.toFixed(1)} dB` : 'silent'
+      if (pitchText.current) {
+        const { freq, sure } = tracked.current
+        pitchText.current.textContent = sure
+          ? `${noteName(freq)} ${freq.toFixed(0)} Hz → ${noteName(freq / 2)}`
+          : 'no pitch'
+      }
       frame = requestAnimationFrame(draw)
     }
     frame = requestAnimationFrame(draw)
@@ -156,7 +185,8 @@ export function App() {
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
         <p className="ak-label text-sm">
           The microphone, into SuperCollider. Its level drives a drone&rsquo;s volume &mdash; make
-          a sound and it swells, go quiet and it fades. Starting asks the browser for the
+          a sound and it swells, go quiet and it fades &mdash; and its pitch sets the
+          drone&rsquo;s, an octave below. Sing or whistle a note. Starting asks the browser for the
           microphone. Headphones keep the drone out of the mic.
         </p>
 
@@ -203,6 +233,12 @@ export function App() {
                 silent
               </span>
             </div>
+            <div className="ak-label flex justify-between font-mono text-[11px]">
+              <span>pitch</span>
+              <span className="ak-accent" ref={pitchText} data-testid="mic-pitch">
+                no pitch
+              </span>
+            </div>
             <div className="ak-panel h-6 overflow-hidden rounded border">
               <div
                 ref={bar}
@@ -221,4 +257,12 @@ export function App() {
       <SourceFooter />
     </main>
   )
+}
+
+const NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
+
+/** The nearest note to a frequency, as A4 = 440. */
+function noteName(freq: number): string {
+  const midi = Math.round(69 + 12 * Math.log2(freq / 440))
+  return `${NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`
 }

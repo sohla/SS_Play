@@ -6,7 +6,7 @@ import './index.css'
 
 // Hoisted: a fresh array each render would be a changing dependency of the
 // provider's boot callback.
-const SYNTHDEFS = ['ssp_mic_follow', 'ssp_mb_drone']
+const SYNTHDEFS = ['ssp_mic_follow', 'ssp_mic_pitch_follow', 'ssp_mb_drone']
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root missing from index.html')
