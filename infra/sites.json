@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "mic",
+      "path": "/mic/",
+      "title": "mic",
+      "blurb": "The microphone, into SuperCollider. Make a sound and a drone swells with it; a meter shows what the mic hears.",
+      "engine": true
+    },
+    {
       "app": "chroma",
       "path": "/chroma/",
       "title": "chroma",

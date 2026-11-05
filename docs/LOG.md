@@ -1880,3 +1880,42 @@ nothing about whether it works.
 - Not heard on a phone, and not level-checked for clipping the way `birthday` is.
 - The blurb's grey text and the header are hard to read on light hues such as lime.
 - Not in `plotter.spec.ts`'s series table.
+
+---
+
+## 2026-11-05 — `mic`: the microphone into scsynth, driving a drone
+
+### Done
+
+- `apps/mic`: one tap asks for the microphone and boots the engine — Safari only prompts from a
+  gesture. The stream is a `MediaStreamSource` on `sonic.node.input`, so it lands on scsynth's
+  first hardware input bus. Refused, unavailable (no secure context) and failed each say so.
+- `ssp_mic_follow`: reads `In.ar(NumOutputBuses.ir)`, follows it with `Amplitude`, writes
+  `(level * gain).clip(0, ceiling)` to a control bus and reports the raw level over `SendReply` at
+  30Hz. Silent, like the `_clock` defs. `ssp_mb_drone` is unchanged; its `amp` is `/n_map`ped to
+  the bus, so the level never passes through JavaScript on its way to the sound.
+- Echo cancellation stays on: the drone comes out of the speaker and back into the mic, and
+  cancelling the page's own output is what breaks that loop. Noise suppression and AGC are off.
+- The meter is drawn per frame from an OSC tap, with an instant rise and a 20dB/s fall. Display
+  only — `Amplitude` drops a click within a frame or two, so drawn raw it was lit for one frame.
+- `sidecar-dist.test.ts` exempts `_follow` defs from the amp rule, for the same reason as
+  `_clock`: nothing reads an amp on a def that makes no sound.
+- `tests/e2e/mic.spec.ts`, on Chrome's fake capture device.
+
+### Verified
+
+- `sc:build`, `sc:test` (331 passed), `sc:promote` added only `ssp_mic_follow`. `typecheck`,
+  `vitest` (1376 passed), `build`.
+- e2e: `mic`, `site`, `mobile` pass. The follower hears the fake device's 0 dBFS beep at -1.8 dB;
+  the drone, born at amp 0, sounds; the meter leaves silence.
+- The first threshold failed at -43.8 dB, which looked like 40dB lost on the way in. It was not:
+  the follower's own reports peaked at -1.8 dB, and a 100ms poll was missing one-frame peaks.
+
+### Open
+
+- Not tried with a real microphone or on a phone. iOS may move output to the earpiece once the
+  mic is open.
+- `gain` 2 and `ceiling` 0.3 are starting values. Without headphones the loop may still feed back
+  where echo cancellation is weak.
+- `docs/API-0.88.0.md` says `numInputBusChannels` is gone. It is not — the bundle still accepts and
+  validates it, default 2. Not corrected here.

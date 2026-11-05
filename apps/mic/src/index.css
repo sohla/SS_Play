@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+@import '../../../packages/ui/src/ui.css';
+
+/* Tailwind 4 scans the importing project for class names. Components in
+   packages/ui live outside that tree, so without this their classes are never
+   generated and they render unstyled with no error anywhere. */
+@source "../../../packages/ui/src";
+@source "../../../packages/react/src";

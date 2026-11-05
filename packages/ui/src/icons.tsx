@@ -29,6 +29,19 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `mic` — a level meter, and the drone's volume following its envelope.
+   *
+   * The bars are the input as the follower reads it; the line over them is the
+   * same shape, lagged, because the drone's amp rises fast and falls slowly.
+   */
+  mic: (
+    <>
+      <path d="M4 20v-4M8 20v-9M12 20v-13M16 20v-7M20 20v-3" />
+      <path d="M3 13c3-1 5-8 9-9 3 0 5 5 9 9" />
+    </>
+  ),
+
+  /**
    * `chroma` — the colour wheel, and the jumps across it.
    *
    * Each accent moves the hue at least 100° from the last, so the path between
