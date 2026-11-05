@@ -1956,3 +1956,31 @@ nothing about whether it works.
 - Not tried on phones, or across a room. iOS may route output to the earpiece with the mic open.
 - Coupling 0.06, adaptation 0.05, threshold and band settings are from simulation and loopback,
   not a room.
+
+---
+
+## 2026-11-05 — `speak`: a narrator on a minute-long program
+
+### Done
+
+- `apps/speak`: the browser's own voice (`speechSynthesis`) as a narrator. A voice picker grouped
+  by language, defaulting to an on-device voice in the device's language. Every minute of wall
+  clock: the numerals 1–10 at :00–:09 — each voice reads them in its own language — then a block of
+  sentences at :15 and another at :40, in seven languages, English as the fallback.
+- Hooks ring Sonic Pi's bundled bells through scsynth the moment they arrive: a rising pentatonic
+  bell per count, a bell per line start, a quiet tinkle per word, a dull bell per line end. A log
+  shows each event's second and how long after its cue it reached the page.
+- `speech.ts` owns the browser's traps: voices that load late, Chrome dropping `end` for an
+  utterance nothing references, the iOS gesture, and voices that send no word events.
+- `?from=15` rehearses from a given second.
+
+### Verified
+
+- `vitest` 1412 passed. e2e: `speak`, `site`, `mobile` (39). The speak specs use a stand-in voice
+  — headless Chrome has no speech engine — and prove the count runs 1–10 in order with bells
+  sounding, and a block rings start, words and end.
+
+### Open
+
+- Not heard with a real voice: hook latency and word-event support are per device and voice.
+- Speech is not routed through scsynth and cannot be; the bells are the only part that is.

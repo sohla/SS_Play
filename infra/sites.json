@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "speak",
+      "path": "/speak/",
+      "title": "speak",
+      "blurb": "A narrator in the browser's own voice, in any language it has, on a program that repeats every minute. Bells ring on each line and word, as the browser reports them.",
+      "engine": true
+    },
+    {
       "app": "chorus",
       "path": "/chorus/",
       "title": "chorus",

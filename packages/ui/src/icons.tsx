@@ -29,6 +29,20 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `speak` — a line of speech, and the bells on its hooks.
+   *
+   * The bar is an utterance; the long ticks are its start and end, the short
+   * ones each word as the browser reports it.
+   */
+  speak: (
+    <>
+      <path d="M3 12h18" />
+      <path d="M3 7v10M21 9v6" />
+      <path d="M8 10v4M12 10v4M16 10v4" />
+    </>
+  ),
+
+  /**
    * `chorus` — three calls, each a falling slur, coming into line.
    *
    * The left pair are still apart in time; the right pair have met. The slope is
