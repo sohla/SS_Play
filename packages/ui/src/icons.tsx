@@ -29,6 +29,20 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `chorus` — three calls, each a falling slur, coming into line.
+   *
+   * The left pair are still apart in time; the right pair have met. The slope is
+   * the call itself, 5kHz down to 2.5kHz.
+   */
+  chorus: (
+    <>
+      <path d="M3 6c1 0 2 1 3 4M7 12c1 0 2 1 3 4" />
+      <path d="M14 7c1 0 2 1 3 4M17 7c1 0 2 1 3 4" />
+      <path d="M3 20h18" />
+    </>
+  ),
+
+  /**
    * `mic` — a level meter, and the drone's volume following its envelope.
    *
    * The bars are the input as the follower reads it; the line over them is the

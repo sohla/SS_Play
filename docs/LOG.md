@@ -1919,3 +1919,40 @@ nothing about whether it works.
   where echo cancellation is weak.
 - `docs/API-0.88.0.md` says `numInputBusChannels` is gone. It is not — the bundle still accepts and
   validates it, default 2. Not corrected here.
+
+---
+
+## 2026-11-05 — `chorus`: devices that fall into step by listening
+
+### Done
+
+- Research and design in `docs/CHORUS.md`: pulse-coupled Kuramoto with period adaptation, a
+  5→2.5kHz down-slur, and an eight-band spectrogram-template detector in scsynth.
+- `ssp_call`, `ssp_call_listen`. `apps/chorus/src/chorus.ts` is the model as pure numbers;
+  `App.tsx` schedules calls as timetagged bundles and feeds detections back.
+- `sidecar-dist.test.ts` exempts `_listen` defs from the amp rule, as `_clock` and `_follow`.
+
+### Verified
+
+- `sc:test` 357 passed. `vitest` 1404 passed, including room simulations of 2–5 devices that
+  converge to within 20ms on a common tempo. e2e: `chorus`, `site`, `mobile` (39).
+- Loopback with three callers in one tab: together 0.97 at 25s, 1.00 at 85s.
+
+### Found on the way
+
+- The first calibration took any steady post-call detection as its own echo. Devices of near-equal
+  tempo hold steady offsets, so some calibrated onto a neighbour and coupled to themselves.
+  Jittering calls while calibrating fixed it; so did freezing the delay once measured, since
+  refining it from echoes let neighbours walk it.
+- The first detector averaged band SNRs and fired on a noise burst, a tone and an upward sweep as
+  often as on the call. Counting coincident bands, and narrowing them, fixed it — probed, then kept
+  as an e2e test.
+- `sidecar/dist/` is not in git: `.gitignore`'s `dist/` has caught it since Phase 0, though
+  `SIDECAR.md` and `sidecar-dist.test.ts` say it is committed. A fresh clone cannot build a page
+  until `sc:build && sc:promote` has run. Not changed here.
+
+### Open
+
+- Not tried on phones, or across a room. iOS may route output to the earpiece with the mic open.
+- Coupling 0.06, adaptation 0.05, threshold and band settings are from simulation and loopback,
+  not a room.

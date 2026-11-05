@@ -85,12 +85,12 @@ describe.each(manifest.defs.map((def) => [def.name, def] as const))('%s', (_name
     // event over SendReply so the page can spawn a real voice. An amp control
     // on one would be a number nothing reads.
     //
-    // A `_follow` def is silent the same way: it measures an input onto a
-    // control bus for a real voice to map.
+    // A `_follow` or `_listen` def is silent the same way: it measures an input
+    // and reports it, onto a control bus or over SendReply.
     //
-    // A suffix rule rather than a list of names, now that there are five of
+    // A suffix rule rather than a list of names, now that there are six of
     // them — but still narrow, so a voice that forgets its amp still fails.
-    if (!/_(clock|follow)$/.test(def.name)) expect(names).toContain('amp')
+    if (!/_(clock|follow|listen)$/.test(def.name)) expect(names).toContain('amp')
   })
 
   it('has finite defaults', () => {

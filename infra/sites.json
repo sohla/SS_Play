@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "chorus",
+      "path": "/chorus/",
+      "title": "chorus",
+      "blurb": "Open it on a few phones in one room. Each whistles a bird call and listens for the others, and over a minute or two they fall into one chorus, like fireflies.",
+      "engine": true
+    },
+    {
       "app": "mic",
       "path": "/mic/",
       "title": "mic",
