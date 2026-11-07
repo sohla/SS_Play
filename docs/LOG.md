@@ -1919,3 +1919,40 @@ nothing about whether it works.
   where echo cancellation is weak.
 - `docs/API-0.88.0.md` says `numInputBusChannels` is gone. It is not — the bundle still accepts and
   validates it, default 2. Not corrected here.
+
+---
+
+## 2026-11-07 — `geo`: a spot nearby, found by ear
+
+### Done
+
+- `apps/geo`: one tap starts a `watchPosition` (high accuracy, no cached fixes) and boots the
+  engine. Once a fix reports ±12m or better, a spot 5–20m away in a random direction is chosen; a
+  button chooses one anyway, or a new one. Refusal is the only terminal error — a timeout or lost
+  fix shows a note and the watch carries on.
+- Fixes go through a per-axis Kalman filter weighted by each fix's own `accuracy` (a 95% radius,
+  so σ ≈ accuracy / 2.45), with a wander of 4 m²/s and no velocity term. Unit-tested: it more
+  than halves a standing phone's scatter and trails a 1.4 m/s walker by under 3m on ±8m fixes.
+- Sound: two `ssp_mb_drone` voices, unchanged, at 110Hz and a slightly flat fifth, panned apart.
+  Level is a straight line in dB from -32 at the starting distance to -10 at 2.5m, continuing
+  down to -50 past the start; the filter opens from 320Hz to 1.5kHz on the way in. A 50ms timer
+  glides both over 1.5s, because fixes arrive about once a second.
+- A screen wake lock while running: a locked phone suspends the page, sound and fixes with it.
+- A north-up radar of you, the spot and the filtered 95% radius, for seeing what the fixes do.
+- Icon, `sites.json` entry, Caddyfile regenerated. `tests/e2e/geo.spec.ts`.
+
+### Verified
+
+- `typecheck`, `infra:check`, `vitest` for `apps/geo` and `packages/ui` (36 passed). The
+  `contract` and `sidecar-dist` suites fail here only because `sidecar/dist/` is not in git.
+- Driven in Chromium at Pixel 7 size with emulated positions: ±25m stays locating, ±5m chooses a
+  spot 12.8m away, walking the position in reaches "found it".
+
+### Open
+
+- Not run with sound or the e2e spec: this checkout has no `sidecar/dist/`, so `ssp_mb_drone`
+  cannot load. Not walked outdoors on a phone.
+- Consumer GPS is about ±3–5m under open sky, worse beside buildings; 5m targets sit at that
+  edge. The levels, the 2.5m arrival radius and the ±12m gate are starting values.
+- The radar shows where the spot is, which makes it findable by eye. Hiding it outside
+  `?debug=1` is a choice for after the first walk.

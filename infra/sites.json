@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "geo",
+      "path": "/geo/",
+      "title": "geo",
+      "blurb": "A spot 5–20 metres away, found by ear. Walk toward it and a warm drone swells; walk away and it fades. Best outdoors.",
+      "engine": true
+    },
+    {
       "app": "mic",
       "path": "/mic/",
       "title": "mic",

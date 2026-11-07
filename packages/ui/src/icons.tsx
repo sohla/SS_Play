@@ -29,6 +29,20 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `geo` — the spot, the drone spreading out from it, and you, walking in.
+   *
+   * The spot is a ring with a centre because that is how the page draws it; the
+   * arcs face the walker because the sound is only ever heard from where you are.
+   */
+  geo: (
+    <>
+      <circle cx="17" cy="7" r="2" />
+      <path d="M16.1 11.9A5 5 0 0 1 12.1 7.9M15.4 15.9A9 9 0 0 1 8.1 8.6" />
+      <circle cx="5" cy="19" r="1.5" />
+    </>
+  ),
+
+  /**
    * `mic` — a level meter, and the drone's volume following its envelope.
    *
    * The bars are the input as the follower reads it; the line over them is the
