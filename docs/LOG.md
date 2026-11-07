@@ -1956,3 +1956,19 @@ nothing about whether it works.
   edge. The levels, the 2.5m arrival radius and the ±12m gate are starting values.
 - The radar shows where the spot is, which makes it findable by eye. Hiding it outside
   `?debug=1` is a choice for after the first walk.
+
+---
+
+## 2026-11-07 — `sidecar/dist/` was never committed
+
+### Done
+
+- `docs/SIDECAR.md` calls `sidecar/dist/` committed output, but the root `.gitignore`'s `dist/`
+  has matched it since the first commit, so no compiled `ssp_` def has ever been in git. A fresh
+  clone builds every authored-def page without its defs, and `contract.test.ts` and
+  `sidecar-dist.test.ts` fail on the missing `manifest.json`. `.gitignore` now excepts it.
+
+### Open
+
+- The files themselves are only on the Mac, and nothing here can compile them (no `sclang`).
+  `git add sidecar/dist && git commit` there.

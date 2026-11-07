@@ -5,6 +5,10 @@
 apps/*/public/vendor/
 blob-report/
 dist/
+# The sidecar's compiled defs are committed output (docs/SIDECAR.md), and the
+# pattern above would otherwise swallow them: every page using an ssp_ def
+# then fails to build from a fresh clone.
+!sidecar/dist/
 infra/certs/
 node_modules/
 playwright-report/
