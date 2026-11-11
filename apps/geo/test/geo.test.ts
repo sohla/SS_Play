@@ -102,6 +102,14 @@ describe('the drone', () => {
     expect(droneFrom(at(10, 180)).pan).toBeLessThan(-0.5)
   })
 
+  it('brightens with facing alone, across four octaves, from the first step', () => {
+    for (const d of [20, 10, 0]) {
+      expect(droneFrom(at(d, 270)).cutoff).toBeCloseTo(250)
+      expect(droneFrom(at(d, 0)).cutoff).toBeCloseTo(1000)
+      expect(droneFrom(at(d, 90)).cutoff).toBeCloseTo(4000)
+    }
+  })
+
   it('sits in the middle without a compass', () => {
     expect(facing(at(10, null))).toBe(0.5)
     expect(droneFrom(at(10, null)).pan).toBe(0)
