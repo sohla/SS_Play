@@ -29,6 +29,21 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `geo` — you, the target, and the uncertainty between.
+   *
+   * The ring is the GPS accuracy around where the phone thinks it is; the dot
+   * is the target, and the dashed line the walk to it.
+   */
+  geo: (
+    <>
+      <circle cx="7" cy="17" r="4.5" />
+      <circle cx="7" cy="17" r="1" fill="currentColor" stroke="none" />
+      <path d="M10 14l7-7" strokeDasharray="2 2.5" />
+      <circle cx="18.5" cy="5.5" r="2" fill="currentColor" stroke="none" />
+    </>
+  ),
+
+  /**
    * `speak` — a line of speech, and the bells on its hooks.
    *
    * The bar is an utterance; the long ticks are its start and end, the short

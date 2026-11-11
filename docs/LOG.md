@@ -2014,3 +2014,33 @@ nothing about whether it works.
 - Not sung into on a device. Without headphones, the drone is an octave below the voice, and if
   echo cancellation lets it back into the mic the tracker can lock onto it and walk down in
   octaves to its 60Hz floor.
+
+---
+
+## 2026-11-11 — `geo`: location and heading as inputs
+
+### Done
+
+- `apps/geo`: one tap asks for orientation (iOS), starts location and boots. Once a fix is within
+  20m — or after 15s with the best so far — a target is placed 10–30m away in a random direction.
+- `ssp_geo_drone`: a root and fifth, sine plus soft `VarSaw`, low-passed with a little reverb, every
+  control lagged 2s because GPS arrives once a second and jumps. `beat` detunes the fifth.
+- Mapping (`geo.ts`, pure and tested): distance tunes the fifth — 1.5Hz out at the start, pure on
+  arrival — and adds a little level; facing the target opens the filter and pans toward its side.
+- Fixes are blended by a small Kalman filter that weighs each by its stated accuracy.
+- An absolute compass, page-local: `webkitCompassHeading` on iOS, `deviceorientationabsolute` on
+  Android. `@ss/motion`'s yaw is relative, so it cannot point at anything.
+- Everything readable is shown: position, accuracy, filtered uncertainty, fix rate, altitude,
+  speed, course, compass and its source, pitch, roll, shake, and the drone's values.
+
+### Verified
+
+- `sc:test` 383 passed. `vitest` 1442 passed. e2e `geo`, `site`, `mobile` (39): with emulated
+  location, a target is placed 10–30m away, and walking to it in steps reaches `arrived` with the
+  fifth under 0.4Hz out, while the drone sounds.
+
+### Open
+
+- Not walked with a phone. GPS indoors is often 20–50m, which swamps a 10–30m target.
+- The compass is magnetic north, about 11° off true here; Android's `360 − alpha` assumes portrait.
+- Altitude, speed and course are often absent, especially on iOS when standing still.

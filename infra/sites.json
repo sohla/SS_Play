@@ -7,6 +7,13 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "geo",
+      "path": "/geo/",
+      "title": "geo",
+      "blurb": "Walk to a spot 10 to 30 metres away. A warm drone's fifth beats out of tune at the start and settles as you arrive; point the phone at the spot and it opens up. Best outdoors.",
+      "engine": true
+    },
+    {
       "app": "speak",
       "path": "/speak/",
       "title": "speak",
