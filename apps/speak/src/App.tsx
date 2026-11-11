@@ -32,6 +32,13 @@ function rehearseFrom(second: string | null) {
   shiftMs = (((target - (wallClockMs() % 60_000)) % 60_000) + 60_000) % 60_000
 }
 
+/**
+ * Apple's British English voice, on iPhones and Macs. Named "Daniel", "Daniel
+ * (Enhanced)" or, in Chrome, "Daniel (English (United Kingdom))". Where it is
+ * absent the page falls back to `preferred`.
+ */
+const DEFAULT_VOICE = /^Daniel\b/
+
 const PRETTY = 'sonic-pi-pretty_bell'
 const DULL = 'sonic-pi-dull_bell'
 
@@ -66,7 +73,8 @@ export function App() {
   useEffect(() => {
     void loadVoices().then((found) => {
       setVoices(found)
-      setVoiceUri(preferred(found)?.voiceURI ?? '')
+      const daniel = found.find((one) => DEFAULT_VOICE.test(one.name))
+      setVoiceUri((daniel ?? preferred(found))?.voiceURI ?? '')
     })
   }, [])
 

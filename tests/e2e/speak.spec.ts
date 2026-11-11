@@ -26,7 +26,11 @@ function fakeVoice() {
       this.text = text
     }
   }
-  const voice = { name: 'Test voice', lang: 'en-US', localService: true, voiceURI: 'test', default: true }
+  const voices = [
+    { name: 'Test voice', lang: 'en-US', localService: true, voiceURI: 'test', default: true },
+    // Second, and not the system default, so choosing it proves the preference.
+    { name: 'Daniel (English (United Kingdom))', lang: 'en-GB', localService: true, voiceURI: 'daniel', default: false },
+  ]
   const queue: FakeUtterance[] = []
   let busy = false
   const next = () => {
@@ -51,7 +55,7 @@ function fakeVoice() {
   Object.defineProperty(window, 'SpeechSynthesisUtterance', { value: FakeUtterance })
   Object.defineProperty(window, 'speechSynthesis', {
     value: {
-      getVoices: () => [voice],
+      getVoices: () => voices,
       addEventListener() {},
       removeEventListener() {},
       speak(utterance: FakeUtterance) {
@@ -133,4 +137,9 @@ test('a block of lines rings start, a tinkle per word, and end', async ({ page }
   expect(words).toBeGreaterThan(3)
   // The fake voice sends word events, so the page must not claim otherwise.
   await expect(page.locator('[data-testid=no-words]')).toHaveCount(0)
+})
+
+test('starts on Daniel when the device has him', async ({ page }) => {
+  await boot(page, 30)
+  await expect(page.locator('[data-testid=voice]')).toHaveValue('daniel')
 })
