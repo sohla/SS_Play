@@ -177,11 +177,17 @@ export function App() {
     return () => clearInterval(timer)
   }, [booted])
 
+  const live = booted && mic === 'live'
+
   // The picture, per frame: our phase round a circle, a glow when we call, and a
   // tick for every call heard, where in our cycle it landed.
+  //
+  // Keyed on `live`, not `booted`: the canvas only exists once the microphone
+  // is granted too, and a loop started at boot found no canvas when the prompt
+  // was answered after the engine came up — and never looked again.
   const canvas = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
-    if (!booted) return
+    if (!live) return
     const element = canvas.current
     const context = element?.getContext('2d')
     if (!element || !context) return
@@ -244,13 +250,20 @@ export function App() {
         context.fill()
       }
 
+      // Until this device has called once there is no phase to draw, which
+      // looked like nothing working. Say so instead.
+      if (!caller || caller.fires.length === 0) {
+        context.fillStyle = '#808080'
+        context.font = '12px ui-monospace, monospace'
+        context.textAlign = 'center'
+        context.fillText('waiting for the first call', centre, centre + 4)
+      }
+
       frame = requestAnimationFrame(draw)
     }
     frame = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(frame)
-  }, [booted])
-
-  const live = booted && mic === 'live'
+  }, [live])
 
   return (
     <main className="ak flex min-h-dvh flex-col">
