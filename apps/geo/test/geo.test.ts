@@ -89,8 +89,9 @@ describe('the drone', () => {
     expect(droneFrom(at(ARRIVED_M, null)).beat).toBeLessThan(0.4)
   })
 
-  it('never gets louder than relaxed', () => {
-    for (const d of [40, 20, 5, 0]) expect(droneFrom(at(d, 90)).amp).toBeLessThanOrEqual(0.16)
+  it('is present from the start and never loud', () => {
+    expect(droneFrom(at(40, 90)).amp).toBeGreaterThanOrEqual(0.2)
+    for (const d of [40, 20, 5, 0]) expect(droneFrom(at(d, 90)).amp).toBeLessThanOrEqual(0.35)
   })
 
   it('opens up facing the target and leans toward its side', () => {
@@ -102,11 +103,11 @@ describe('the drone', () => {
     expect(droneFrom(at(10, 180)).pan).toBeLessThan(-0.5)
   })
 
-  it('brightens with facing alone, across four octaves, from the first step', () => {
+  it('brightens with facing alone, across five octaves, from the first step', () => {
     for (const d of [20, 10, 0]) {
-      expect(droneFrom(at(d, 270)).cutoff).toBeCloseTo(250)
-      expect(droneFrom(at(d, 0)).cutoff).toBeCloseTo(1000)
-      expect(droneFrom(at(d, 90)).cutoff).toBeCloseTo(4000)
+      expect(droneFrom(at(d, 270)).cutoff).toBeCloseTo(200)
+      expect(droneFrom(at(d, 0)).cutoff).toBeCloseTo(200 * 2 ** 2.5)
+      expect(droneFrom(at(d, 90)).cutoff).toBeCloseTo(6400)
     }
   })
 

@@ -134,20 +134,19 @@ export function facing({ bearing: b, heading }: Reading): number {
 }
 
 /** The filter facing away from the target, and how many octaves facing it opens. */
-export const DARKEST_HZ = 250
-export const OCTAVES = 4
+export const DARKEST_HZ = 200
+export const OCTAVES = 5
 
 /**
  * Distance tunes the drone's fifth: out by 1.5Hz at the start, beating
- * audibly, settling to a pure fifth on arrival. It gets a little louder as you
- * close in, never loud: the brief is warm and relaxed.
+ * audibly, settling to a pure fifth on arrival. It gets louder as you close in:
+ * 0.2 to 0.35, which on a phone speaker is present without being loud. The
+ * first version ran 0.07–0.16 and was close to inaudible outdoors.
  *
- * Facing sets the timbre, on its own: 250Hz facing away, 1kHz side-on, 4kHz
+ * Facing sets the timbre, on its own: 200Hz facing away, 1.1kHz side-on, 6.4kHz
  * straight at the target, on an exponential curve so each degree of turning
- * sounds like the same step. It used to be scaled by closeness too, which left
- * it 250–775Hz at the start of a walk — too narrow to hear behind the
- * drone's two-second lag. Direction is now audible from the first step, and
- * the sound leans toward the target's side.
+ * sounds like the same step. Direction is audible from the first step, and the
+ * sound leans toward the target's side.
  */
 export function droneFrom(reading: Reading): Drone {
   const near = closeness(reading)
@@ -156,7 +155,7 @@ export function droneFrom(reading: Reading): Drone {
     reading.heading === null ? 0 : Math.sin((reading.bearing - reading.heading) * RAD)
 
   return {
-    amp: 0.07 + 0.09 * near,
+    amp: 0.2 + 0.15 * near,
     beat: 1.5 * (1 - near),
     cutoff: DARKEST_HZ * 2 ** (OCTAVES * towards),
     pan: 0.6 * side,

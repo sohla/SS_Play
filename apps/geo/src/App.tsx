@@ -102,6 +102,13 @@ export function App() {
    * the tap that asked for it than at page load.
    */
   const start = useCallback(() => {
+    // Safari 16.4+: declare this a playback page. iOS otherwise treats Web
+    // Audio as "ambient" — muted by the silent switch, and quiet — and once
+    // any page has opened the mic it can be left routed to the earpiece. This
+    // page never records, so playback is honest, and it means the loudspeaker.
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
+    if (session) session.type = 'playback'
+
     void requestMotion().then((permission) => setMotionAllowed(permission !== 'denied'))
 
     if (!navigator.geolocation) {

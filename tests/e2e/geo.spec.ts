@@ -80,3 +80,74 @@ test('walking to it settles the drone into a pure fifth', async ({ page, context
   })
   expect(peak).toBeGreaterThan(0.01)
 })
+
+test('the drone is clearly brighter facing the target, and loud without clipping', async ({ page }) => {
+  await boot(page)
+  // The drone at its loudest, facing away and then facing the target, measured
+  // straight off the engine: no compass in a headless browser to turn.
+  const measured = await page.evaluate(async () => {
+    type Arg = { type: 'int' | 'float'; value: number }
+    const session = (
+      window as unknown as {
+        __ss: { sonic: { audioContext: AudioContext; node: AudioNode; nextNodeId(): number; send(...args: unknown[]): void } }
+      }
+    ).__ss
+    const f = (value: number): Arg => ({ type: 'float', value })
+    const n = (value: number): Arg => ({ type: 'int', value })
+    const id = session.sonic.nextNodeId()
+    // The page's own drone would sound alongside; silence it first.
+    session.sonic.send('/g_freeAll', n(0))
+    await new Promise((done) => setTimeout(done, 200))
+    session.sonic.send('/s_new', 'ssp_geo_drone', n(id), n(0), n(0), 'amp', f(0.35), 'cutoff', f(200), 'beat', f(0), 'lag', f(0.05), 'turn', f(0.05))
+
+    const analyser = session.sonic.audioContext.createAnalyser()
+    analyser.fftSize = 4096
+    session.sonic.node.connect(analyser)
+    const bins = new Float32Array(analyser.frequencyBinCount)
+    const samples = new Float32Array(analyser.fftSize)
+    const hz = session.sonic.audioContext.sampleRate / analyser.fftSize
+
+    /**
+     * The share of energy above 1kHz, in dB, and the peak, over half a second.
+     * Not a spectral centroid: a saw's energy falls so steeply with harmonic
+     * number that its centroid barely leaves the fundamental, however bright
+     * it sounds. The first version of this test measured that, and read a
+     * 30dB change in treble as no change at all.
+     */
+    const listen = async () => {
+      let treble = 0
+      let peak = 0
+      for (let k = 0; k < 10; k++) {
+        await new Promise((done) => setTimeout(done, 50))
+        analyser.getFloatFrequencyData(bins)
+        let total = 0
+        let high = 0
+        bins.forEach((db, bin) => {
+          const power = 10 ** (db / 10)
+          total += power
+          if (bin * hz > 1000) high += power
+        })
+        treble += (10 * Math.log10(high / total)) / 10
+        analyser.getFloatTimeDomainData(samples)
+        for (const sample of samples) peak = Math.max(peak, Math.abs(sample))
+      }
+      return { treble, peak }
+    }
+
+    // Past the 4s attack.
+    await new Promise((done) => setTimeout(done, 4500))
+    const away = await listen()
+    session.sonic.send('/n_set', n(id), 'cutoff', f(6400))
+    await new Promise((done) => setTimeout(done, 600))
+    const toward = await listen()
+    return { away, toward }
+  })
+
+  // Facing the target puts tens of dB more into the treble — measured at 55 —
+  // and is louder, not quieter, than facing away.
+  expect(measured.toward.treble - measured.away.treble).toBeGreaterThan(30)
+  expect(measured.toward.peak).toBeGreaterThan(measured.away.peak)
+  // Present on a phone speaker, and nowhere near clipping.
+  expect(measured.toward.peak).toBeGreaterThan(0.3)
+  expect(measured.toward.peak).toBeLessThan(0.8)
+})
