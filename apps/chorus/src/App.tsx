@@ -2,7 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HeldVoice, NTP_EPOCH_OFFSET, ctl, i, wallClockMs } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
-import { agreement, createCaller, createClock, due, hear, phaseAt, type Caller } from './chorus.ts'
+import {
+  ADAPT,
+  COUPLING,
+  agreement,
+  createCaller,
+  createClock,
+  due,
+  hear,
+  phaseAt,
+  type Caller,
+} from './chorus.ts'
 
 /**
  * Devices that call, listen for each other, and slowly fall into step. See
@@ -253,6 +263,17 @@ export function App() {
           come to flash and chirp together &mdash; so a few phones in a room drift into one
           chorus over a minute or two. It hears itself too, to learn how late its own speaker
           and microphone are. A whistled falling note will join in.
+        </p>
+
+        <p className="ak-label font-mono text-[11px]" data-testid="algorithm">
+          <strong className="ak-accent">How it syncs.</strong> Pulse-coupled oscillators (Mirollo
+          &amp; Strogatz, 1990) &mdash; the Kuramoto model for things that only hear each other in
+          brief calls. Each device runs a phase &phi; from 0 to 1 and calls at 1. Hearing another
+          call moves it by &Delta;&phi; = &minus;&epsilon;&middot;sin(2&pi;&phi;), &epsilon; ={' '}
+          {COUPLING}: late in its cycle it calls sooner, early it waits. Each nudge also shifts its
+          period by {ADAPT * 100}% as much (Ermentrout, 1991, after fireflies), so the group agrees
+          on a tempo as well as a beat. Its own call, heard back, measures its delay, which is
+          ignored as an echo and taken off everyone else&rsquo;s calls.
         </p>
 
         <BootGate
