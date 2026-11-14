@@ -2060,3 +2060,41 @@ nothing about whether it works.
 
 - `sidecar/synthdefs/*.scd` and `sidecar/dist/*.scsyndef` name the same 29 defs; `sc:manifest`
   reports dist up to date. A fresh clone carries all 59 files.
+
+---
+
+## 2026-11-14 — `onboard-one` and `onboard-two`: the phone onboarding test
+
+### Done
+
+- Built to `docs/Phone onboarding test spec.md`. `onboard-one` is Version A (the microphone
+  measures the phone's own tone and voice), `onboard-two` Version B (the person answers). Both are
+  one line over `packages/onboard`, so the two versions cannot drift apart except where the spec
+  says they differ.
+- `flow.ts` is the order and the rules as a reducer: A's refusal drops into B's tone check, two
+  failed tries offer a facilitator and "Continue without this", every step can be left, skips show
+  as Skipped on the ready screen. The group is picked once per tab session.
+- Sound is what the repo already had: `ssp_sine` for the tone (660Hz, a 350ms pulse a second),
+  `ssp_mic_follow` for A's levels, the browser voice for the narrator (Daniel where present).
+- Decided here, the spec having left them open: colours from the Okabe–Ito palette (orange circle,
+  sky-blue square, pink triangle); `?margin=` to tune the 15dB threshold at rehearsal; a measured
+  try counts as failed after 8 pulses without a pass; the microphone is released as soon as the
+  sound checks end, since an open mic is what moves iPhone audio to the earpiece.
+- The engine footer is shown small at the bottom, for facilitators.
+- `site.spec.ts` now accepts "Start" as well as "Start audio": the onboarding pages' first screen
+  follows their spec rather than the shared boot gate.
+
+### Verified
+
+- `vitest` 1456 passed, 11 of them the flow. e2e `onboard` (5), `site`, `mobile`: B start to ready;
+  two Nos to the facilitator and Skipped results; the group surviving reloads; A measuring a tone
+  over a room from Chrome's fake microphone and passing the voice on the narrator; A's refusal
+  continuing as B at step 4 of 6.
+- Chrome now has `DeviceOrientationEvent.requestPermission`, answered from the browser's sensor
+  permissions; the specs grant them as a phone would.
+
+### Open
+
+- Everything in the spec's "Open questions" list — it needs real phones, Monday and Tuesday.
+- A's e2e proves the measuring path, not the acoustics: the fake microphone plays the room and the
+  tone itself.

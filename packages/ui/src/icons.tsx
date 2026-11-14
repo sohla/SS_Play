@@ -29,6 +29,29 @@ import type { ReactNode } from 'react'
  */
 const SHAPES: Record<string, ReactNode> = {
   /**
+   * `onboard-one` — a phone, and the bar it listens to itself with.
+   *
+   * Version A measures: the level crossing the line is the check.
+   */
+  'onboard-one': (
+    <>
+      <rect x="6" y="2.5" width="12" height="19" rx="2" />
+      <path d="M9 15h6" strokeDasharray="0.01 2" />
+      <path d="M9 11h3.5M13.5 8.5v5" />
+    </>
+  ),
+
+  /**
+   * `onboard-two` — a phone and a tick: Version B asks, and the person answers.
+   */
+  'onboard-two': (
+    <>
+      <rect x="6" y="2.5" width="12" height="19" rx="2" />
+      <path d="M9 12l2 2 4-4" />
+    </>
+  ),
+
+  /**
    * `geo` — you, the target, and the uncertainty between.
    *
    * The ring is the GPS accuracy around where the phone thinks it is; the dot

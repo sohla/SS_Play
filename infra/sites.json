@@ -7,6 +7,20 @@
   "landing": "landing",
   "pages": [
     {
+      "app": "onboard-one",
+      "path": "/onboard-one/",
+      "title": "onboard one",
+      "blurb": "Phone onboarding test, version A: the phone plays a soft tone and listens to its own speaker, so you turn the volume up until a bar crosses a line.",
+      "engine": true
+    },
+    {
+      "app": "onboard-two",
+      "path": "/onboard-two/",
+      "title": "onboard two",
+      "blurb": "Phone onboarding test, version B: no microphone. Play a tone and the narrator, and say whether you hear them from the phone's speaker.",
+      "engine": true
+    },
+    {
       "app": "geo",
       "path": "/geo/",
       "title": "geo",
