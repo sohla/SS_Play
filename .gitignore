@@ -5,6 +5,9 @@
 apps/*/public/vendor/
 blob-report/
 dist/
+# The compiled SynthDefs are committed on purpose: the web build and CI need them
+# and cannot run sclang. See docs/SIDECAR.md.
+!sidecar/dist/
 infra/certs/
 node_modules/
 playwright-report/

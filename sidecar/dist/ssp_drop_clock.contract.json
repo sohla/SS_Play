@@ -1,0 +1,34 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.25,
+      "max": 0.5,
+      "min": 0.075,
+      "name": "dur",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": 0,
+      "name": "level",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

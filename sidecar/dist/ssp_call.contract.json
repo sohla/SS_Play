@@ -1,0 +1,46 @@
+{
+  "frozen": [
+    {
+      "name": "dur",
+      "value": 0.08
+    },
+    {
+      "name": "from",
+      "value": 5000
+    },
+    {
+      "name": "out",
+      "value": 0
+    },
+    {
+      "name": "to",
+      "value": 2500
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.30000001192093,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": -1,
+      "name": "pan",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

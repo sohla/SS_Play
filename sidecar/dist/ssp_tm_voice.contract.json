@@ -1,0 +1,87 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.80000001192093,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 0.0099999997764826,
+      "max": 0.2,
+      "min": 0.001,
+      "name": "envAtk",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.10000000149012,
+      "max": 1,
+      "min": 0.01,
+      "name": "envDec",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.20000000298023,
+      "max": 4,
+      "min": 0.02,
+      "name": "envRel",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.69999998807907,
+      "max": 1,
+      "min": 0,
+      "name": "envSus",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 2000,
+      "max": 14000,
+      "min": 50,
+      "name": "filtFreq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.30000001192093,
+      "max": 1,
+      "min": 0.1,
+      "name": "filtRes",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 440,
+      "name": "freq"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "pan"
+    }
+  ]
+}

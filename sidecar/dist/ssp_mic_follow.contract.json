@@ -1,0 +1,60 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    },
+    {
+      "name": "rate",
+      "value": 30
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.0099999997764826,
+      "max": 1,
+      "min": 0.001,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.30000001192093,
+      "max": 1,
+      "min": 0,
+      "name": "ceiling",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 2,
+      "max": 20,
+      "min": 0.1,
+      "name": "gain",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.30000001192093,
+      "max": 2,
+      "min": 0.01,
+      "name": "release",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 0,
+      "name": "bus"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

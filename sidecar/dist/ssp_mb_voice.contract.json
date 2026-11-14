@@ -1,0 +1,60 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.20000000298023,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 0.0049999998882413,
+      "max": 0.1,
+      "min": 0.0003,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 3000,
+      "max": 12000,
+      "min": 80,
+      "name": "ffreq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.40000000596046,
+      "max": 2,
+      "min": 0.05,
+      "name": "release",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 440,
+      "name": "freq"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "pan"
+    }
+  ]
+}

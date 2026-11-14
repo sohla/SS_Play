@@ -1,0 +1,3830 @@
+{
+  "scVersion": "3.14.0",
+  "defs": [
+    {
+      "name": "ssp_beast",
+      "file": "ssp_beast.scsyndef",
+      "bytes": 1578,
+      "sha256": "25ba01b73f0b16faf5ac2fef9bed61f163d74beffe4dab9291a4daabe0758a16",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 45
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "gate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "atk",
+          "index": 4,
+          "default": 0.003000000026077032
+        },
+        {
+          "name": "dec",
+          "index": 5,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "sus",
+          "index": 6,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "rel",
+          "index": 7,
+          "default": 1.2000000476837158
+        },
+        {
+          "name": "crv",
+          "index": 8,
+          "default": -2
+        },
+        {
+          "name": "harm",
+          "index": 9,
+          "default": 3
+        },
+        {
+          "name": "growl",
+          "index": 10,
+          "default": 0.6000000238418579
+        },
+        {
+          "name": "harmLag",
+          "index": 11,
+          "default": 1.399999976158142
+        },
+        {
+          "name": "growlLag",
+          "index": 12,
+          "default": 0.07999999821186066
+        },
+        {
+          "name": "detune",
+          "index": 13,
+          "default": 1.003000020980835
+        },
+        {
+          "name": "fbDepth",
+          "index": 14,
+          "default": 2
+        },
+        {
+          "name": "ffreq",
+          "index": 15,
+          "default": 900
+        },
+        {
+          "name": "rq",
+          "index": 16,
+          "default": 0.4000000059604645
+        },
+        {
+          "name": "pan",
+          "index": 17,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "Balance2",
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "LFTri",
+        "Lag",
+        "LocalIn",
+        "LocalOut",
+        "Out",
+        "RLPF",
+        "SinOsc",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [],
+        "specs": [
+          {
+            "default": 0.003000000026077,
+            "max": 0.5,
+            "min": 0.001,
+            "name": "atk",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": -2,
+            "max": 8,
+            "min": -8,
+            "name": "crv",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 2,
+            "min": 0.01,
+            "name": "dec",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1.0030000209808,
+            "max": 1.02,
+            "min": 1,
+            "name": "detune",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 2,
+            "max": 4,
+            "min": 0,
+            "name": "fbDepth",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 900,
+            "max": 4000,
+            "min": 100,
+            "name": "ffreq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.60000002384186,
+            "max": 4,
+            "min": 0,
+            "name": "growl",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.079999998211861,
+            "max": 1,
+            "min": 0.005,
+            "name": "growlLag",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 3,
+            "max": 24,
+            "min": 1,
+            "name": "harm",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1.3999999761581,
+            "max": 4,
+            "min": 0.01,
+            "name": "harmLag",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1.2000000476837,
+            "max": 4,
+            "min": 0.05,
+            "name": "rel",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.40000000596046,
+            "max": 1,
+            "min": 0.05,
+            "name": "rq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 1,
+            "min": 0,
+            "name": "sus",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0.20000000298023,
+            "name": "amp"
+          },
+          {
+            "default": 45,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "out"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_beast_clock",
+      "file": "ssp_beast_clock.scsyndef",
+      "bytes": 1348,
+      "sha256": "6d4ba4a7beee92cc83f4fe607a88be934be44e3fe77027cde69958777c10f58f",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "dur",
+          "index": 2,
+          "default": 0.25
+        },
+        {
+          "name": "level",
+          "index": 3,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "Demand",
+        "Dseq",
+        "Dwhite",
+        "EnvGen",
+        "MulAdd",
+        "Out",
+        "SendReply",
+        "TDuty",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.25,
+            "max": 0.4,
+            "min": 0.1,
+            "name": "dur",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "level",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_call",
+      "file": "ssp_call.scsyndef",
+      "bytes": 783,
+      "sha256": "955f9fc1637be64e58baa5e24459549060df3a5c7f0daef91e549307b2bfe07c",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 1,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "pan",
+          "index": 2,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "from",
+          "index": 4,
+          "default": 5000
+        },
+        {
+          "name": "to",
+          "index": 5,
+          "default": 2500
+        },
+        {
+          "name": "dur",
+          "index": 6,
+          "default": 0.07999999821186066
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "Out",
+        "Pan2",
+        "SinOsc",
+        "XLine"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "dur",
+            "value": 0.08
+          },
+          {
+            "name": "from",
+            "value": 5000
+          },
+          {
+            "name": "out",
+            "value": 0
+          },
+          {
+            "name": "to",
+            "value": 2500
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.30000001192093,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_call_listen",
+      "file": "ssp_call_listen.scsyndef",
+      "bytes": 3254,
+      "sha256": "a83d35433f78c55a38eeed2e344325ae2b77e9761d95bc08dd74bf7748337093",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "in",
+          "index": 2,
+          "default": 2
+        },
+        {
+          "name": "threshold",
+          "index": 3,
+          "default": 4
+        },
+        {
+          "name": "lit",
+          "index": 4,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "need",
+          "index": 5,
+          "default": 6
+        },
+        {
+          "name": "holdoff",
+          "index": 6,
+          "default": 0.05000000074505806
+        },
+        {
+          "name": "floor",
+          "index": 7,
+          "default": 0.0010000000474974513
+        }
+      ],
+      "ugens": [
+        "Amplitude",
+        "BPF",
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "DelayN",
+        "EnvGen",
+        "HPF",
+        "In",
+        "LagUD",
+        "MulAdd",
+        "Out",
+        "Phasor",
+        "SendReply",
+        "Sum4",
+        "Trig1"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.0010000000474975,
+            "max": 0.01,
+            "min": 0.00001,
+            "name": "floor",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.050000000745058,
+            "max": 0.5,
+            "min": 0.01,
+            "name": "holdoff",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 0.8,
+            "min": 0.05,
+            "name": "lit",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 6,
+            "max": 8,
+            "min": 3,
+            "name": "need",
+            "step": 1,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 4,
+            "max": 20,
+            "min": 1,
+            "name": "threshold",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 2,
+            "name": "in"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_drop",
+      "file": "ssp_drop.scsyndef",
+      "bytes": 879,
+      "sha256": "aad300ce57fe5df0306a8258043bd4f66b9f313ffa8b7b5a85b7f2ed80585275",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 1000
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.800000011920929
+        },
+        {
+          "name": "pan",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 4,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 5,
+          "default": 0.0010000000474974513
+        },
+        {
+          "name": "decay",
+          "index": 6,
+          "default": 0.05000000074505806
+        },
+        {
+          "name": "filterFreq",
+          "index": 7,
+          "default": 3000
+        },
+        {
+          "name": "filterRQ",
+          "index": 8,
+          "default": 1
+        },
+        {
+          "name": "wobble",
+          "index": 9,
+          "default": 10
+        }
+      ],
+      "ugens": [
+        "BPF",
+        "BinaryOpUGen",
+        "Control",
+        "DetectSilence",
+        "EnvGen",
+        "LFPar",
+        "MulAdd",
+        "Out",
+        "PanAz",
+        "SinOsc"
+      ],
+      "contract": {
+        "frozen": [],
+        "specs": [
+          {
+            "default": 0.0010000000474975,
+            "max": 0.05,
+            "min": 0.0005,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0.80000001192093,
+            "name": "amp"
+          },
+          {
+            "default": 0.050000000745058,
+            "name": "decay"
+          },
+          {
+            "default": 3000,
+            "name": "filterFreq"
+          },
+          {
+            "default": 1,
+            "name": "filterRQ"
+          },
+          {
+            "default": 1000,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "out"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          },
+          {
+            "default": 10,
+            "name": "wobble"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_drop_clock",
+      "file": "ssp_drop_clock.scsyndef",
+      "bytes": 1292,
+      "sha256": "0d20ca8cfdb5c62dd9d033b7ba0087c50a98c65f54e228b501944a10a193348f",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "dur",
+          "index": 2,
+          "default": 0.25
+        },
+        {
+          "name": "level",
+          "index": 3,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "Demand",
+        "Diwhite",
+        "Dwhite",
+        "EnvGen",
+        "Out",
+        "SendReply",
+        "TDuty",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.25,
+            "max": 0.5,
+            "min": 0.075,
+            "name": "dur",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "level",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_drop_verb",
+      "file": "ssp_drop_verb.scsyndef",
+      "bytes": 763,
+      "sha256": "b5a365c3bad116d7e01a7ca474a030a1454d3071b93871676ed4e75822c845b3",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "in",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "out",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "mix",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "room",
+          "index": 3,
+          "default": 0.8299999833106995
+        },
+        {
+          "name": "damp",
+          "index": 4,
+          "default": 0.5
+        },
+        {
+          "name": "amp",
+          "index": 5,
+          "default": 1
+        },
+        {
+          "name": "gate",
+          "index": 6,
+          "default": 1
+        },
+        {
+          "name": "release",
+          "index": 7,
+          "default": 0.5
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "FreeVerb2",
+        "In",
+        "LeakDC",
+        "Out"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 1,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.5,
+            "max": 1,
+            "min": 0,
+            "name": "damp",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "mix",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.5,
+            "max": 4,
+            "min": 0.05,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.8299999833107,
+            "max": 0.94,
+            "min": 0.2,
+            "name": "room",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "in"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_dulcimer",
+      "file": "ssp_dulcimer.scsyndef",
+      "bytes": 1532,
+      "sha256": "b47ed5f6de030395293b858c48ab48fb2441f873c4418e9f5541f539b3d0c921",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "bufnum",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "rate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "start",
+          "index": 4,
+          "default": 0
+        },
+        {
+          "name": "pan",
+          "index": 5,
+          "default": 0
+        },
+        {
+          "name": "attack",
+          "index": 6,
+          "default": 0.0020000000949949026
+        },
+        {
+          "name": "sustain",
+          "index": 7,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "release",
+          "index": 8,
+          "default": 1.2000000476837158
+        },
+        {
+          "name": "freq",
+          "index": 9,
+          "default": 440
+        }
+      ],
+      "ugens": [
+        "Balance2",
+        "BinaryOpUGen",
+        "BufFrames",
+        "BufRateScale",
+        "Control",
+        "EnvGen",
+        "LFCub",
+        "LFTri",
+        "MulAdd",
+        "Out",
+        "PlayBuf"
+      ],
+      "contract": {
+        "frozen": [],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0020000000949949,
+            "max": 2,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 440,
+            "max": 2000,
+            "min": 20,
+            "name": "freq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1,
+            "max": 4,
+            "min": 0.25,
+            "name": "rate",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1.2000000476837,
+            "max": 6,
+            "min": 0.01,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "start",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 4,
+            "min": 0.01,
+            "name": "sustain",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0,
+            "name": "bufnum"
+          },
+          {
+            "default": 0,
+            "name": "out"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_dulcimer_fx",
+      "file": "ssp_dulcimer_fx.scsyndef",
+      "bytes": 657,
+      "sha256": "45cbeeb20ad4fd8c10e742b1a2a8052d2201ed97f36513440bb3fd35351ffa5c",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "in",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "out",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "mix",
+          "index": 2,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "room",
+          "index": 3,
+          "default": 1.1200000047683716
+        },
+        {
+          "name": "damp",
+          "index": 4,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "amp",
+          "index": 5,
+          "default": 1
+        },
+        {
+          "name": "gate",
+          "index": 6,
+          "default": 1
+        },
+        {
+          "name": "release",
+          "index": 7,
+          "default": 1.399999976158142
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "In",
+        "LeakDC",
+        "Out"
+      ],
+      "contract": {
+        "frozen": [],
+        "specs": [
+          {
+            "default": 1,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "damp",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 1,
+            "min": 0,
+            "name": "mix",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1.3999999761581,
+            "max": 6,
+            "min": 0.05,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1.1200000047684,
+            "max": 2,
+            "min": 0,
+            "name": "room",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "in"
+          },
+          {
+            "default": 0,
+            "name": "out"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_geo_drone",
+      "file": "ssp_geo_drone.scsyndef",
+      "bytes": 2052,
+      "sha256": "d3a6f26f01bdd32166f2f36b77938ccd6219c6167e1d3db5805cb816bb2d67cf",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.07999999821186066
+        },
+        {
+          "name": "freq",
+          "index": 3,
+          "default": 146.8300018310547
+        },
+        {
+          "name": "cutoff",
+          "index": 4,
+          "default": 600
+        },
+        {
+          "name": "beat",
+          "index": 5,
+          "default": 1.5
+        },
+        {
+          "name": "pan",
+          "index": 6,
+          "default": 0
+        },
+        {
+          "name": "lag",
+          "index": 7,
+          "default": 2
+        },
+        {
+          "name": "turn",
+          "index": 8,
+          "default": 0.30000001192092896
+        }
+      ],
+      "ugens": [
+        "Balance2",
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "FreeVerb",
+        "LPF",
+        "Lag",
+        "MulAdd",
+        "Out",
+        "SinOsc",
+        "VarSaw"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.079999998211861,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 1.5,
+            "max": 4,
+            "min": 0,
+            "name": "beat",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 600,
+            "max": 8000,
+            "min": 120,
+            "name": "cutoff",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 146.83000183105,
+            "max": 440,
+            "min": 55,
+            "name": "freq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 2,
+            "max": 8,
+            "min": 0.05,
+            "name": "lag",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 4,
+            "min": 0.02,
+            "name": "turn",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_kit",
+      "file": "ssp_kit.scsyndef",
+      "bytes": 1371,
+      "sha256": "758bc5bf2da4c267b8bafa05b798cbfe3be69985a5b77edc001841ec7a894c4e",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "bufnum",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.5
+        },
+        {
+          "name": "rate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "start",
+          "index": 4,
+          "default": 0
+        },
+        {
+          "name": "pan",
+          "index": 5,
+          "default": 0
+        },
+        {
+          "name": "attack",
+          "index": 6,
+          "default": 0.004999999888241291
+        },
+        {
+          "name": "decay",
+          "index": 7,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "sustain",
+          "index": 8,
+          "default": 0.800000011920929
+        },
+        {
+          "name": "release",
+          "index": 9,
+          "default": 0.019999999552965164
+        },
+        {
+          "name": "gate",
+          "index": 10,
+          "default": 1
+        },
+        {
+          "name": "cutoff",
+          "index": 11,
+          "default": 50
+        },
+        {
+          "name": "rq",
+          "index": 12,
+          "default": 0.009999999776482582
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "BufFrames",
+        "BufRateScale",
+        "Clip",
+        "Compander",
+        "Control",
+        "EnvGen",
+        "Out",
+        "PlayBuf",
+        "RHPF"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.5,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0049999998882413,
+            "max": 0.5,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 50,
+            "max": 8000,
+            "min": 20,
+            "name": "cutoff",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 2,
+            "min": 0.005,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1,
+            "max": 4,
+            "min": -2,
+            "name": "rate",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.019999999552965,
+            "max": 4,
+            "min": 0.005,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.0099999997764826,
+            "max": 2,
+            "min": 0.005,
+            "name": "rq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "start",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.80000001192093,
+            "max": 1,
+            "min": 0,
+            "name": "sustain",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0,
+            "name": "bufnum"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_marimba",
+      "file": "ssp_marimba.scsyndef",
+      "bytes": 989,
+      "sha256": "6f6d8002fdb472f4dcc990e41dec04eb90ccf1971ca2f02317a0215e97ba0ba8",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "bufnum",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 1
+        },
+        {
+          "name": "rate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "ptch",
+          "index": 4,
+          "default": 1
+        },
+        {
+          "name": "start",
+          "index": 5,
+          "default": 0
+        },
+        {
+          "name": "pan",
+          "index": 6,
+          "default": 0
+        },
+        {
+          "name": "attack",
+          "index": 7,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "sustain",
+          "index": 8,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "release",
+          "index": 9,
+          "default": 1.2000000476837158
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "BufFrames",
+        "BufRateScale",
+        "Control",
+        "EnvGen",
+        "Out",
+        "Pan2",
+        "PlayBuf"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 1,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0099999997764826,
+            "max": 0.5,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1,
+            "max": 2,
+            "min": 0.5,
+            "name": "ptch",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1,
+            "max": 4,
+            "min": 0.25,
+            "name": "rate",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1.2000000476837,
+            "max": 6,
+            "min": 0.01,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "start",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 4,
+            "min": 0.01,
+            "name": "sustain",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0,
+            "name": "bufnum"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_mb_drone",
+      "file": "ssp_mb_drone.scsyndef",
+      "bytes": 913,
+      "sha256": "9bd271c7a984b9d8a21a0bfee45af5c2d00a5f0adcd27c4cac5c5b5e9c5ea5aa",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 110
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.05000000074505806
+        },
+        {
+          "name": "pan",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 4,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 5,
+          "default": 1
+        },
+        {
+          "name": "release",
+          "index": 6,
+          "default": 0.800000011920929
+        },
+        {
+          "name": "ffreq",
+          "index": 7,
+          "default": 1200
+        },
+        {
+          "name": "lag",
+          "index": 8,
+          "default": 0.10000000149011612
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "Lag",
+        "LagUD",
+        "MulAdd",
+        "Out",
+        "Pan2",
+        "Pulse",
+        "RLPF",
+        "SinOsc"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.050000000745058,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 1,
+            "max": 6,
+            "min": 0.05,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1200,
+            "max": 12000,
+            "min": 80,
+            "name": "ffreq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 2,
+            "min": 0.005,
+            "name": "lag",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.80000001192093,
+            "max": 6,
+            "min": 0.05,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 110,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_mb_voice",
+      "file": "ssp_mb_voice.scsyndef",
+      "bytes": 776,
+      "sha256": "788245bf192d1af9fc4d920a1979ac570175be7bdc44f50eb07c2a8de0377bb4",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 440
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "pan",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 4,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 5,
+          "default": 0.004999999888241291
+        },
+        {
+          "name": "release",
+          "index": 6,
+          "default": 0.4000000059604645
+        },
+        {
+          "name": "ffreq",
+          "index": 7,
+          "default": 3000
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "MulAdd",
+        "Out",
+        "Pan2",
+        "Pulse",
+        "RLPF",
+        "SinOsc"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0049999998882413,
+            "max": 0.1,
+            "min": 0.0003,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 3000,
+            "max": 12000,
+            "min": 80,
+            "name": "ffreq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.40000000596046,
+            "max": 2,
+            "min": 0.05,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 440,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_mel",
+      "file": "ssp_mel.scsyndef",
+      "bytes": 822,
+      "sha256": "4c7e3e6c944303188c7d7279b7df7a53fa15bc7c8d37f026c5c4320abffdfb62",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 1,
+          "default": 0.5
+        },
+        {
+          "name": "freq",
+          "index": 2,
+          "default": 440
+        },
+        {
+          "name": "gate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 4,
+          "default": 0.029999999329447746
+        },
+        {
+          "name": "decay",
+          "index": 5,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "susLevel",
+          "index": 6,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "release",
+          "index": 7,
+          "default": 1.0399999618530273
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "LocalIn",
+        "LocalOut",
+        "Out",
+        "SinOsc"
+      ],
+      "contract": {
+        "frozen": [],
+        "specs": [
+          {
+            "default": 0.029999999329448,
+            "max": 1,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 2,
+            "min": 0.005,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1.039999961853,
+            "max": 4,
+            "min": 0.02,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 1,
+            "min": 0,
+            "name": "susLevel",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0.5,
+            "name": "amp"
+          },
+          {
+            "default": 440,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "out"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_mel_clock",
+      "file": "ssp_mel_clock.scsyndef",
+      "bytes": 1169,
+      "sha256": "0ef58994348ffe3525fbc15e6f6a4445ffdbe2927db9593c565082e7e09f6d96",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "dur",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "level",
+          "index": 3,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "Demand",
+        "Dseq",
+        "EnvGen",
+        "Out",
+        "SendReply",
+        "TDuty",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 0.4,
+            "min": 0.04,
+            "name": "dur",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "level",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_mic_follow",
+      "file": "ssp_mic_follow.scsyndef",
+      "bytes": 950,
+      "sha256": "a49b77a76b73ebf4a6a6a447f54967897401fbfc6d382272bf1e900c3c4333c3",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "bus",
+          "index": 2,
+          "default": 0
+        },
+        {
+          "name": "gain",
+          "index": 3,
+          "default": 2
+        },
+        {
+          "name": "ceiling",
+          "index": 4,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "attack",
+          "index": 5,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "release",
+          "index": 6,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "rate",
+          "index": 7,
+          "default": 30
+        }
+      ],
+      "ugens": [
+        "Amplitude",
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "DC",
+        "EnvGen",
+        "Impulse",
+        "In",
+        "NumOutputBuses",
+        "Out",
+        "SendReply"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          },
+          {
+            "name": "rate",
+            "value": 30
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.0099999997764826,
+            "max": 1,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 1,
+            "min": 0,
+            "name": "ceiling",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 2,
+            "max": 20,
+            "min": 0.1,
+            "name": "gain",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 2,
+            "min": 0.01,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0,
+            "name": "bus"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_mic_pitch_follow",
+      "file": "ssp_mic_pitch_follow.scsyndef",
+      "bytes": 1114,
+      "sha256": "95cdaa6c029eee28fab01edecb1bd3bf5dc10e00d8e31eaf2515868c6bef2cb5",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "bus",
+          "index": 2,
+          "default": 1
+        },
+        {
+          "name": "ratio",
+          "index": 3,
+          "default": 0.5
+        },
+        {
+          "name": "init",
+          "index": 4,
+          "default": 220
+        },
+        {
+          "name": "floor",
+          "index": 5,
+          "default": 0.019999999552965164
+        },
+        {
+          "name": "median",
+          "index": 6,
+          "default": 7
+        },
+        {
+          "name": "rate",
+          "index": 7,
+          "default": 30
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "EnvGen",
+        "Impulse",
+        "In",
+        "LocalIn",
+        "LocalOut",
+        "NumOutputBuses",
+        "Out",
+        "Pitch",
+        "Select",
+        "SendReply"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "init",
+            "value": 220
+          },
+          {
+            "name": "median",
+            "value": 7
+          },
+          {
+            "name": "out",
+            "value": 0
+          },
+          {
+            "name": "rate",
+            "value": 30
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.019999999552965,
+            "max": 0.2,
+            "min": 0.001,
+            "name": "floor",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.5,
+            "max": 2,
+            "min": 0.125,
+            "name": "ratio",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "bus"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_moog",
+      "file": "ssp_moog.scsyndef",
+      "bytes": 1411,
+      "sha256": "38c0b34719c306ac2ca16ce216ff0d85f3081d875a1b1d9f5b8bc422b81556c1",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 440
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.5
+        },
+        {
+          "name": "gate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 4,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "decay",
+          "index": 5,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "susLevel",
+          "index": 6,
+          "default": 0.699999988079071
+        },
+        {
+          "name": "release",
+          "index": 7,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "filterFreq",
+          "index": 8,
+          "default": 800
+        },
+        {
+          "name": "fq",
+          "index": 9,
+          "default": 0.5
+        },
+        {
+          "name": "pan",
+          "index": 10,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "Balance2",
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "LFTri",
+        "Out",
+        "RLPF",
+        "Saw",
+        "SinOsc",
+        "Sum3",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.10000000149012,
+            "max": 0.5,
+            "min": 0.0001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 2,
+            "min": 0.005,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 800,
+            "max": 15000,
+            "min": 60,
+            "name": "filterFreq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.5,
+            "max": 1,
+            "min": 0.05,
+            "name": "fq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 3,
+            "min": 0.01,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.69999998807907,
+            "max": 1,
+            "min": 0,
+            "name": "susLevel",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0.5,
+            "name": "amp"
+          },
+          {
+            "default": 440,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_moog_clock",
+      "file": "ssp_moog_clock.scsyndef",
+      "bytes": 2821,
+      "sha256": "6183f48a95abd44cf155495ff78c6ffc317b8dc19b6829e902281151dbdcfe44",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "dur",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "level",
+          "index": 3,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "Demand",
+        "Dseq",
+        "Dwhite",
+        "EnvGen",
+        "Out",
+        "SendReply",
+        "Sum3",
+        "TDuty",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 0.8,
+            "min": 0.05,
+            "name": "dur",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "level",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_noise",
+      "file": "ssp_noise.scsyndef",
+      "bytes": 646,
+      "sha256": "cf3cfd12c7bf610f29e49e8d415b2663c59ec56a36cfb4c8b6414941c78bce6c",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "cutoff",
+          "index": 1,
+          "default": 2000
+        },
+        {
+          "name": "rq",
+          "index": 2,
+          "default": 0.5
+        },
+        {
+          "name": "amp",
+          "index": 3,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "pan",
+          "index": 4,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 5,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 6,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "decay",
+          "index": 7,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "susLevel",
+          "index": 8,
+          "default": 0.699999988079071
+        },
+        {
+          "name": "release",
+          "index": 9,
+          "default": 0.30000001192092896
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "Out",
+        "Pan2",
+        "RLPF",
+        "WhiteNoise"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0099999997764826,
+            "max": 2,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 2000,
+            "max": 12000,
+            "min": 60,
+            "name": "cutoff",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 2,
+            "min": 0.001,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 2,
+            "min": 0.001,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.5,
+            "max": 1,
+            "min": 0.05,
+            "name": "rq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.69999998807907,
+            "max": 1,
+            "min": 0,
+            "name": "susLevel",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_piano",
+      "file": "ssp_piano.scsyndef",
+      "bytes": 746,
+      "sha256": "628369737a0088c32aaca79bfcc030514843752a35ca47323c2cd863f0b8d0a7",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "bufnum",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "rate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "start",
+          "index": 4,
+          "default": 0
+        },
+        {
+          "name": "pan",
+          "index": 5,
+          "default": 0
+        },
+        {
+          "name": "attack",
+          "index": 6,
+          "default": 0.0020000000949949026
+        },
+        {
+          "name": "sustain",
+          "index": 7,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "release",
+          "index": 8,
+          "default": 0.20000000298023224
+        }
+      ],
+      "ugens": [
+        "Balance2",
+        "BinaryOpUGen",
+        "BufFrames",
+        "BufRateScale",
+        "Control",
+        "EnvGen",
+        "Out",
+        "PlayBuf"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0020000000949949,
+            "max": 0.5,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1,
+            "max": 4,
+            "min": 0.25,
+            "name": "rate",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 6,
+            "min": 0.01,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "start",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 4,
+            "min": 0.01,
+            "name": "sustain",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0,
+            "name": "bufnum"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_pluck",
+      "file": "ssp_pluck.scsyndef",
+      "bytes": 1360,
+      "sha256": "1505fdc016c65374b9856bbf386b9e304acf230d1ded1026f47d723a2d93d386",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 1,
+          "default": 0
+        },
+        {
+          "name": "pch",
+          "index": 2,
+          "default": 30
+        },
+        {
+          "name": "frq",
+          "index": 3,
+          "default": 30
+        },
+        {
+          "name": "gate",
+          "index": 4,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "BrownNoise",
+        "Clip",
+        "Control",
+        "Decay",
+        "EnvGen",
+        "Impulse",
+        "Lag",
+        "MulAdd",
+        "Out",
+        "Pluck",
+        "SinOsc",
+        "UnaryOpUGen",
+        "WhiteNoise"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 30,
+            "max": 400,
+            "min": 30,
+            "name": "frq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 30,
+            "max": 300,
+            "min": 30,
+            "name": "pch",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_sine",
+      "file": "ssp_sine.scsyndef",
+      "bytes": 602,
+      "sha256": "7aed70ced03f831e739a5094c9f865c42a7820c83acfdb376f7b341cc1d31224",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 440
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "pan",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 4,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 5,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "decay",
+          "index": 6,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "susLevel",
+          "index": 7,
+          "default": 0.699999988079071
+        },
+        {
+          "name": "release",
+          "index": 8,
+          "default": 0.30000001192092896
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "Out",
+        "Pan2",
+        "SinOsc"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.20000000298023,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0099999997764826,
+            "max": 2,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 2,
+            "min": 0.001,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 2,
+            "min": 0.001,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.69999998807907,
+            "max": 1,
+            "min": 0,
+            "name": "susLevel",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 440,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_suz",
+      "file": "ssp_suz.scsyndef",
+      "bytes": 867,
+      "sha256": "c1b79fed085225059f173ac3f9b4f47d14e6d817df44de1ea226dd97d3bc655d",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "amp",
+          "index": 1,
+          "default": 0.800000011920929
+        },
+        {
+          "name": "freq",
+          "index": 2,
+          "default": 440
+        },
+        {
+          "name": "gate",
+          "index": 3,
+          "default": 1
+        },
+        {
+          "name": "attack",
+          "index": 4,
+          "default": 0.0010000000474974513
+        },
+        {
+          "name": "decay",
+          "index": 5,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "susLevel",
+          "index": 6,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "release",
+          "index": 7,
+          "default": 0.5899999737739563
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "LocalIn",
+        "LocalOut",
+        "Out",
+        "SinOsc"
+      ],
+      "contract": {
+        "frozen": [],
+        "specs": [
+          {
+            "default": 0.0010000000474975,
+            "max": 0.05,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 2,
+            "min": 0.005,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.58999997377396,
+            "max": 2,
+            "min": 0.002,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 1,
+            "min": 0,
+            "name": "susLevel",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0.80000001192093,
+            "name": "amp"
+          },
+          {
+            "default": 440,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "out"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_suz_clock",
+      "file": "ssp_suz_clock.scsyndef",
+      "bytes": 1286,
+      "sha256": "14ca4b3e119bd6c3bff7771e5929b51aa69f1fc04f14b40b276c030855de5a08",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "dur",
+          "index": 2,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "level",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "octaveShift",
+          "index": 4,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "Demand",
+        "Dseq",
+        "EnvGen",
+        "MulAdd",
+        "Out",
+        "SendReply",
+        "TDuty",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.10000000149012,
+            "max": 0.3,
+            "min": 0.02,
+            "name": "dur",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": 0,
+            "name": "level",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0,
+            "max": 2,
+            "min": -1,
+            "name": "octaveShift",
+            "step": 1,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_thrum",
+      "file": "ssp_thrum.scsyndef",
+      "bytes": 1894,
+      "sha256": "9369e7ca4add7a5799f20a8c688a1d34bc3c794a1103677d185293e37f8dcb80",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "carrier",
+          "index": 2,
+          "default": 250
+        },
+        {
+          "name": "rate",
+          "index": 3,
+          "default": 2.4000000953674316
+        },
+        {
+          "name": "intensity",
+          "index": 4,
+          "default": 0.75
+        },
+        {
+          "name": "attack",
+          "index": 5,
+          "default": 0.014499999582767487
+        },
+        {
+          "name": "decay",
+          "index": 6,
+          "default": 0.09099999815225601
+        },
+        {
+          "name": "curve",
+          "index": 7,
+          "default": 4
+        },
+        {
+          "name": "overdrive",
+          "index": 8,
+          "default": 1
+        },
+        {
+          "name": "transient",
+          "index": 9,
+          "default": 0.3799999952316284
+        },
+        {
+          "name": "sharpness",
+          "index": 10,
+          "default": 0.47999998927116394
+        },
+        {
+          "name": "amp",
+          "index": 11,
+          "default": 1
+        }
+      ],
+      "ugens": [
+        "BPF",
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "Impulse",
+        "Lag",
+        "LeakDC",
+        "Limiter",
+        "LinExp",
+        "MulAdd",
+        "Out",
+        "SinOsc",
+        "UnaryOpUGen",
+        "WhiteNoise"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 1,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.014499999582767,
+            "max": 0.05,
+            "min": 0.0001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 250,
+            "max": 400,
+            "min": 100,
+            "name": "carrier",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 4,
+            "max": 4,
+            "min": -8,
+            "name": "curve",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.090999998152256,
+            "max": 0.5,
+            "min": 0.003,
+            "name": "decay",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.75,
+            "max": 1,
+            "min": 0,
+            "name": "intensity",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 1,
+            "max": 6,
+            "min": 1,
+            "name": "overdrive",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 2.4000000953674,
+            "max": 16,
+            "min": 0.5,
+            "name": "rate",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.47999998927116,
+            "max": 1,
+            "min": 0,
+            "name": "sharpness",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.37999999523163,
+            "max": 1,
+            "min": 0,
+            "name": "transient",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_tm_voice",
+      "file": "ssp_tm_voice.scsyndef",
+      "bytes": 946,
+      "sha256": "20c78b7ee689333c876d3dc944e610f5881979dbde8b65cf28587f5b9c1c8fa5",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 440
+        },
+        {
+          "name": "gate",
+          "index": 2,
+          "default": 1
+        },
+        {
+          "name": "amp",
+          "index": 3,
+          "default": 0.800000011920929
+        },
+        {
+          "name": "filtFreq",
+          "index": 4,
+          "default": 2000
+        },
+        {
+          "name": "filtRes",
+          "index": 5,
+          "default": 0.30000001192092896
+        },
+        {
+          "name": "envAtk",
+          "index": 6,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "envDec",
+          "index": 7,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "envSus",
+          "index": 8,
+          "default": 0.699999988079071
+        },
+        {
+          "name": "envRel",
+          "index": 9,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "pan",
+          "index": 10,
+          "default": 0
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Control",
+        "EnvGen",
+        "Out",
+        "Pan2",
+        "Pulse",
+        "RLPF",
+        "Saw",
+        "SinOsc",
+        "Sum3",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.80000001192093,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 0.0099999997764826,
+            "max": 0.2,
+            "min": 0.001,
+            "name": "envAtk",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 1,
+            "min": 0.01,
+            "name": "envDec",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.20000000298023,
+            "max": 4,
+            "min": 0.02,
+            "name": "envRel",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.69999998807907,
+            "max": 1,
+            "min": 0,
+            "name": "envSus",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 2000,
+            "max": 14000,
+            "min": 50,
+            "name": "filtFreq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.30000001192093,
+            "max": 1,
+            "min": 0.1,
+            "name": "filtRes",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 440,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ssp_touch",
+      "file": "ssp_touch.scsyndef",
+      "bytes": 962,
+      "sha256": "c4bd6b320ba4d574289c5842014d0e871f61c550f34eb77fa74a499dd59a5ee7",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "freq",
+          "index": 1,
+          "default": 220
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.20000000298023224
+        },
+        {
+          "name": "pan",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 4,
+          "default": 1
+        },
+        {
+          "name": "cutoff",
+          "index": 5,
+          "default": 1800
+        },
+        {
+          "name": "rq",
+          "index": 6,
+          "default": 0.5
+        },
+        {
+          "name": "detune",
+          "index": 7,
+          "default": 8
+        },
+        {
+          "name": "attack",
+          "index": 8,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "release",
+          "index": 9,
+          "default": 0.4000000059604645
+        }
+      ],
+      "ugens": [
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "EnvGen",
+        "Out",
+        "Pan2",
+        "RLPF",
+        "Saw",
+        "UnaryOpUGen"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.0099999997764826,
+            "max": 1,
+            "min": 0.001,
+            "name": "attack",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 1800,
+            "max": 12000,
+            "min": 80,
+            "name": "cutoff",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 8,
+            "max": 40,
+            "min": 0,
+            "name": "detune",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0.40000000596046,
+            "max": 3,
+            "min": 0.02,
+            "name": "release",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.5,
+            "max": 1,
+            "min": 0.08,
+            "name": "rq",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 0.20000000298023,
+            "name": "amp"
+          },
+          {
+            "default": 220,
+            "name": "freq"
+          },
+          {
+            "default": 1,
+            "name": "gate"
+          },
+          {
+            "default": 0,
+            "name": "pan"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.10000000149012,
+      "max": 0.3,
+      "min": 0.02,
+      "name": "dur",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": 0,
+      "name": "level",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0,
+      "max": 2,
+      "min": -1,
+      "name": "octaveShift",
+      "step": 1,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

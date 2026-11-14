@@ -1,0 +1,106 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 1,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 0.014499999582767,
+      "max": 0.05,
+      "min": 0.0001,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 250,
+      "max": 400,
+      "min": 100,
+      "name": "carrier",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 4,
+      "max": 4,
+      "min": -8,
+      "name": "curve",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.090999998152256,
+      "max": 0.5,
+      "min": 0.003,
+      "name": "decay",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.75,
+      "max": 1,
+      "min": 0,
+      "name": "intensity",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 1,
+      "max": 6,
+      "min": 1,
+      "name": "overdrive",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 2.4000000953674,
+      "max": 16,
+      "min": 0.5,
+      "name": "rate",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.47999998927116,
+      "max": 1,
+      "min": 0,
+      "name": "sharpness",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.37999999523163,
+      "max": 1,
+      "min": 0,
+      "name": "transient",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.079999998211861,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 1.5,
+      "max": 4,
+      "min": 0,
+      "name": "beat",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 600,
+      "max": 8000,
+      "min": 120,
+      "name": "cutoff",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 146.83000183105,
+      "max": 440,
+      "min": 55,
+      "name": "freq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 2,
+      "max": 8,
+      "min": 0.05,
+      "name": "lag",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": -1,
+      "name": "pan",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.30000001192093,
+      "max": 4,
+      "min": 0.02,
+      "name": "turn",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

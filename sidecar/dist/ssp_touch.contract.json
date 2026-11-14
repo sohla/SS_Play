@@ -1,0 +1,73 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.0099999997764826,
+      "max": 1,
+      "min": 0.001,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 1800,
+      "max": 12000,
+      "min": 80,
+      "name": "cutoff",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 8,
+      "max": 40,
+      "min": 0,
+      "name": "detune",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.40000000596046,
+      "max": 3,
+      "min": 0.02,
+      "name": "release",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.5,
+      "max": 1,
+      "min": 0.08,
+      "name": "rq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 0.20000000298023,
+      "name": "amp"
+    },
+    {
+      "default": 220,
+      "name": "freq"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "pan"
+    }
+  ]
+}

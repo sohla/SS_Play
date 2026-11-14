@@ -1,0 +1,87 @@
+{
+  "frozen": [],
+  "specs": [
+    {
+      "default": 0.20000000298023,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 0.0020000000949949,
+      "max": 2,
+      "min": 0.001,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 440,
+      "max": 2000,
+      "min": 20,
+      "name": "freq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": -1,
+      "name": "pan",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 1,
+      "max": 4,
+      "min": 0.25,
+      "name": "rate",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 1.2000000476837,
+      "max": 6,
+      "min": 0.01,
+      "name": "release",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": 0,
+      "name": "start",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.20000000298023,
+      "max": 4,
+      "min": 0.01,
+      "name": "sustain",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 0,
+      "name": "bufnum"
+    },
+    {
+      "default": 0,
+      "name": "out"
+    }
+  ]
+}

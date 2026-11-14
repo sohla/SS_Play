@@ -1,0 +1,144 @@
+{
+  "frozen": [],
+  "specs": [
+    {
+      "default": 0.003000000026077,
+      "max": 0.5,
+      "min": 0.001,
+      "name": "atk",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": -2,
+      "max": 8,
+      "min": -8,
+      "name": "crv",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.20000000298023,
+      "max": 2,
+      "min": 0.01,
+      "name": "dec",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 1.0030000209808,
+      "max": 1.02,
+      "min": 1,
+      "name": "detune",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 2,
+      "max": 4,
+      "min": 0,
+      "name": "fbDepth",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 900,
+      "max": 4000,
+      "min": 100,
+      "name": "ffreq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.60000002384186,
+      "max": 4,
+      "min": 0,
+      "name": "growl",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.079999998211861,
+      "max": 1,
+      "min": 0.005,
+      "name": "growlLag",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 3,
+      "max": 24,
+      "min": 1,
+      "name": "harm",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 1.3999999761581,
+      "max": 4,
+      "min": 0.01,
+      "name": "harmLag",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 1.2000000476837,
+      "max": 4,
+      "min": 0.05,
+      "name": "rel",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.40000000596046,
+      "max": 1,
+      "min": 0.05,
+      "name": "rq",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.10000000149012,
+      "max": 1,
+      "min": 0,
+      "name": "sus",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 0.20000000298023,
+      "name": "amp"
+    },
+    {
+      "default": 45,
+      "name": "freq"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "out"
+    },
+    {
+      "default": 0,
+      "name": "pan"
+    }
+  ]
+}

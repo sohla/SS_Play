@@ -2044,3 +2044,19 @@ nothing about whether it works.
 - Not walked with a phone. GPS indoors is often 20–50m, which swamps a 10–30m target.
 - The compass is magnetic north, about 11° off true here; Android's `360 − alpha` assumes portrait.
 - Altitude, speed and course are often absent, especially on iOS when standing still.
+
+---
+
+## 2026-11-14 — `sidecar/dist/` is in git
+
+### Done
+
+- `.gitignore`'s blanket `dist/` had kept the compiled SynthDefs out of git since Phase 0, though
+  `SIDECAR.md` and `sidecar-dist.test.ts` both say they are committed. A fresh clone could not build
+  a page until `sc:build && sc:promote` had run, and CI has no sclang to run them. Now excepted with
+  `!sidecar/dist/` and committed: 29 defs, their contracts and the manifest, 312KB.
+
+### Verified
+
+- `sidecar/synthdefs/*.scd` and `sidecar/dist/*.scsyndef` name the same 29 defs; `sc:manifest`
+  reports dist up to date. A fresh clone carries all 59 files.

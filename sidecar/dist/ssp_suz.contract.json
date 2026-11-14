@@ -1,0 +1,59 @@
+{
+  "frozen": [],
+  "specs": [
+    {
+      "default": 0.0010000000474975,
+      "max": 0.05,
+      "min": 0.001,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.10000000149012,
+      "max": 2,
+      "min": 0.005,
+      "name": "decay",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.58999997377396,
+      "max": 2,
+      "min": 0.002,
+      "name": "release",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.10000000149012,
+      "max": 1,
+      "min": 0,
+      "name": "susLevel",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 0.80000001192093,
+      "name": "amp"
+    },
+    {
+      "default": 440,
+      "name": "freq"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "out"
+    }
+  ]
+}

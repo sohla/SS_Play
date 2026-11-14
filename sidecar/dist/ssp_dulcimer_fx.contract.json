@@ -1,0 +1,64 @@
+{
+  "frozen": [],
+  "specs": [
+    {
+      "default": 1,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 0.20000000298023,
+      "max": 1,
+      "min": 0,
+      "name": "damp",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0.10000000149012,
+      "max": 1,
+      "min": 0,
+      "name": "mix",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 1.3999999761581,
+      "max": 6,
+      "min": 0.05,
+      "name": "release",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 1.1200000047684,
+      "max": 2,
+      "min": 0,
+      "name": "room",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "in"
+    },
+    {
+      "default": 0,
+      "name": "out"
+    }
+  ]
+}

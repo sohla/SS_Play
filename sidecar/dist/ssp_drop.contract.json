@@ -1,0 +1,52 @@
+{
+  "frozen": [],
+  "specs": [
+    {
+      "default": 0.0010000000474975,
+      "max": 0.05,
+      "min": 0.0005,
+      "name": "attack",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 0.80000001192093,
+      "name": "amp"
+    },
+    {
+      "default": 0.050000000745058,
+      "name": "decay"
+    },
+    {
+      "default": 3000,
+      "name": "filterFreq"
+    },
+    {
+      "default": 1,
+      "name": "filterRQ"
+    },
+    {
+      "default": 1000,
+      "name": "freq"
+    },
+    {
+      "default": 1,
+      "name": "gate"
+    },
+    {
+      "default": 0,
+      "name": "out"
+    },
+    {
+      "default": 0,
+      "name": "pan"
+    },
+    {
+      "default": 10,
+      "name": "wobble"
+    }
+  ]
+}
