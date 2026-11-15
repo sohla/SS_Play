@@ -199,7 +199,9 @@ test('version A: a refused microphone carries on as version B', async ({ page })
 
   await expect(page.locator('[data-testid=progress]')).toHaveText('Step 5 of 7')
   await expect(button(page, 'Play')).toBeVisible()
-  await expect(page.getByText('not from headphones')).toBeVisible()
+  // Each sentence is on the page twice: whole, for screen readers, and as the
+  // narrator's animated words. The whole one is what a screen reader reads.
+  await expect(page.locator('.sr-only', { hasText: 'not from headphones' })).toHaveCount(1)
 })
 
 test('the chime rings and decays, loud without clipping', async ({ page }) => {
@@ -238,4 +240,66 @@ test('the chime rings and decays, loud without clipping', async ({ page }) => {
   // Decays: between chimes it falls well below its peak, rather than holding
   // like the old beep.
   expect(quietest).toBeLessThan(loudest * 0.5)
+})
+
+/** A voice that sends word events, as on-device iPhone voices do. */
+function wordyVoice() {
+  class FakeUtterance {
+    text: string
+    voice: unknown = null
+    lang = ''
+    volume = 1
+    onstart: (() => void) | null = null
+    onboundary: ((event: { name: string; charIndex: number }) => void) | null = null
+    onend: (() => void) | null = null
+    onerror: (() => void) | null = null
+    constructor(text: string) {
+      this.text = text
+    }
+  }
+  const spoken: string[] = []
+  ;(window as unknown as { spoken: string[] }).spoken = spoken
+  Object.defineProperty(window, 'SpeechSynthesisUtterance', { value: FakeUtterance })
+  Object.defineProperty(window, 'speechSynthesis', {
+    value: {
+      getVoices: () => [],
+      cancel() {},
+      speak(utterance: FakeUtterance) {
+        spoken.push(utterance.text)
+        setTimeout(() => utterance.onstart?.(), 20)
+        const starts = [...utterance.text.matchAll(/\S+/g)].map((match) => match.index!)
+        starts.forEach((charIndex, n) =>
+          setTimeout(() => utterance.onboundary?.({ name: 'word', charIndex }), 40 + n * 250),
+        )
+        setTimeout(() => utterance.onend?.(), 60 + starts.length * 250)
+      },
+    },
+  })
+}
+
+test('each screen is read aloud, and the word being said is lit', async ({ page }) => {
+  await page.addInitScript(wordyVoice)
+  await page.goto(TWO)
+  await button(page, 'Start').click()
+
+  // The next screen speaks itself, all of it, as one sentence run.
+  await expect.poll(() => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.join(' | ')))
+    .toContain('Put the sound on the speaker Turn off Bluetooth and unplug any headphones.')
+
+  // And lights its words in order as the voice reaches them.
+  const lit = new Set<string>()
+  for (let n = 0; n < 12; n++) {
+    const word = await page.locator('[data-current=yes]').textContent().catch(() => null)
+    if (word) lit.add(word)
+    await page.waitForTimeout(200)
+  }
+  expect([...lit]).toEqual(expect.arrayContaining(['Put', 'sound']))
+
+  // Turned off, the next screen is silent.
+  await page.getByTestId('narrator-toggle').click()
+  await expect(page.getByTestId('narrator-toggle')).toHaveAttribute('aria-pressed', 'false')
+  const before = await page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.length)
+  await button(page, 'Next').click()
+  await page.waitForTimeout(600)
+  expect(await page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.length)).toBe(before)
 })

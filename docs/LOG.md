@@ -2132,3 +2132,35 @@ nothing about whether it works.
 
 - Whether "playback" keeps B on the loudspeaker on a real iPhone, and whether A ever gets the
   speaker back after its microphone closes. The spec still says "about three-quarters" in step 2.
+
+---
+
+## 2026-11-15 — onboarding: every screen read aloud, word by word
+
+### Done
+
+- `narration.tsx`: each screen speaks its own text through the browser voice from the Start tap
+  on, and lights each word as it is said — the word grows a tenth, lifts, and fills with the
+  group's colour; words still to come dim while it speaks. Follows the voice's word events where
+  it sends them, an estimate from word length and punctuation where it does not (`words.ts`), so
+  it always moves. "Hear again" under every screen, with bars that dance while it talks.
+- Fix lists are read aloud when they appear. Version A's voice check is the screen's own narration,
+  measured; B's Play says the line, lit.
+- Version A's room and tone measurements now wait for the narrator to finish: measured during
+  "stay quiet", the narrator would be the room, and the tone could never clear it. The volume
+  step's chime waits too, so the two are not heard on top of each other.
+- Accessibility: screen readers get each sentence whole and the animated words are hidden from
+  them; a narrator switch (remembered for the session) so a VoiceOver or TalkBack user is not
+  read to twice; with reduced motion the word changes colour and does not move.
+
+### Verified
+
+- `vitest` 1459 passed (3 new for the word map). e2e `onboard` (7), `site`, `mobile`: a screen is
+  spoken whole and lit in order; the switch silences the next screen; both versions still run
+  start to ready, A measuring after the narrator.
+- Screenshots at phone size: the first version's pill (scale 1.18, 3px ring) swallowed the space
+  before it. Now 1.1, no ring, and every word carries its own padding so nothing reflows.
+
+### Open
+
+- How real voices pace against the estimate, and which phones send word events.

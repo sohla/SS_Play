@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { HeldVoice, ctl, i, type Session } from '@ss/engine'
 import { requestMotion, watchMotion } from '@ss/motion'
 import { useOscTap, useSuperSonic } from '@ss/react'
 import { EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
-import { audioSession, canSpeak, keepAwake, narrate, platformOf, unlockVoice, type Platform } from './device.ts'
+import { audioSession, hush, keepAwake, platformOf, unlockVoice, type Platform } from './device.ts'
 import {
   needsFacilitator,
   noiseDb,
@@ -17,6 +17,15 @@ import {
   type Version,
 } from './flow.ts'
 import { groupFor, type Group } from './groups.ts'
+import {
+  HearAgain,
+  NarrationStyles,
+  NarratorContext,
+  NarratorToggle,
+  useNarration,
+  type Narration,
+} from './narration.tsx'
+import type { Part } from './words.ts'
 
 /**
  * The phone onboarding test, both versions. See
@@ -25,7 +34,9 @@ import { groupFor, type Group } from './groups.ts'
  *
  * Sound uses only what the repo already has: Sonic Pi's `pretty_bell` is the chime, and
  * `ssp_mic_follow` — the `/mic/` page's level follower — reports the
- * microphone's level for Version A. The narrator is the browser's own voice.
+ * microphone's level for Version A. The narrator is the browser's own voice,
+ * and it reads every screen aloud with the words lighting as they are said —
+ * see `narration.tsx`.
  */
 
 /** The tone check's margin over the room. The spec says start at 15 and tune at rehearsal: `?margin=12`. */
@@ -50,6 +61,7 @@ const UNUSED_BUS = 10
 /** `shakeRaw` above this is a shake. */
 const SHAKE = 0.3
 const SHAKE_WINDOW_MS = 10_000
+const NARRATOR_KEY = 'ss-onboard-narrator'
 
 const CONSTRAINTS: MediaStreamConstraints = {
   // All off, per the spec: echo cancellation would remove the phone's own
@@ -86,6 +98,27 @@ export function Onboarding({ version }: { version: Version }) {
 
   // What a screen reader says when a step passes or fails.
   const [announcement, setAnnouncement] = useState('')
+
+  // The narrator: on unless the person turns it off, and silent until the
+  // Start tap has unlocked speech on iOS.
+  const [narratorOn, setNarratorOn] = useState(() => {
+    try {
+      return sessionStorage.getItem(NARRATOR_KEY) !== 'off'
+    } catch {
+      return true
+    }
+  })
+  const [unlocked, setUnlocked] = useState(false)
+  const narrator = useMemo(() => ({ on: narratorOn, unlocked }), [narratorOn, unlocked])
+  const toggleNarrator = (on: boolean) => {
+    setNarratorOn(on)
+    if (!on) hush()
+    try {
+      sessionStorage.setItem(NARRATOR_KEY, on ? 'on' : 'off')
+    } catch {
+      // Not remembered, then.
+    }
+  }
 
   // Version A's microphone, and the room's noise once measured.
   const stream = useRef<MediaStream | null>(null)
@@ -157,16 +190,29 @@ export function Onboarding({ version }: { version: Version }) {
   }
 
   return (
-    <main className="ak flex min-h-dvh flex-col text-base">
+    <NarratorContext.Provider value={narrator}>
+    <main
+      className="ak flex min-h-dvh flex-col text-base"
+      style={{ '--group': group.colour } as CSSProperties}
+    >
+      <NarrationStyles />
       <PageHeader title={version === 'A' ? 'onboard one' : 'onboard two'} />
       <GroupBand group={group} big={flow.step === 'ready'} />
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
-        {flow.step !== 'ready' ? (
-          <p className="ak-label text-base" data-testid="progress">
-            Step {progress(flow).at} of {progress(flow).of}
-          </p>
-        ) : null}
+        <div className="flex items-center justify-between gap-3">
+          {flow.step !== 'ready' ? (
+            <p className="ak-label text-base" data-testid="progress">
+              Step {progress(flow).at} of {progress(flow).of}
+            </p>
+          ) : (
+            <span />
+          )}
+          <NarratorToggle on={narratorOn} onChange={toggleNarrator} />
+        </div>
+
+        {/* A fresh screen gets fresh state, and its own narration. */}
+        <div key={flow.step} className="flex flex-col gap-5">
 
         {flow.step === 'start' ? (
           <Start
@@ -176,6 +222,7 @@ export function Onboarding({ version }: { version: Version }) {
               // microphone is open.
               audioSession('playback')
               unlockVoice()
+              setUnlocked(true)
               boot()
             }}
           />
@@ -206,6 +253,7 @@ export function Onboarding({ version }: { version: Version }) {
         ) : (
           <Ready {...shared} />
         )}
+        </div>
 
         {status.phase === 'failed' && flow.step !== 'start' && flow.step !== 'ready' ? (
           <p className="rounded border border-red-900 bg-red-950/40 p-3 text-base text-red-300">
@@ -225,6 +273,7 @@ export function Onboarding({ version }: { version: Version }) {
       {booted ? <EngineFooter /> : null}
       <SourceFooter />
     </main>
+    </NarratorContext.Provider>
   )
 }
 
@@ -240,6 +289,11 @@ interface StepProps {
   level: { current: number }
   room: { current: number }
 }
+
+const heading = (text: string): Part => ({ kind: 'heading', text })
+const say = (text: string): Part => ({ kind: 'say', text })
+const item = (text: string): Part => ({ kind: 'item', text })
+const quote = (text: string): Part => ({ kind: 'quote', text })
 
 function GroupBand({ group, big }: { group: Group; big: boolean }) {
   return (
@@ -265,12 +319,14 @@ function Symbol({ group, size }: { group: Group; size: number }) {
   )
 }
 
-function Heading({ children }: { children: ReactNode }) {
-  return <h1 className="text-2xl font-semibold text-neutral-100">{children}</h1>
-}
-
-function Say({ children }: { children: ReactNode }) {
-  return <p className="text-lg text-neutral-200">{children}</p>
+/** A screen's words, spoken and lit, with "Hear again" under them. */
+function Script({ narration }: { narration: Narration }) {
+  return (
+    <>
+      {narration.view}
+      <HearAgain narration={narration} />
+    </>
+  )
 }
 
 function Primary({ children, onClick, disabled = false }: { children: ReactNode; onClick(): void; disabled?: boolean }) {
@@ -279,7 +335,7 @@ function Primary({ children, onClick, disabled = false }: { children: ReactNode;
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="min-h-14 rounded bg-[var(--ak-accent)] px-5 text-lg font-semibold text-black disabled:opacity-40"
+      className="min-h-14 rounded bg-[var(--ak-accent)] px-5 text-lg font-semibold text-black transition-transform active:scale-95 disabled:opacity-40"
     >
       {children}
     </button>
@@ -291,7 +347,7 @@ function Secondary({ children, onClick }: { children: ReactNode; onClick(): void
     <button
       type="button"
       onClick={onClick}
-      className="ak-panel min-h-12 rounded border px-4 text-base text-neutral-200"
+      className="ak-panel min-h-12 rounded border px-4 text-base text-neutral-200 transition-transform active:scale-95"
     >
       {children}
     </button>
@@ -301,21 +357,21 @@ function Secondary({ children, onClick }: { children: ReactNode; onClick(): void
 function Tick({ children }: { children: ReactNode }) {
   return (
     <p className="text-xl font-semibold text-green-400" data-testid="tick">
-      <span aria-hidden="true">✓ </span>
+      <span aria-hidden="true" className="inline-block motion-safe:animate-bounce">
+        ✓{' '}
+      </span>
       {children}
     </p>
   )
 }
 
-/** Fixes for a failure, then — after two — the facilitator and a way on. */
+/** Fixes for a failure, read aloud too, then — after two — the facilitator and a way on. */
 function Fixes({ flow, lines, act, skipLabel }: { flow: Flow; lines: string[]; act: StepProps['act']; skipLabel: string }) {
+  const narration = useNarration(lines.map(item))
   return (
     <div className="flex flex-col gap-3 rounded border border-amber-900 bg-amber-950/40 p-4" data-testid="fixes">
-      <ul className="flex list-disc flex-col gap-2 pl-5 text-base text-amber-200">
-        {lines.map((line) => (
-          <li key={line}>{line}</li>
-        ))}
-      </ul>
+      {narration.view}
+      <HearAgain narration={narration} />
       {needsFacilitator(flow) ? (
         <div className="flex flex-col gap-2">
           <p className="text-lg font-semibold text-amber-200" data-testid="facilitator">
@@ -369,7 +425,7 @@ function usePass(act: StepProps['act'], label: string) {
   return [passed, pass] as const
 }
 
-/** The tone pulsing once a second while `on`, calling `onPulse` with each start time. */
+/** The chime once a second while `on`, calling `onPulse` with each start time. */
 function usePulses(on: boolean, engine: StepProps['engine'], onPulse?: (at: number) => void) {
   const latest = useRef(onPulse)
   latest.current = onPulse
@@ -390,10 +446,14 @@ function usePulses(on: boolean, engine: StepProps['engine'], onPulse?: (at: numb
 // ---------------------------------------------------------------- steps
 
 function Start({ group, act, onStart }: StepProps & { onStart(): void }) {
+  // Before the tap nothing can speak on iPhone, so this one is only read.
+  const narration = useNarration([
+    heading(`Hello, ${group.name}.`),
+    say('Let’s get your phone ready. It takes about two minutes, and I’ll talk you through it.'),
+  ])
   return (
     <>
-      <Heading>Hello, {group.name}.</Heading>
-      <Say>Let&rsquo;s get your phone ready. It takes about two minutes.</Say>
+      {narration.view}
       <Primary
         onClick={() => {
           onStart()
@@ -407,18 +467,17 @@ function Start({ group, act, onStart }: StepProps & { onStart(): void }) {
 }
 
 function Speaker({ platform, act }: StepProps) {
+  const narration = useNarration([
+    heading('Put the sound on the speaker'),
+    item('Turn off Bluetooth and unplug any headphones.'),
+    ...(platform !== 'android' ? [item('iPhone: switch silent mode off.')] : []),
+    platform === 'android'
+      ? item('Press a volume button and check the media volume.')
+      : item('Hold the phone with the screen facing you: the sound should come from the bottom edge, not the earpiece at the top.'),
+  ])
   return (
     <>
-      <Heading>Put the sound on the speaker</Heading>
-      <ul className="flex list-disc flex-col gap-3 pl-5 text-lg text-neutral-200">
-        <li>Turn off Bluetooth and unplug any headphones.</li>
-        {platform !== 'android' ? <li>iPhone: switch silent mode off.</li> : null}
-        {platform === 'android' ? (
-          <li>Press a volume button and check the media volume.</li>
-        ) : (
-          <li>Hold the phone with the screen facing you: the sound should come from the bottom edge, not the earpiece at the top.</li>
-        )}
-      </ul>
+      <Script narration={narration} />
       <Primary onClick={() => act({ type: 'next' })}>Next</Primary>
     </>
   )
@@ -428,22 +487,24 @@ function Speaker({ platform, act }: StepProps) {
  * Volume up, all the way. No web API can read or set the phone's volume — on
  * iOS a page always reads it as full — so the page plays the chime and asks.
  * The chime matters: on iPhone the volume buttons only change media volume
- * while the page is making sound.
+ * while the page is making sound. It starts once the narrator has finished, so
+ * the two are not heard on top of each other.
  */
 function Volume({ platform, act, engine, booted }: StepProps) {
-  usePulses(booted, engine)
+  const narration = useNarration([
+    heading('Turn the volume up full'),
+    say('You’ll hear a soft chime.'),
+    item(
+      platform === 'android'
+        ? 'Press the volume-up button until the media volume is at the top.'
+        : 'Press the volume-up button on the side until it will not go any higher.',
+    ),
+    item('The chime should come from the bottom edge of the phone, not the earpiece at the top.'),
+  ])
+  usePulses(booted && narration.done && !narration.speaking, engine)
   return (
     <>
-      <Heading>Turn the volume up full</Heading>
-      <Say>You&rsquo;ll hear a soft chime.</Say>
-      <ul className="flex list-disc flex-col gap-3 pl-5 text-lg text-neutral-200">
-        <li>
-          {platform === 'android'
-            ? 'Press the volume-up button until the media volume is at the top.'
-            : 'Press the volume-up button on the side until it will not go any higher.'}
-        </li>
-        <li>The chime should come from the bottom edge of the phone, not the earpiece at the top.</li>
-      </ul>
+      <Script narration={narration} />
       <Primary onClick={() => act({ type: 'next' }, 'Volume set')}>Volume is full</Primary>
     </>
   )
@@ -451,12 +512,27 @@ function Volume({ platform, act, engine, booted }: StepProps) {
 
 function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStream): void }) {
   const [refused, setRefused] = useState(false)
+  const narration = useNarration([
+    heading('Allow the microphone'),
+    say(
+      'To check your speaker is loud enough, the page listens for a short sound that it plays itself. It keeps only the loudness, nothing is recorded or sent.',
+    ),
+  ])
+  const refusal = useNarration(
+    [
+      say(
+        'No problem. If no prompt appeared, the microphone may be blocked: open the page’s site settings and allow it, or continue without it.',
+      ),
+    ],
+    { auto: refused },
+  )
 
   const ask = () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setRefused(true)
       return
     }
+    hush()
     // Before the microphone opens, as the WebKit workaround has it.
     audioSession('play-and-record')
     navigator.mediaDevices.getUserMedia(CONSTRAINTS).then(
@@ -474,17 +550,10 @@ function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStre
 
   return (
     <>
-      <Heading>Allow the microphone</Heading>
-      <Say>
-        To check your speaker is loud enough, the page listens for a short sound that it plays
-        itself. It keeps only the loudness, nothing is recorded or sent.
-      </Say>
+      <Script narration={narration} />
       {refused ? (
         <div className="flex flex-col gap-3 rounded border border-amber-900 bg-amber-950/40 p-4" data-testid="fixes">
-          <p className="text-base text-amber-200">
-            No problem. If no prompt appeared, the microphone may be blocked: open the page&rsquo;s
-            site settings and allow it, or continue without it.
-          </p>
+          {refusal.view}
           {needsFacilitator(flow) ? (
             <p className="text-lg font-semibold text-amber-200">Ask a facilitator</p>
           ) : null}
@@ -500,8 +569,17 @@ function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStre
   )
 }
 
+/**
+ * The room's noise, measured once the narrator has stopped talking — measured
+ * during "stay quiet", the narrator would be the room, and the tone could
+ * never clear it.
+ */
 function Quiet({ act, level, room }: StepProps) {
+  const narration = useNarration([heading('Quiet first'), say('Stay quiet for a moment.')])
+  const ready = narration.done && !narration.speaking
+
   useEffect(() => {
+    if (!ready) return
     const readings: number[] = []
     const sampling = setInterval(() => readings.push(toDb(level.current)), 50)
     const done = setTimeout(() => {
@@ -513,13 +591,14 @@ function Quiet({ act, level, room }: StepProps) {
       clearInterval(sampling)
       clearTimeout(done)
     }
-  }, [act, level, room])
+  }, [ready, act, level, room])
 
   return (
     <>
-      <Heading>Quiet first</Heading>
-      <Say>Stay quiet for a moment.</Say>
-      <p className="ss-waiting ak-panel rounded border p-3 text-base">Listening to the room…</p>
+      {narration.view}
+      <p className="ss-waiting ak-panel rounded border p-3 text-base">
+        {ready ? 'Listening to the room…' : 'Getting ready to listen…'}
+      </p>
     </>
   )
 }
@@ -528,9 +607,14 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
   const [passed, pass] = usePass(act, 'Sound')
   const peaks = useRef<number[]>([])
   const sinceTry = useRef(0)
+  const narration = useNarration([
+    heading('Tone check'),
+    say('You’ll hear a soft chime. Turn your volume up until the bar passes the line.'),
+  ])
 
-  // After each pulse, its loudest reading while it sounded.
-  usePulses(booted && !passed, engine, () => {
+  // After each chime, its loudest reading — only once the narrator is quiet,
+  // or the voice would pass the check for it.
+  usePulses(booted && !passed && narration.done && !narration.speaking, engine, () => {
     let loudest = -100
     const watching = setInterval(() => (loudest = Math.max(loudest, toDb(level.current))), 25)
     setTimeout(() => {
@@ -564,10 +648,9 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
 
   return (
     <>
-      <Heading>Tone check</Heading>
-      <Say>You&rsquo;ll hear a soft pulsing tone. Turn your volume up until the bar passes the line.</Say>
+      <Script narration={narration} />
       <div className="ak-panel relative h-10 overflow-hidden rounded border" aria-hidden="true">
-        <div ref={bar} className="h-full bg-[var(--ak-accent)]" style={{ width: '0%' }} data-testid="tone-bar" />
+        <div ref={bar} className="h-full bg-[var(--group)]" style={{ width: '0%' }} data-testid="tone-bar" />
         <div className="absolute top-0 h-full w-1 bg-white" style={{ left: `${(1 / 1.6) * 100}%` }} />
       </div>
       {passed ? <Tick>Loud enough</Tick> : null}
@@ -584,19 +667,28 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
 function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
   const [playing, setPlaying] = useState(false)
   const [passed, pass] = usePass(act, 'Sound')
+  const narration = useNarration([
+    heading('Tone check'),
+    say(
+      'Press Play. You’ll hear a soft chime. Hold your phone at arm’s length: can you hear it clearly from the phone’s speaker, not from headphones?',
+    ),
+  ])
   usePulses(booted && playing && !passed, engine)
 
   return (
     <>
-      <Heading>Tone check</Heading>
-      <Say>
-        Press Play. You&rsquo;ll hear a soft tone. Hold your phone at arm&rsquo;s length: can you
-        hear it clearly from the phone&rsquo;s speaker, not from headphones?
-      </Say>
+      <Script narration={narration} />
       {passed ? (
         <Tick>Sound is on the speaker</Tick>
       ) : !playing ? (
-        <Primary onClick={() => setPlaying(true)}>Play</Primary>
+        <Primary
+          onClick={() => {
+            hush()
+            setPlaying(true)
+          }}
+        >
+          Play
+        </Primary>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <Primary
@@ -628,61 +720,61 @@ function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
 }
 
 /**
- * The narrator. Measured (A): it plays on arrival, and passes if the
- * microphone rose over the room while it spoke — otherwise, or if the phone
- * has no voice at all, it falls back to asking. Asked (B): Play, then Yes or No.
+ * The voice check, where the narrator is the test.
+ *
+ * Measured (A): the screen reads itself and then says the line, and passes if
+ * the microphone rose over the room while it spoke — otherwise, or if the
+ * phone has no voice at all, it asks. It speaks even with the narrator off,
+ * because without speech there is nothing to check.
+ *
+ * Asked (B): the screen reads its instructions; Play says the line, lit word
+ * by word; then Yes or No.
  */
 function Voice({ flow, platform, act, level, room, measured }: StepProps & { measured: boolean }) {
   const [passed, pass] = usePass(act, 'Voice')
   const [asking, setAsking] = useState(!measured)
+  const loudest = useRef(-100)
+  const watching = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const listen = {
+    onStart: () => {
+      loudest.current = -100
+      watching.current = setInterval(() => (loudest.current = Math.max(loudest.current, toDb(level.current))), 25)
+    },
+    onEnd: (heard: boolean) => {
+      if (watching.current) clearInterval(watching.current)
+      if (!measured) return
+      if (heard && loudest.current - room.current >= VOICE_MARGIN_DB) pass()
+      else setAsking(true)
+    },
+  }
+  useEffect(() => () => void (watching.current && clearInterval(watching.current)), [])
+
+  const instructions = useNarration(
+    measured
+      ? [heading('Voice check'), say('Now you’ll hear the narrator.'), quote('Hello. This is the narrator.')]
+      : [heading('Voice check'), say('Press Play. You’ll hear the narrator say hello. Did you hear a voice from the speaker?')],
+    measured ? { always: true, ...listen } : {},
+  )
+  const line = useNarration([quote('Hello. This is the narrator.')], { auto: false, always: true })
   const [played, setPlayed] = useState(false)
-
-  const play = useCallback(() => {
+  const play = () => {
     setPlayed(true)
-    if (!canSpeak()) {
-      setAsking(true)
-      return
-    }
-    let loudest = -100
-    let watching: ReturnType<typeof setInterval> | null = null
-    // A voice that never starts is a phone with no speech, or a muted one.
-    const silent = setTimeout(() => setAsking(true), 5000)
-    narrate('Hello. This is the narrator.', {
-      onStart: () => {
-        clearTimeout(silent)
-        watching = setInterval(() => (loudest = Math.max(loudest, toDb(level.current))), 25)
-      },
-      onEnd: () => {
-        clearTimeout(silent)
-        if (watching) clearInterval(watching)
-        if (!measured) return
-        if (loudest - room.current >= VOICE_MARGIN_DB) pass()
-        else setAsking(true)
-      },
-    })
-  }, [level, room, measured, pass])
-
-  useEffect(() => {
-    if (measured) play()
-    // Once, on arrival.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (measured) instructions.play()
+    else line.play()
+  }
 
   return (
     <>
-      <Heading>Voice check</Heading>
-      <Say>
-        {measured
-          ? 'Now you’ll hear the narrator.'
-          : 'Press Play. You’ll hear the narrator say hello. Did you hear a voice from the speaker?'}
-      </Say>
+      {instructions.view}
+      {!measured && played ? line.view : null}
       {passed ? (
         <Tick>Voice heard</Tick>
       ) : !asking ? (
         <p className="ss-waiting ak-panel rounded border p-3 text-base">Listening for the narrator…</p>
       ) : (
         <>
-          {measured ? <Say>Did you hear a voice?</Say> : null}
+          {measured ? <p className="text-lg text-neutral-200">Did you hear a voice?</p> : null}
           {!played && !measured ? (
             <Primary onClick={play}>Play</Primary>
           ) : (
@@ -714,6 +806,11 @@ function Motion({ flow, group, act }: StepProps) {
   const [watching, setWatching] = useState(false)
   const [passed, pass] = usePass(act, 'Motion')
   const [flash, setFlash] = useState(false)
+  // The words change once motion is allowed, and the new ones are read out.
+  const narration = useNarration([
+    heading('Allow motion, then shake'),
+    say(watching ? 'Shake your phone gently.' : 'Next, your phone feels movement.'),
+  ])
 
   useEffect(() => {
     if (!watching || passed) return
@@ -750,8 +847,7 @@ function Motion({ flow, group, act }: StepProps) {
       {flash ? (
         <div className="pointer-events-none fixed inset-0 z-50" style={{ backgroundColor: group.colour }} data-testid="flash" />
       ) : null}
-      <Heading>Allow motion, then shake</Heading>
-      <Say>{watching ? 'Shake your phone gently.' : 'Next, your phone feels movement.'}</Say>
+      <Script narration={narration} />
       {passed ? (
         <Tick>Movement felt</Tick>
       ) : watching ? (
@@ -777,6 +873,7 @@ function Motion({ flow, group, act }: StepProps) {
 function Ready({ flow }: StepProps) {
   const [awake, setAwake] = useState<boolean | null>(null)
   useEffect(() => keepAwake(setAwake), [])
+  const narration = useNarration([heading('You’re ready.'), say('Keep this screen open and your phone awake.')])
 
   const row = (name: string, outcome: string | null) => (
     <li className="flex justify-between border-b border-[var(--ak-line)] py-2 text-lg" key={name}>
@@ -789,18 +886,15 @@ function Ready({ flow }: StepProps) {
 
   return (
     <>
-      <Heading>
-        <span aria-hidden="true" className="text-green-400">
-          ✓{' '}
-        </span>
-        You&rsquo;re ready.
-      </Heading>
+      <p aria-hidden="true" className="text-5xl text-green-400 motion-safe:animate-bounce">
+        ✓
+      </p>
+      <Script narration={narration} />
       <ul data-testid="results">
         {row('Sound', flow.results.sound)}
         {row('Voice', flow.results.voice)}
         {row('Motion', flow.results.motion)}
       </ul>
-      <Say>Keep this screen open and your phone awake.</Say>
       {awake === false ? (
         <p className="ak-label text-base">
           This browser could not keep the screen on by itself: tap the screen now and then.

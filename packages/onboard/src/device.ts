@@ -44,7 +44,14 @@ function voice(): SpeechSynthesisVoice | null {
   )
 }
 
-export function narrate(text: string, hooks: { onStart?(): void; onEnd?(): void }) {
+export interface NarrationHooks {
+  onStart?(): void
+  /** The character offset of the word now being spoken, where the voice says. */
+  onWord?(charIndex: number): void
+  onEnd?(): void
+}
+
+export function narrate(text: string, hooks: NarrationHooks) {
   if (!canSpeak()) return
   const utterance = new SpeechSynthesisUtterance(text)
   const chosen = voice()
@@ -53,6 +60,10 @@ export function narrate(text: string, hooks: { onStart?(): void; onEnd?(): void 
     utterance.lang = chosen.lang
   }
   utterance.onstart = () => hooks.onStart?.()
+  utterance.onboundary = (event) => {
+    if (event.name && event.name !== 'word') return
+    hooks.onWord?.(event.charIndex)
+  }
   const finish = () => {
     speaking.delete(utterance)
     hooks.onEnd?.()
@@ -126,4 +137,9 @@ export function audioSession(type: 'playback' | 'play-and-record') {
   } catch {
     // An unknown type on an older Safari: nothing to do.
   }
+}
+
+/** Stop whatever the narrator is saying, as when a screen is left mid-sentence. */
+export function hush() {
+  if (canSpeak()) speechSynthesis.cancel()
 }
