@@ -2164,3 +2164,41 @@ nothing about whether it works.
 ### Open
 
 - How real voices pace against the estimate, and which phones send word events.
+
+## 2026-11-15 — onboarding: a line, a chime, a breath
+
+Feedback from a run-through: far too many words, too fast, the highlight started then jumped
+back when the voice began, and the chime never played.
+
+### Why, measured with Chrome's real voice
+
+- **Chime:** it waited for a screen's whole narration to end. Screens took 9 s and more, and a
+  line spoken straight after `cancel()` sat for 11 s before Chrome started it — so the 4 s
+  no-voice fallback started the chime, and the late voice then stopped it again.
+- **Jump back:** the estimated highlight started on the voice's `start` event, which can come
+  well before the sound; the real word events then arrived and moved it back to the first word.
+- **Pace:** one long utterance per screen at the default rate, no pauses.
+
+### Done
+
+- Every part of a screen is its own short line: spoken, then the chime, then 1.6 s, then the
+  next. Wording cut to a few words a line throughout, fixes included.
+- Speech rate 0.85. `cancel()` only when something is talking, and the next line 150 ms after it.
+- Highlight: the first word lights on start; the estimate only takes over if no word event comes
+  within 600 ms; it never moves backwards. Words not yet reached stay dimmed through the pauses.
+- A line cut off (Play pressed, narrator off) ends the sequence rather than chiming on.
+- Version A's voice check: "Listen." with its chime, then the narrator's line alone, unchimed,
+  so the microphone cannot take the chime for the voice.
+
+### Verified
+
+- Real Chrome voice, logged: line → chime → 1.6 s → line throughout Speaker and Volume, no
+  stall between screens, and the volume chimes run on once a second after the last line.
+- `vitest` 1459 passed. e2e `onboard` 7 passed; `site` and `mobile` 40 passed. The fake mic file
+  now holds the room for 6 s and runs 40 s, because the quiet step listens later and the voice
+  step comes later; the step itself correctly fell back to asking when the file looped to quiet.
+
+### Open
+
+- Real phones: iOS pacing, and whether its `start` arrives before the sound as Chrome's can.
+- The spec doc still describes the long wording and lacks the volume step.

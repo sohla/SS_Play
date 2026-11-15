@@ -8,22 +8,23 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { canSpeak, hush, narrate } from './device.ts'
+import { SPEECH_RATE, canSpeak, hush, narrate } from './device.ts'
 import { estimatedTimes, wordAt, wordsOf, type Part } from './words.ts'
 
 /**
- * Every screen reads itself aloud, and lights each word as it is said.
+ * Every screen reads itself aloud, a line at a time, and lights each word as it
+ * is said.
  *
- * Reading and hearing at once is the point: the person may not have the volume
- * up yet, so the text leads, and the voice and the moving highlight make it
- * easy to follow and a little playful. The highlight follows the voice's own
- * word events where it sends them; where it does not, it follows an estimate
- * (see `estimatedTimes`), so it always moves.
+ * The pace is the point: one short line, a chime, a breath, then the next. Each
+ * line is its own utterance, so a slow voice never drags the highlight out of
+ * step for long. The highlight follows the voice's own word events where it
+ * sends them, and an estimate (see `estimatedTimes`) where it does not — held
+ * back a moment, because a voice's `start` can arrive well before its sound and
+ * an estimate started then runs ahead and jumps back.
  *
  * Accessibility, which this has to get right rather than merely survive:
  *
- * - Screen readers get each part's text whole; the animated words are hidden
- *   from them, so nothing is read out one fragment at a time.
+ * - Screen readers get each line whole; the animated words are hidden from them.
  * - The narrator can be switched off — a VoiceOver or TalkBack user would
  *   otherwise hear two voices at once — and that choice lasts the session.
  * - With reduced motion asked for, the word changes colour and does not grow.
@@ -35,18 +36,26 @@ interface Narrator {
   on: boolean
   /** False until the Start tap: iOS will not speak before a gesture. */
   unlocked: boolean
+  /** The chime between lines; a no-op until the engine is up. */
+  chime(): void
 }
 
-export const NarratorContext = createContext<Narrator>({ on: true, unlocked: false })
+export const NarratorContext = createContext<Narrator>({ on: true, unlocked: false, chime: () => {} })
 
-/** How long a voice may take to start before the screen stops waiting for it. */
+/** How long a line's voice may take to start before the screen stops waiting for it. */
 const NO_VOICE_MS = 4000
+/** With no word event this long after a line starts, follow the estimate instead. */
+const ESTIMATE_AFTER_MS = 600
+/** The breath after each line's chime. */
+const GAP_MS = 1600
 
 export interface NarrationOptions {
   /** Speak when the screen appears. */
   auto?: boolean
   /** Speak even with the narrator off — for the voice check, where the voice is the test. */
   always?: boolean
+  /** A chime after each line. Off where a chime would be measured as the voice. */
+  chimes?: boolean
   onStart?(): void
   /** `heard` is false when the voice never started. */
   onEnd?(heard: boolean): void
@@ -62,73 +71,105 @@ export interface Narration {
 
 export function useNarration(parts: readonly Part[], options: NarrationOptions = {}): Narration {
   const { auto = true, always = false } = options
-  const { on, unlocked } = useContext(NarratorContext)
+  const { on, unlocked, chime } = useContext(NarratorContext)
   const key = parts.map((part) => `${part.kind}:${part.text}`).join('|')
   // `parts` is a fresh array each render; `key` is what actually identifies it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const { spoken, words } = useMemo(() => wordsOf(parts), [key])
+  const { words } = useMemo(() => wordsOf(parts), [key])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const lines = useMemo(() => parts.map((part) => part.text), [key])
 
   const [current, setCurrent] = useState(-1)
+  const [reached, setReached] = useState(-1)
   const [speaking, setSpeaking] = useState(false)
   const [done, setDone] = useState(false)
 
   const hooks = useRef(options)
   hooks.current = options
+  const chimeRef = useRef(chime)
+  chimeRef.current = chime
   /** Bumped on every play and on leaving, so a cancelled run cannot report in. */
   const run = useRef(0)
 
   const play = useCallback(() => {
     const token = ++run.current
     const live = () => token === run.current
+    let heard = false
     setDone(false)
     setCurrent(-1)
+    setReached(-1)
 
-    if (!canSpeak()) {
+    const finish = () => {
+      if (!live()) return
+      setSpeaking(false)
+      setCurrent(-1)
       setDone(true)
-      hooks.current.onEnd?.(false)
-      return
+      hooks.current.onEnd?.(heard)
+    }
+    if (!canSpeak()) return finish()
+    setSpeaking(true)
+
+    const light = (n: number) => {
+      setCurrent(n)
+      setReached((was) => Math.max(was, n))
     }
 
-    let started = false
-    let fromVoice = false
-    const timers: ReturnType<typeof setTimeout>[] = []
-    const stopEstimate = () => timers.forEach(clearTimeout)
+    const line = (index: number) => {
+      if (!live()) return
+      if (index >= lines.length) return finish()
+      const mine = words.map((word, n) => ({ word, n })).filter(({ word }) => word.part === index)
+      const offset = mine[0]?.word.start ?? 0
+      let started = false
+      let fromVoice = false
+      let highest = -1
+      const timers: ReturnType<typeof setTimeout>[] = []
+      const stopEstimate = () => timers.forEach(clearTimeout)
+      // Never backwards: a late word event must not undo the estimate.
+      const lightOnce = (n: number) => {
+        if (n < highest) return
+        highest = n
+        light(n)
+      }
 
-    const silent = setTimeout(() => {
-      if (!live() || started) return
-      setDone(true)
-      hooks.current.onEnd?.(false)
-    }, NO_VOICE_MS)
-
-    narrate(spoken, {
-      onStart: () => {
-        if (!live()) return
-        started = true
-        clearTimeout(silent)
-        setSpeaking(true)
-        hooks.current.onStart?.()
-        estimatedTimes(words).forEach((at, n) =>
-          timers.push(setTimeout(() => live() && !fromVoice && setCurrent(n), at)),
-        )
-      },
-      onWord: (charIndex) => {
-        if (!live()) return
-        // The real thing has arrived: drop the estimate and follow the voice.
-        fromVoice = true
-        stopEstimate()
-        setCurrent(wordAt(words, charIndex))
-      },
-      onEnd: () => {
-        if (!live()) return
-        clearTimeout(silent)
-        stopEstimate()
-        setSpeaking(false)
-        setCurrent(-1)
-        setDone(true)
-        hooks.current.onEnd?.(started)
-      },
-    })
-  }, [spoken, words])
+      const silent = setTimeout(() => !started && finish(), NO_VOICE_MS)
+      narrate(lines[index]!, {
+        onStart: () => {
+          if (!live()) return
+          started = true
+          clearTimeout(silent)
+          if (!heard) hooks.current.onStart?.()
+          heard = true
+          if (mine[0]) lightOnce(mine[0].n)
+          timers.push(
+            setTimeout(() => {
+              if (!live() || fromVoice) return
+              const times = estimatedTimes(mine.map(({ word }) => word))
+              times.forEach((at, k) =>
+                timers.push(setTimeout(() => live() && !fromVoice && lightOnce(mine[k]!.n), at / SPEECH_RATE)),
+              )
+            }, ESTIMATE_AFTER_MS),
+          )
+        },
+        onWord: (charIndex) => {
+          if (!live()) return
+          fromVoice = true
+          stopEstimate()
+          lightOnce(wordAt(words, offset + charIndex))
+        },
+        onEnd: (cut) => {
+          clearTimeout(silent)
+          stopEstimate()
+          if (!live()) return
+          // Cut off — Play was pressed, or the narrator turned off: stop here.
+          if (cut) return finish()
+          setCurrent(-1)
+          if (hooks.current.chimes ?? true) chimeRef.current()
+          timers.push(setTimeout(() => line(index + 1), index + 1 < lines.length ? GAP_MS : GAP_MS / 2))
+        },
+      })
+    }
+    line(0)
+  }, [lines, words])
 
   // Speak on arrival, if this screen should — otherwise it is done already.
   useEffect(() => {
@@ -148,7 +189,7 @@ export function useNarration(parts: readonly Part[], options: NarrationOptions =
     [],
   )
 
-  const view = <Spoken parts={parts} words={words} current={current} speaking={speaking} />
+  const view = <Spoken parts={parts} words={words} current={current} reached={speaking ? reached : Infinity} />
   return { play, speaking, done, view }
 }
 
@@ -163,12 +204,13 @@ function Spoken({
   parts,
   words,
   current,
-  speaking,
+  reached,
 }: {
   parts: readonly Part[]
   words: ReturnType<typeof wordsOf>['words']
   current: number
-  speaking: boolean
+  /** The furthest word said so far; words past it are dimmed. */
+  reached: number
 }) {
   const drawn = (index: number) => {
     const mine = words.map((word, n) => ({ word, n })).filter(({ word }) => word.part === index)
@@ -191,7 +233,7 @@ function Spoken({
                     ? // Grows a tenth and lifts: enough to feel alive, not enough to
                       // swallow the space either side, which 1.18 with a ring did.
                       'relative z-10 bg-[var(--group)] text-black motion-safe:-translate-y-0.5 motion-safe:scale-110'
-                    : speaking && n > current
+                    : n > reached
                       ? 'opacity-55'
                       : '',
                 ].join(' ')}

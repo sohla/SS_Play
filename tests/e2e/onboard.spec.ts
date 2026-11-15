@@ -8,21 +8,24 @@ const ONE = sites.pages.find((page) => page.app === 'onboard-one')!.path
 const TWO = sites.pages.find((page) => page.app === 'onboard-two')!.path
 
 /**
- * What the microphone hears in Version A: three seconds of quiet room noise at
- * about -50dB, then a 660Hz tone at about -14dB, near the chime's own pitch, looped. The quiet
- * step measures the noise; the tone step must then see the tone clear the
- * 15dB margin. A headless phone cannot hear its own speaker, so the file plays
- * the part of the room and the speaker both.
+ * What the microphone hears in Version A: six seconds of quiet room noise at
+ * about -50dB, then a 660Hz tone at about -14dB, near the chime's own pitch.
+ * The quiet step measures the noise; the tone step must then see the tone
+ * clear the 15dB margin, and the voice step a rise over the room. Six seconds,
+ * because the quiet step listens only after its line, chime and breath; forty
+ * in all, so the file does not loop back to quiet before the voice step. A
+ * headless phone cannot hear its own speaker, so the file plays the part of
+ * the room, the speaker and the narrator.
  */
 function roomThenTone(): Buffer {
   const rate = 48_000
-  const frames = rate * 13
+  const frames = rate * 40
   const data = Buffer.alloc(frames * 2)
   let seed = 1
   for (let n = 0; n < frames; n++) {
     seed = (seed * 16807) % 2147483647
     const noise = (seed / 2147483647 - 0.5) * 2 * 0.003
-    const tone = n > rate * 3 ? Math.sin((2 * Math.PI * 660 * n) / rate) * 0.2 : 0
+    const tone = n > rate * 6 ? Math.sin((2 * Math.PI * 660 * n) / rate) * 0.2 : 0
     data.writeInt16LE(Math.round((noise + tone) * 32767), n * 2)
   }
   const header = Buffer.alloc(44)
@@ -135,7 +138,7 @@ test('version B: two Nos bring a facilitator, and skipping shows as skipped', as
 
   await button(page, 'Play').click()
   await button(page, 'No').click()
-  await expect(page.locator('[data-testid=fixes]')).toContainText('Turn off Bluetooth')
+  await expect(page.locator('[data-testid=fixes]')).toContainText('Bluetooth off')
   await expect(page.locator('[data-testid=facilitator]')).toHaveCount(0)
 
   await button(page, 'Play').click()
@@ -176,7 +179,7 @@ test('version A: the microphone measures the tone, then the voice', async ({ pag
 
   // The voice step: measured while the narrator speaks, over the room.
   await expect(page.getByRole('heading', { name: 'Voice check' })).toBeVisible({ timeout: 5000 })
-  await expect(page.locator('[data-testid=tick]')).toHaveText(/Voice heard/, { timeout: 10_000 })
+  await expect(page.locator('[data-testid=tick]')).toHaveText(/Voice heard/, { timeout: 15_000 })
 
   await button(page, 'Allow motion').click()
   await shake(page)
@@ -201,14 +204,14 @@ test('version A: a refused microphone carries on as version B', async ({ page })
   await expect(button(page, 'Play')).toBeVisible()
   // Each sentence is on the page twice: whole, for screen readers, and as the
   // narrator's animated words. The whole one is what a screen reader reads.
-  await expect(page.locator('.sr-only', { hasText: 'not from headphones' })).toHaveCount(1)
+  await expect(page.locator('.sr-only', { hasText: 'Can you hear the chime?' })).toHaveCount(1)
 })
 
 test('the chime rings and decays, loud without clipping', async ({ page }) => {
   await open(page, `${TWO}?debug=1`)
   await button(page, 'Start').click()
   await button(page, 'Next').click()
-  await expect(page.getByRole('heading', { name: 'Turn the volume up full' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Volume up full' })).toBeVisible()
   // The screen comes before the engine has finished booting.
   await page.waitForFunction(() => '__ss' in window, null, { timeout: 30_000 })
 
@@ -282,18 +285,18 @@ test('each screen is read aloud, and the word being said is lit', async ({ page 
   await page.goto(TWO)
   await button(page, 'Start').click()
 
-  // The next screen speaks itself, all of it, as one sentence run.
-  await expect.poll(() => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.join(' | ')))
-    .toContain('Put the sound on the speaker Turn off Bluetooth and unplug any headphones.')
+  // The next screen speaks itself a line at a time, with a breath between.
+  await expect.poll(() => page.evaluate(() => (window as unknown as { spoken: string[] }).spoken.join(' | ')), { timeout: 8000 })
+    .toContain('Sound on the speaker | Headphones off.')
 
   // And lights its words in order as the voice reaches them.
   const lit = new Set<string>()
-  for (let n = 0; n < 12; n++) {
+  for (let n = 0; n < 6; n++) {
     const word = await page.locator('[data-current=yes]').textContent().catch(() => null)
     if (word) lit.add(word)
     await page.waitForTimeout(200)
   }
-  expect([...lit]).toEqual(expect.arrayContaining(['Put', 'sound']))
+  expect([...lit]).toEqual(expect.arrayContaining(['Headphones', 'off.']))
 
   // Turned off, the next screen is silent.
   await page.getByTestId('narrator-toggle').click()

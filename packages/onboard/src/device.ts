@@ -44,11 +44,15 @@ function voice(): SpeechSynthesisVoice | null {
   )
 }
 
+/** Slower than the voice's default, which reads instructions far too briskly. */
+export const SPEECH_RATE = 0.85
+
 export interface NarrationHooks {
   onStart?(): void
   /** The character offset of the word now being spoken, where the voice says. */
   onWord?(charIndex: number): void
-  onEnd?(): void
+  /** `cut` is true when it was stopped part-way, by `hush` or a newer line. */
+  onEnd?(cut: boolean): void
 }
 
 export function narrate(text: string, hooks: NarrationHooks) {
@@ -59,20 +63,27 @@ export function narrate(text: string, hooks: NarrationHooks) {
     utterance.voice = chosen
     utterance.lang = chosen.lang
   }
+  utterance.rate = SPEECH_RATE
   utterance.onstart = () => hooks.onStart?.()
   utterance.onboundary = (event) => {
     if (event.name && event.name !== 'word') return
     hooks.onWord?.(event.charIndex)
   }
-  const finish = () => {
+  const finish = (cut: boolean) => {
     speaking.delete(utterance)
-    hooks.onEnd?.()
+    hooks.onEnd?.(cut)
   }
-  utterance.onend = finish
-  utterance.onerror = finish
+  utterance.onend = () => finish(false)
+  utterance.onerror = (event) => finish(event.error === 'interrupted' || event.error === 'canceled')
   speaking.add(utterance)
-  speechSynthesis.cancel()
-  speechSynthesis.speak(utterance)
+  // Chrome can sit on a line spoken straight after cancel() for ten seconds or
+  // more, so cancel only when something is actually talking, and give it a moment.
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel()
+    setTimeout(() => speechSynthesis.speak(utterance), 150)
+  } else {
+    speechSynthesis.speak(utterance)
+  }
 }
 
 // ---------------------------------------------------------------- awake

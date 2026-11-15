@@ -109,7 +109,6 @@ export function Onboarding({ version }: { version: Version }) {
     }
   })
   const [unlocked, setUnlocked] = useState(false)
-  const narrator = useMemo(() => ({ on: narratorOn, unlocked }), [narratorOn, unlocked])
   const toggleNarrator = (on: boolean) => {
     setNarratorOn(on)
     if (!on) hush()
@@ -177,6 +176,18 @@ export function Onboarding({ version }: { version: Version }) {
   // Stable, because the tone's timer depends on it: a new function each render
   // would restart the pulse on every render.
   const engine = useCallback(() => (booted ? session() : null), [booted, session])
+
+  const narrator = useMemo(
+    () => ({
+      on: narratorOn,
+      unlocked,
+      chime: () => {
+        const live = engine()
+        if (live) pulse(live)
+      },
+    }),
+    [narratorOn, unlocked, engine],
+  )
 
   const shared: StepProps = {
     flow,
@@ -387,16 +398,10 @@ function Fixes({ flow, lines, act, skipLabel }: { flow: Flow; lines: string[]; a
 }
 
 function soundFixes(platform: Platform, measured: boolean): string[] {
-  const muted =
-    platform === 'android'
-      ? 'Press a volume button and raise the media volume.'
-      : platform === 'ios'
-        ? 'iPhone: flip the switch on the side so no orange shows. Then press the volume-up button.'
-        : 'iPhone: flip the switch on the side so no orange shows, then press volume up. Android: raise the media volume.'
   return [
-    muted,
-    'Turn off Bluetooth, or take your headphones off and disconnect them.',
-    measured ? 'Turn the volume up until the bar passes the line.' : 'Turn the volume up until it is clearly loud.',
+    platform === 'android' ? 'Media volume up.' : 'Silent switch off: no orange.',
+    'Bluetooth off. Headphones out.',
+    measured ? 'Volume up until the bar passes the line.' : 'Volume up, loud.',
     ...earpiece(platform, measured),
   ]
 }
@@ -410,8 +415,8 @@ function earpiece(platform: Platform, measured: boolean): string[] {
   if (platform === 'android') return []
   return [
     measured
-      ? 'If the sound comes from the earpiece at the top, like a phone call: close this tab, open the link again, and choose “Continue without the microphone”.'
-      : 'If the sound comes from the earpiece at the top, like a phone call: close this tab and open the link again.',
+      ? 'Sound from the top, like a call? Reopen the link, and skip the microphone.'
+      : 'Sound from the top, like a call? Close this tab and reopen the link.',
   ]
 }
 
@@ -449,7 +454,7 @@ function Start({ group, act, onStart }: StepProps & { onStart(): void }) {
   // Before the tap nothing can speak on iPhone, so this one is only read.
   const narration = useNarration([
     heading(`Hello, ${group.name}.`),
-    say('Let’s get your phone ready. It takes about two minutes, and I’ll talk you through it.'),
+    say('Let’s get your phone ready.'),
   ])
   return (
     <>
@@ -468,12 +473,10 @@ function Start({ group, act, onStart }: StepProps & { onStart(): void }) {
 
 function Speaker({ platform, act }: StepProps) {
   const narration = useNarration([
-    heading('Put the sound on the speaker'),
-    item('Turn off Bluetooth and unplug any headphones.'),
-    ...(platform !== 'android' ? [item('iPhone: switch silent mode off.')] : []),
-    platform === 'android'
-      ? item('Press a volume button and check the media volume.')
-      : item('Hold the phone with the screen facing you: the sound should come from the bottom edge, not the earpiece at the top.'),
+    heading('Sound on the speaker'),
+    item('Headphones off.'),
+    item('Bluetooth off.'),
+    platform === 'android' ? item('Media volume on.') : item('Silent mode off.'),
   ])
   return (
     <>
@@ -492,14 +495,9 @@ function Speaker({ platform, act }: StepProps) {
  */
 function Volume({ platform, act, engine, booted }: StepProps) {
   const narration = useNarration([
-    heading('Turn the volume up full'),
-    say('You’ll hear a soft chime.'),
-    item(
-      platform === 'android'
-        ? 'Press the volume-up button until the media volume is at the top.'
-        : 'Press the volume-up button on the side until it will not go any higher.',
-    ),
-    item('The chime should come from the bottom edge of the phone, not the earpiece at the top.'),
+    heading('Volume up full'),
+    say('Press volume up until it stops.'),
+    say(platform === 'android' ? 'The chime comes from the speaker.' : 'The chime comes from the bottom, not the top.'),
   ])
   usePulses(booted && narration.done && !narration.speaking, engine)
   return (
@@ -514,15 +512,13 @@ function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStre
   const [refused, setRefused] = useState(false)
   const narration = useNarration([
     heading('Allow the microphone'),
-    say(
-      'To check your speaker is loud enough, the page listens for a short sound that it plays itself. It keeps only the loudness, nothing is recorded or sent.',
-    ),
+    say('It listens for the chime.'),
+    say('Nothing is recorded.'),
   ])
   const refusal = useNarration(
     [
-      say(
-        'No problem. If no prompt appeared, the microphone may be blocked: open the page’s site settings and allow it, or continue without it.',
-      ),
+      say('No problem.'),
+      say('Continue without it, or allow it in site settings.'),
     ],
     { auto: refused },
   )
@@ -575,7 +571,7 @@ function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStre
  * never clear it.
  */
 function Quiet({ act, level, room }: StepProps) {
-  const narration = useNarration([heading('Quiet first'), say('Stay quiet for a moment.')])
+  const narration = useNarration([heading('Quiet, please.')])
   const ready = narration.done && !narration.speaking
 
   useEffect(() => {
@@ -609,7 +605,7 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
   const sinceTry = useRef(0)
   const narration = useNarration([
     heading('Tone check'),
-    say('You’ll hear a soft chime. Turn your volume up until the bar passes the line.'),
+    say('Volume up until the bar passes the line.'),
   ])
 
   // After each chime, its loudest reading — only once the narrator is quiet,
@@ -669,9 +665,8 @@ function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
   const [passed, pass] = usePass(act, 'Sound')
   const narration = useNarration([
     heading('Tone check'),
-    say(
-      'Press Play. You’ll hear a soft chime. Hold your phone at arm’s length: can you hear it clearly from the phone’s speaker, not from headphones?',
-    ),
+    say('Press Play.'),
+    say('Can you hear the chime?'),
   ])
   usePulses(booted && playing && !passed, engine)
 
@@ -750,24 +745,28 @@ function Voice({ flow, platform, act, level, room, measured }: StepProps & { mea
   }
   useEffect(() => () => void (watching.current && clearInterval(watching.current)), [])
 
+  // Measured, the line follows the instructions by itself, with no chime that
+  // the microphone could take for the voice.
   const instructions = useNarration(
-    measured
-      ? [heading('Voice check'), say('Now you’ll hear the narrator.'), quote('Hello. This is the narrator.')]
-      : [heading('Voice check'), say('Press Play. You’ll hear the narrator say hello. Did you hear a voice from the speaker?')],
-    measured ? { always: true, ...listen } : {},
+    measured ? [heading('Voice check'), say('Listen.')] : [heading('Voice check'), say('Press Play.'), say('Can you hear a voice?')],
+    measured ? { always: true } : {},
   )
-  const line = useNarration([quote('Hello. This is the narrator.')], { auto: false, always: true })
+  const line = useNarration([quote('Hello. This is the narrator.')], {
+    auto: measured && instructions.done,
+    always: true,
+    chimes: false,
+    ...(measured ? listen : {}),
+  })
   const [played, setPlayed] = useState(false)
   const play = () => {
     setPlayed(true)
-    if (measured) instructions.play()
-    else line.play()
+    line.play()
   }
 
   return (
     <>
       {instructions.view}
-      {!measured && played ? line.view : null}
+      {measured || played ? line.view : null}
       {passed ? (
         <Tick>Voice heard</Tick>
       ) : !asking ? (
@@ -788,7 +787,7 @@ function Voice({ flow, platform, act, level, room, measured }: StepProps & { mea
               <Secondary onClick={play}>Play again</Secondary>
               <Fixes
                 flow={flow}
-                lines={['Turn the volume up and press Play again.', ...earpiece(platform, measured)]}
+                lines={['Volume up, then Play again.', ...earpiece(platform, measured)]}
                 act={act}
                 skipLabel="Continue without the voice"
               />
@@ -808,8 +807,8 @@ function Motion({ flow, group, act }: StepProps) {
   const [flash, setFlash] = useState(false)
   // The words change once motion is allowed, and the new ones are read out.
   const narration = useNarration([
-    heading('Allow motion, then shake'),
-    say(watching ? 'Shake your phone gently.' : 'Next, your phone feels movement.'),
+    heading('Shake test'),
+    say(watching ? 'Shake your phone gently.' : 'Tap Allow motion.'),
   ])
 
   useEffect(() => {
@@ -858,7 +857,7 @@ function Motion({ flow, group, act }: StepProps) {
       {!passed && flow.tries > 0 ? (
         <Fixes
           flow={flow}
-          lines={['Tap Allow motion again. If nothing appears, check the browser’s site settings.']}
+          lines={['Tap Allow motion again.', 'Or check site settings.']}
           act={act}
           skipLabel="Skip movement"
         />
@@ -873,7 +872,7 @@ function Motion({ flow, group, act }: StepProps) {
 function Ready({ flow }: StepProps) {
   const [awake, setAwake] = useState<boolean | null>(null)
   useEffect(() => keepAwake(setAwake), [])
-  const narration = useNarration([heading('You’re ready.'), say('Keep this screen open and your phone awake.')])
+  const narration = useNarration([heading('You’re ready.'), say('Keep this screen open.')])
 
   const row = (name: string, outcome: string | null) => (
     <li className="flex justify-between border-b border-[var(--ak-line)] py-2 text-lg" key={name}>
