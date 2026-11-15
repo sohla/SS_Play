@@ -2247,3 +2247,33 @@ Report: on the phone, only the narrator; no chime at all, and the first line fad
 
 Verified: `vitest` 1464, e2e `onboard` 7 — which cannot exercise the cause. Open: confirm on the
 iPhone; if the earpiece routing returns in B, it needs another way than `'playback'`.
+
+## 2026-11-15 — onboarding: rebuilt on `/speak/`'s mechanics
+
+Asked for: restart the narration on what already works on the phone — `/speak/` plays its voice
+and its bells together there — with a script of what happens: a sentence, a tone, a pause, the
+next. Buttons wait for the narrator. Paced and gentle; the tones are to become music.
+
+### Done
+
+- `apps/speak/src/speech.ts` moved, unchanged but for an optional `rate`, to `@ss/speech`; both
+  `/speak/` and the onboarding use it. Lines are queued with `say()` and never cancelled except by
+  the narrator switch (`stopAll`); voices load as on `/speak/` (Daniel, else `preferred`).
+- Sounds are sent as `/speak/` sends its bells: `/s_new def -1 0 0 …`, from the voice's hooks.
+  After each line's `end`, its instrument plays, then its pause, then the next line is queued.
+- `score.ts` is the script: `voice` (name, rate, a sound per word or none), `pause`,
+  `instruments` (chime and tone as before; `/speak/`'s `low` and `tinkle` available, unused),
+  `toneEvery`, `order`, and per screen its lines. A line is `say('…', { play, args, pause })`.
+- A screen's buttons are disabled until its lines, sounds and pauses are done.
+- Removed: the cue player, the estimated word timing, every `cancel()` in the flow, and the
+  Safari `'playback'` session. Words light only from the voice's own word events.
+
+### Verified
+
+- `vitest` 1462 passed; the three pages build and ship `pretty_bell` and `dull_bell`.
+- Not run, at the user's word: anything in a desktop browser. The phone is the test.
+
+### Open
+
+- `tests/e2e/onboard.spec.ts` was written for the old timing and clicks before the narrator
+  finishes; it will need rewriting to wait for the buttons.

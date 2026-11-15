@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": { "dev": "vite --port 3058", "build": "vite build", "preview": "vite preview" },
   "dependencies": {
-    "@ss/engine": "*", "@ss/onboard": "*", "@ss/react": "*", "@ss/ui": "*",
+    "@ss/engine": "*", "@ss/onboard": "*", "@ss/react": "*", "@ss/speech": "*", "@ss/ui": "*",
     "react": "19.3.0", "react-dom": "19.3.0"
   },
   "devDependencies": {

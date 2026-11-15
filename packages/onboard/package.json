@@ -18,6 +18,7 @@
     "@ss/engine": "*",
     "@ss/motion": "*",
     "@ss/react": "*",
+    "@ss/speech": "*",
     "@ss/ui": "*"
   }
 }

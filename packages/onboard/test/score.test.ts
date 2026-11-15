@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolve, synthdefsOf, type Script } from '../src/cues.ts'
-import { instruments, order, scripts } from '../src/score.ts'
+import { instruments, order, scripts, voice } from '../src/score.ts'
 
 /** Every script in the score, fixes included, by name. */
 const all = Object.entries(scripts).flatMap(([name, value]): [string, Script][] =>
@@ -13,8 +13,11 @@ const all = Object.entries(scripts).flatMap(([name, value]): [string, Script][] 
 describe('the score', () => {
   it('plays only instruments it defines', () => {
     for (const [name, script] of all) {
-      for (const cue of script) if ('play' in cue) expect(instruments, `${name} plays "${cue.play}"`).toHaveProperty([cue.play])
+      for (const line of script) {
+        if (line.play) expect(instruments, `${name} plays "${line.play}"`).toHaveProperty([line.play])
+      }
     }
+    if (voice.word) expect(instruments).toHaveProperty([voice.word])
   })
 
   it('uses SynthDefs that exist', () => {
@@ -25,8 +28,8 @@ describe('the score', () => {
     }
   })
 
-  it('keeps the voice line free of instruments, which the microphone would take for the voice', () => {
-    expect(scripts.voiceLine.every((cue) => 'say' in cue)).toBe(true)
+  it('keeps the voice line free of sound, which the microphone would take for the voice', () => {
+    expect(scripts.voiceLine.every((line) => line.play === null)).toBe(true)
   })
 
   it('orders steps that can be walked', () => {
@@ -46,21 +49,15 @@ describe('the score', () => {
 describe('resolve', () => {
   it('picks the phone’s words, falls back to other, drops empty lines, and names the group', () => {
     const script: Script = [
-      { say: 'Hello, {group}.', as: 'heading' },
-      { say: { ios: 'iPhone', other: 'Phone' }, as: 'say' },
-      { say: { android: '', other: 'Not on Android' }, as: 'item' },
-      { rest: 1 },
+      { text: 'Hello, {group}.', as: 'heading' },
+      { text: { ios: 'iPhone', other: 'Phone' }, as: 'say', play: null, pause: 3 },
+      { text: { android: '', other: 'Not on Android' }, as: 'item', args: { note: 79 } },
     ]
-    expect(resolve(script, 'ios', 'Circle')).toEqual([
-      { say: 'Hello, Circle.', as: 'heading' },
-      { say: 'iPhone', as: 'say' },
-      { say: 'Not on Android', as: 'item' },
-      { rest: 1 },
+    expect(resolve(script, 'ios', 'Circle', 1.6)).toEqual([
+      { text: 'Hello, Circle.', as: 'heading', play: 'chime', pause: 1.6 },
+      { text: 'iPhone', as: 'say', play: null, pause: 3 },
+      { text: 'Not on Android', as: 'item', play: 'chime', args: { note: 79 }, pause: 1.6 },
     ])
-    expect(resolve(script, 'android', 'Square').map((cue) => ('say' in cue ? cue.say : 'rest'))).toEqual([
-      'Hello, Square.',
-      'Phone',
-      'rest',
-    ])
+    expect(resolve(script, 'android', 'Square', 1.6).map((line) => line.text)).toEqual(['Hello, Square.', 'Phone'])
   })
 })

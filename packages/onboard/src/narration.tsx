@@ -8,23 +8,22 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { say, supported } from '@ss/speech'
 import type { Resolved } from './cues.ts'
-import { canSpeak, hush, narrate, rateOf } from './device.ts'
-import { tempo } from './score.ts'
-import { estimatedTimes, wordAt, wordsOf, type Part } from './words.ts'
+import { voice as script } from './score.ts'
+import { wordsOf, type Part } from './words.ts'
 
 /**
- * Every screen reads itself aloud, a line at a time, and lights each word as it
- * is said.
+ * Every screen reads itself aloud, a line at a time, with the script's sound
+ * after each line and a pause before the next.
  *
- * What is said, and the chimes and rests between, come from `score.ts`. Each
- * line is its own utterance, so a slow voice never drags the highlight out of
- * step for long. The highlight follows the voice's own word events where it
- * sends them, and an estimate (see `estimatedTimes`) where it does not — held
- * back a moment, because a voice's `start` can arrive well before its sound and
- * an estimate started then runs ahead and jumps back.
+ * The voice is `@ss/speech`, the `/speak/` page's — the mechanics proven on
+ * the phone: each line is queued with `say()`, the browser speaks it, and the
+ * sounds are played from its hooks, as `/speak/` plays its bells. Nothing ever
+ * cancels a line: a screen that is left simply queues nothing more. A word
+ * lights only when the voice reports it; a voice that reports none lights none.
  *
- * Accessibility, which this has to get right rather than merely survive:
+ * Accessibility:
  *
  * - Screen readers get each line whole; the animated words are hidden from them.
  * - The narrator can be switched off — a VoiceOver or TalkBack user would
@@ -38,16 +37,18 @@ interface Narrator {
   on: boolean
   /** False until the Start tap: iOS will not speak before a gesture. */
   unlocked: boolean
-  /** Sound one of the score's instruments; a no-op until the engine is up. */
+  voice: SpeechSynthesisVoice | null
+  /** Sound one of the script's instruments; a no-op until the engine is up. */
   play(instrument: string, args?: Record<string, number>): void
 }
 
-export const NarratorContext = createContext<Narrator>({ on: true, unlocked: false, play: () => {} })
+export const NarratorContext = createContext<Narrator>({ on: true, unlocked: false, voice: null, play: () => {} })
 
-/** How long a line's voice may take to start before the screen stops waiting for it. */
+/**
+ * How long a line's voice may take to start before the screen goes on without
+ * it, so a phone that cannot speak still reaches its buttons.
+ */
 const NO_VOICE_MS = 4000
-/** With no word event this long after a line starts, follow the estimate instead. */
-const ESTIMATE_AFTER_MS = 600
 
 export interface NarrationOptions {
   /** Play when the screen appears. */
@@ -62,23 +63,20 @@ export interface NarrationOptions {
 export interface Narration {
   play(): void
   speaking: boolean
-  /** True once this screen's script has finished, or was never going to play. */
+  /** True once the screen's lines, sounds and pauses are all done, or were never going to play. */
   done: boolean
   view: ReactNode
 }
 
-/** Plays a resolved script from the score — lines, instruments and rests — and draws its lines. */
-export function useNarration(script: readonly Resolved[], options: NarrationOptions = {}): Narration {
+export function useNarration(lines: readonly Resolved[], options: NarrationOptions = {}): Narration {
   const { auto = true, always = false } = options
-  const { on, unlocked, play: sound } = useContext(NarratorContext)
-  const key = JSON.stringify(script)
-  // `script` is a fresh array each render; `key` is what actually identifies it.
+  const narrator = useContext(NarratorContext)
+  const { on, unlocked } = narrator
+  const key = JSON.stringify(lines)
+  // `lines` is a fresh array each render; `key` is what actually identifies it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const cues = useMemo(() => script, [key])
-  const parts = useMemo(
-    () => cues.flatMap((cue): Part[] => ('say' in cue ? [{ kind: cue.as, text: cue.say }] : [])),
-    [cues],
-  )
+  const kept = useMemo(() => lines, [key])
+  const parts = useMemo(() => kept.map((line): Part => ({ kind: line.as, text: line.text })), [kept])
   const { words } = useMemo(() => wordsOf(parts), [parts])
 
   const [current, setCurrent] = useState(-1)
@@ -88,27 +86,27 @@ export function useNarration(script: readonly Resolved[], options: NarrationOpti
 
   const hooks = useRef(options)
   hooks.current = options
-  const soundRef = useRef(sound)
-  soundRef.current = sound
-  /** Bumped on every play and on leaving, so a cancelled run cannot report in. */
+  const live = useRef(narrator)
+  live.current = narrator
+  /** Bumped on every play and on leaving, so an abandoned run queues nothing more. */
   const run = useRef(0)
 
   const play = useCallback(() => {
     const token = ++run.current
-    const live = () => token === run.current
+    const mine = () => token === run.current
     let heard = false
     setDone(false)
     setCurrent(-1)
     setReached(-1)
 
     const finish = () => {
-      if (!live()) return
+      if (!mine()) return
       setSpeaking(false)
       setCurrent(-1)
       setDone(true)
       hooks.current.onEnd?.(heard)
     }
-    if (!canSpeak()) return finish()
+    if (!supported()) return finish()
     setSpeaking(true)
 
     const light = (n: number) => {
@@ -116,95 +114,58 @@ export function useNarration(script: readonly Resolved[], options: NarrationOpti
       setReached((was) => Math.max(was, n))
     }
 
-    const step = (at: number, part: number) => {
-      if (!live()) return
-      const cue = cues[at]
-      if (!cue) return finish()
-      if ('rest' in cue) {
-        setTimeout(() => step(at + 1, part), (cue.rest * 60_000) / tempo)
-        return
-      }
-      if ('play' in cue) {
-        soundRef.current(cue.play, cue.args)
-        step(at + 1, part)
-        return
-      }
-
-      const mine = words.map((word, n) => ({ word, n })).filter(({ word }) => word.part === part)
-      const offset = mine[0]?.word.start ?? 0
-      const rate = rateOf(cue)
+    const next = (index: number) => {
+      if (!mine()) return
+      const line = kept[index]
+      if (!line) return finish()
+      const ids = words.flatMap((word, n) => (word.part === index ? [n] : []))
       let started = false
-      let fromVoice = false
-      let highest = -1
-      const timers: ReturnType<typeof setTimeout>[] = []
-      const stopEstimate = () => timers.forEach(clearTimeout)
-      // Never backwards: a late word event must not undo the estimate.
-      const lightOnce = (n: number) => {
-        if (n < highest) return
-        highest = n
-        light(n)
+      const silent = setTimeout(() => !started && finish(), NO_VOICE_MS)
+      const after = () => {
+        if (!mine()) return
+        setCurrent(-1)
+        if (line.play) live.current.play(line.play, line.args)
+        setTimeout(() => next(index + 1), line.pause * 1000)
       }
 
-      const silent = setTimeout(() => !started && finish(), NO_VOICE_MS)
-      narrate(
-        cue.say,
+      say(
+        line.text,
+        live.current.voice,
         {
           onStart: () => {
-            if (!live()) return
             started = true
             clearTimeout(silent)
+            if (!mine()) return
             if (!heard) hooks.current.onStart?.()
             heard = true
-            if (mine[0]) lightOnce(mine[0].n)
-            timers.push(
-              setTimeout(() => {
-                if (!live() || fromVoice) return
-                const times = estimatedTimes(mine.map(({ word }) => word))
-                times.forEach((ms, k) =>
-                  timers.push(setTimeout(() => live() && !fromVoice && lightOnce(mine[k]!.n), ms / rate)),
-                )
-              }, ESTIMATE_AFTER_MS),
-            )
           },
-          onWord: (charIndex) => {
-            if (!live()) return
-            fromVoice = true
-            stopEstimate()
-            lightOnce(wordAt(words, offset + charIndex))
+          onWord: (_word, n) => {
+            if (!mine()) return
+            light(ids[Math.min(n, ids.length - 1)]!)
+            if (script.word) live.current.play(script.word)
           },
-          onEnd: (cut) => {
-            clearTimeout(silent)
-            stopEstimate()
-            if (!live()) return
-            // Cut off — Play was pressed, or the narrator turned off: stop here.
-            if (cut) return finish()
-            setCurrent(-1)
-            step(at + 1, part + 1)
-          },
+          onEnd: after,
+          onError: after,
         },
-        cue,
+        script.rate,
       )
     }
-    step(0, 0)
-  }, [cues, words])
+    next(0)
+  }, [kept, words])
 
   // Play on arrival, if this screen should — otherwise it is done already.
   useEffect(() => {
     if (auto && unlocked && (on || always)) play()
-    else setDone(true)
+    else {
+      run.current += 1
+      setSpeaking(false)
+      setCurrent(-1)
+      setDone(true)
+    }
     return () => {
       run.current += 1
     }
   }, [auto, unlocked, on, always, play])
-
-  // Leaving a screen mid-sentence stops the sentence.
-  useEffect(
-    () => () => {
-      run.current += 1
-      hush()
-    },
-    [],
-  )
 
   const view = <Spoken parts={parts} words={words} current={current} reached={speaking ? reached : Infinity} />
   return { play, speaking, done, view }
@@ -313,6 +274,7 @@ export function HearAgain({ narration }: { narration: Narration }) {
     <button
       type="button"
       onClick={narration.play}
+      disabled={narration.speaking}
       className="ak-label flex min-h-11 items-center gap-2 self-start rounded px-1 text-base underline-offset-4 hover:underline"
       data-testid="hear-again"
     >

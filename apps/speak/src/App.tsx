@@ -4,12 +4,12 @@ import { useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
 import { phrasesFor } from './phrases.ts'
 import { SPANS, dueBetween, secondOf, type Cue } from './program.ts'
-import { loadVoices, preferred, say, stopAll, supported, unlock, type Hooks } from './speech.ts'
+import { loadVoices, preferred, say, stopAll, supported, unlock, type Hooks } from '@ss/speech'
 
 /**
  * A narrator on a minute-long program, with bells on its hooks.
  *
- * The voice is the browser's — see `speech.ts` for what that does and does not
+ * The voice is the browser's — see `@ss/speech` for what that does and does not
  * allow. The bells are scsynth, played the moment each hook arrives, so what
  * you hear is the hook's own timing: a bell that lands late on a word is the
  * event arriving late, which is the thing worth knowing when composing with it.

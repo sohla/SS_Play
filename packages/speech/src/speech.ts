@@ -56,13 +56,17 @@ export function unlock() {
   speechSynthesis.speak(silent)
 }
 
-/** Queue one utterance. The browser speaks them in order, one at a time. */
-export function say(text: string, voice: SpeechSynthesisVoice | null, hooks: Hooks = {}) {
+/**
+ * Queue one utterance. The browser speaks them in order, one at a time.
+ * `rate` is the voice's own: 1 is its normal pace, lower is slower.
+ */
+export function say(text: string, voice: SpeechSynthesisVoice | null, hooks: Hooks = {}, rate?: number) {
   const utterance = new SpeechSynthesisUtterance(text)
   if (voice) {
     utterance.voice = voice
     utterance.lang = voice.lang
   }
+  if (rate !== undefined) utterance.rate = rate
 
   let words = 0
   utterance.onstart = () => hooks.onStart?.()

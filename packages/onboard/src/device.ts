@@ -1,10 +1,10 @@
 /**
- * The phone-specific parts: which instructions to show, the narrator, and
- * keeping the screen awake.
+ * The phone-specific parts: which instructions to show, keeping the screen
+ * awake, and Version A's audio mode around its microphone. The narrator is
+ * `@ss/speech`.
  */
 
 import type { Platform } from './cues.ts'
-import { voice as score } from './score.ts'
 
 export type { Platform }
 
@@ -14,87 +14,6 @@ export function platformOf(nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxT
   if (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1) return 'ios'
   if (/Android/.test(nav.userAgent)) return 'android'
   return 'other'
-}
-
-// ---------------------------------------------------------------- narrator
-
-/**
- * The browser's own voice. Its sound goes through the phone's speech system,
- * not the audio engine, which is why the spec checks it separately.
- *
- * Utterances are held in `speaking` until they end: Chrome drops the events of
- * one nothing references. `unlock` is called from the Start tap, because iOS
- * only lets a page speak after a gesture has.
- */
-const speaking = new Set<SpeechSynthesisUtterance>()
-
-export const canSpeak = (): boolean => typeof speechSynthesis !== 'undefined'
-
-export function unlockVoice() {
-  if (!canSpeak()) return
-  const silent = new SpeechSynthesisUtterance(' ')
-  silent.volume = 0
-  speechSynthesis.speak(silent)
-}
-
-/** The score's preferred voices in order; otherwise an English on-device voice. */
-function voice(): SpeechSynthesisVoice | null {
-  const voices = speechSynthesis.getVoices()
-  for (const name of score.prefer) {
-    const found = voices.find((one) => one.name === name || one.name.startsWith(`${name} `))
-    if (found) return found
-  }
-  return voices.find((one) => one.localService && one.lang.toLowerCase().startsWith('en')) ?? null
-}
-
-export interface NarrationHooks {
-  onStart?(): void
-  /** The character offset of the word now being spoken, where the voice says. */
-  onWord?(charIndex: number): void
-  /** `cut` is true when it was stopped part-way, by `hush` or a newer line. */
-  onEnd?(cut: boolean): void
-}
-
-/** How a line is said: the score's voice, with any of it overridden. */
-export interface Delivery {
-  rate?: number
-  pitch?: number
-}
-
-/** The rate a line is actually spoken at. */
-export const rateOf = (delivery: Delivery = {}) => delivery.rate ?? score.rate
-
-export function narrate(text: string, hooks: NarrationHooks, delivery: Delivery = {}) {
-  if (!canSpeak()) return
-  const utterance = new SpeechSynthesisUtterance(text)
-  const chosen = voice()
-  if (chosen) {
-    utterance.voice = chosen
-    utterance.lang = chosen.lang
-  }
-  utterance.rate = rateOf(delivery)
-  utterance.pitch = delivery.pitch ?? score.pitch
-  utterance.volume = score.volume
-  utterance.onstart = () => hooks.onStart?.()
-  utterance.onboundary = (event) => {
-    if (event.name && event.name !== 'word') return
-    hooks.onWord?.(event.charIndex)
-  }
-  const finish = (cut: boolean) => {
-    speaking.delete(utterance)
-    hooks.onEnd?.(cut)
-  }
-  utterance.onend = () => finish(false)
-  utterance.onerror = (event) => finish(event.error === 'interrupted' || event.error === 'canceled')
-  speaking.add(utterance)
-  // Chrome can sit on a line spoken straight after cancel() for ten seconds or
-  // more, so cancel only when something is actually talking, and give it a moment.
-  if (speechSynthesis.speaking || speechSynthesis.pending) {
-    speechSynthesis.cancel()
-    setTimeout(() => speechSynthesis.speak(utterance), 150)
-  } else {
-    speechSynthesis.speak(utterance)
-  }
 }
 
 // ---------------------------------------------------------------- awake
@@ -163,9 +82,4 @@ export function audioSession(type: 'auto' | 'play-and-record') {
   } catch {
     // An unknown type on an older Safari: nothing to do.
   }
-}
-
-/** Stop whatever the narrator is saying, as when a screen is left mid-sentence. */
-export function hush() {
-  if (canSpeak()) speechSynthesis.cancel()
 }

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { HeldVoice, ctl, i, type Session } from '@ss/engine'
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { HeldVoice, ctl, type Session } from '@ss/engine'
 import { requestMotion, watchMotion } from '@ss/motion'
 import { useOscTap, useSuperSonic } from '@ss/react'
+import { loadVoices, preferred, stopAll, unlock } from '@ss/speech'
 import { EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
-import { audioSession, hush, keepAwake, platformOf, unlockVoice } from './device.ts'
+import { audioSession, keepAwake, platformOf } from './device.ts'
 import {
   needsFacilitator,
   noiseDb,
@@ -26,17 +27,18 @@ import {
   type Narration,
 } from './narration.tsx'
 import { resolve, type Resolved, type Script } from './cues.ts'
-import { instruments, pulseEvery, scripts, tempo } from './score.ts'
+import { instruments, pause, scripts, toneEvery, voice as spoken } from './score.ts'
 
 /**
  * The phone onboarding test, both versions. See
  * `docs/Phone onboarding test spec.md` for what each screen must do and why.
- * `score.ts` holds what is said and played, when, and in what order; `flow.ts`
- * the rules; this file the screens, the checks and the buttons.
+ * `score.ts` is the script: what is said and played, when, and in what order;
+ * `flow.ts` the rules; this file the screens, the checks and the buttons. A
+ * screen's buttons wait for its narrator to finish.
  *
  * `ssp_mic_follow` — the `/mic/` page's level follower — reports the
- * microphone's level for Version A. The narrator is the browser's own voice —
- * see `narration.tsx`.
+ * microphone's level for Version A. The narrator and its sounds work as on
+ * `/speak/` — see `narration.tsx`.
  */
 
 /** The tone check's margin over the room. The spec says start at 15 and tune at rehearsal: `?margin=12`. */
@@ -48,11 +50,11 @@ const MARGIN_DB = (() => {
 const VOICE_MARGIN_DB = 10
 
 /**
- * How long after each pulse of the score's `tone` its loudest moment is looked
+ * How long after each note of the script's `tone` its loudest moment is looked
  * for, which the bell's fast attack puts at the very start.
  */
 const MEASURE_MS = 450
-const PULSE_MS = (pulseEvery * 60_000) / tempo
+const PULSE_MS = toneEvery * 1000
 /** Pulses without a pass before the step counts a failed try and shows the fixes. */
 const PULSES_PER_TRY = 8
 /** A control bus nothing else on these pages reads; the follower must write somewhere. */
@@ -76,22 +78,18 @@ function sessionStore(): Storage | null {
   }
 }
 
-/** One note of a score instrument. Its SynthDef must free itself, as the bells do. */
+/** One note of a script instrument, sent as `/speak/` sends its bells. Its SynthDef must free itself. */
 function sound(engine: Session, name: string, args?: Record<string, number>) {
   const instrument = instruments[name]
   if (!instrument) {
-    console.warn(`score: no instrument "${name}"`)
+    console.warn(`script: no instrument "${name}"`)
     return
   }
-  engine.sonic.send(
-    '/s_new',
-    instrument.def,
-    i(engine.sonic.nextNodeId()),
-    i(0),
-    i(0),
-    ...ctl({ ...instrument.args, ...args }),
-  )
+  engine.sonic.send('/s_new', instrument.def, -1, 0, 0, ...ctl({ ...instrument.args, ...args }))
 }
+
+/** True while a screen's narrator is still going: its buttons wait. */
+const Busy = createContext(false)
 
 export function Onboarding({ version }: { version: Version }) {
   const group = useMemo(() => groupFor(sessionStore()), [])
@@ -113,9 +111,13 @@ export function Onboarding({ version }: { version: Version }) {
     }
   })
   const [unlocked, setUnlocked] = useState(false)
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null)
+  useEffect(() => {
+    void loadVoices().then((found) => setVoice(found.find((one) => spoken.name.test(one.name)) ?? preferred(found)))
+  }, [])
   const toggleNarrator = (on: boolean) => {
     setNarratorOn(on)
-    if (!on) hush()
+    if (!on) stopAll()
     try {
       sessionStorage.setItem(NARRATOR_KEY, on ? 'on' : 'off')
     } catch {
@@ -185,15 +187,16 @@ export function Onboarding({ version }: { version: Version }) {
     () => ({
       on: narratorOn,
       unlocked,
+      voice,
       play: (name: string, args?: Record<string, number>) => {
         const live = engine()
         if (live) sound(live, name, args)
       },
     }),
-    [narratorOn, unlocked, engine],
+    [narratorOn, unlocked, voice, engine],
   )
 
-  const lines = useCallback((script: Script) => resolve(script, platform, group.name), [platform, group])
+  const lines = useCallback((script: Script) => resolve(script, platform, group.name, pause), [platform, group])
 
   const shared: StepProps = {
     lines,
@@ -235,9 +238,8 @@ export function Onboarding({ version }: { version: Version }) {
           <Start
             {...shared}
             onStart={() => {
-              // Safari's audio session is left at its default here: see
-              // `audioSession`. Version A changes it only while its microphone is open.
-              unlockVoice()
+              // As `/speak/` starts: the voice unlocked, then the engine booted.
+              unlock()
               setUnlocked(true)
               boot()
             }}
@@ -342,11 +344,12 @@ function Script({ narration }: { narration: Narration }) {
 }
 
 function Primary({ children, onClick, disabled = false }: { children: ReactNode; onClick(): void; disabled?: boolean }) {
+  const busy = useContext(Busy)
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || busy}
       className="min-h-14 rounded bg-[var(--ak-accent)] px-5 text-lg font-semibold text-black transition-transform active:scale-95 disabled:opacity-40"
     >
       {children}
@@ -355,11 +358,13 @@ function Primary({ children, onClick, disabled = false }: { children: ReactNode;
 }
 
 function Secondary({ children, onClick }: { children: ReactNode; onClick(): void }) {
+  const busy = useContext(Busy)
   return (
     <button
       type="button"
       onClick={onClick}
-      className="ak-panel min-h-12 rounded border px-4 text-base text-neutral-200 transition-transform active:scale-95"
+      disabled={busy}
+      className="ak-panel min-h-12 rounded border px-4 text-base text-neutral-200 transition-transform active:scale-95 disabled:opacity-40"
     >
       {children}
     </button>
@@ -380,7 +385,9 @@ function Tick({ children }: { children: ReactNode }) {
 /** Fixes for a failure, read aloud too, then — after two — the facilitator and a way on. */
 function Fixes({ flow, script, act, skipLabel }: { flow: Flow; script: Resolved[]; act: StepProps['act']; skipLabel: string }) {
   const narration = useNarration(script)
+  const busy = useContext(Busy) || !narration.done
   return (
+    <Busy.Provider value={busy}>
     <div className="flex flex-col gap-3 rounded border border-amber-900 bg-amber-950/40 p-4" data-testid="fixes">
       {narration.view}
       <HearAgain narration={narration} />
@@ -395,6 +402,7 @@ function Fixes({ flow, script, act, skipLabel }: { flow: Flow; script: Resolved[
         <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>{skipLabel}</Secondary>
       )}
     </div>
+    </Busy.Provider>
   )
 }
 
@@ -408,7 +416,7 @@ function usePass(act: StepProps['act'], label: string) {
   return [passed, pass] as const
 }
 
-/** The score's `tone`, every `pulseEvery` beats while `on`, calling `onPulse` with each start time. */
+/** The script's `tone`, every `toneEvery` seconds while `on`, calling `onPulse` with each start time. */
 function usePulses(on: boolean, engine: StepProps['engine'], onPulse?: (at: number) => void) {
   const latest = useRef(onPulse)
   latest.current = onPulse
@@ -449,10 +457,10 @@ function Start({ lines, act, onStart }: StepProps & { onStart(): void }) {
 function Speaker({ lines, act }: StepProps) {
   const narration = useNarration(lines(scripts.speaker))
   return (
-    <>
+    <Busy.Provider value={!narration.done}>
       <Script narration={narration} />
       <Primary onClick={() => act({ type: 'next' })}>Next</Primary>
-    </>
+    </Busy.Provider>
   )
 }
 
@@ -467,10 +475,10 @@ function Volume({ lines, act, engine, booted }: StepProps) {
   const narration = useNarration(lines(scripts.volume))
   usePulses(booted && narration.done && !narration.speaking, engine)
   return (
-    <>
+    <Busy.Provider value={!narration.done}>
       <Script narration={narration} />
       <Primary onClick={() => act({ type: 'next' }, 'Volume set')}>Volume is full</Primary>
-    </>
+    </Busy.Provider>
   )
 }
 
@@ -484,7 +492,6 @@ function Mic({ lines, flow, act, onGranted }: StepProps & { onGranted(stream: Me
       setRefused(true)
       return
     }
-    hush()
     // Before the microphone opens, as the WebKit workaround has it.
     audioSession('play-and-record')
     navigator.mediaDevices.getUserMedia(CONSTRAINTS).then(
@@ -501,7 +508,7 @@ function Mic({ lines, flow, act, onGranted }: StepProps & { onGranted(stream: Me
   }
 
   return (
-    <>
+    <Busy.Provider value={!narration.done || (refused && !refusal.done)}>
       <Script narration={narration} />
       {refused ? (
         <div className="flex flex-col gap-3 rounded border border-amber-900 bg-amber-950/40 p-4" data-testid="fixes">
@@ -517,7 +524,7 @@ function Mic({ lines, flow, act, onGranted }: StepProps & { onGranted(stream: Me
       ) : (
         <Primary onClick={ask}>Allow microphone</Primary>
       )}
-    </>
+    </Busy.Provider>
   )
 }
 
@@ -596,7 +603,7 @@ function ToneMeasured({ lines, flow, act, engine, booted, level, room }: StepPro
   }, [level, room])
 
   return (
-    <>
+    <Busy.Provider value={!narration.done}>
       <Script narration={narration} />
       <div className="ak-panel relative h-10 overflow-hidden rounded border" aria-hidden="true">
         <div ref={bar} className="h-full bg-[var(--group)]" style={{ width: '0%' }} data-testid="tone-bar" />
@@ -609,7 +616,7 @@ function ToneMeasured({ lines, flow, act, engine, booted, level, room }: StepPro
       {!passed && flow.tries === 0 ? (
         <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>Continue without sound</Secondary>
       ) : null}
-    </>
+    </Busy.Provider>
   )
 }
 
@@ -620,16 +627,13 @@ function ToneAsked({ lines, flow, act, engine, booted }: StepProps) {
   usePulses(booted && playing && !passed, engine)
 
   return (
-    <>
+    <Busy.Provider value={!narration.done}>
       <Script narration={narration} />
       {passed ? (
         <Tick>Sound is on the speaker</Tick>
       ) : !playing ? (
         <Primary
-          onClick={() => {
-            hush()
-            setPlaying(true)
-          }}
+          onClick={() => setPlaying(true)}
         >
           Play
         </Primary>
@@ -659,7 +663,7 @@ function ToneAsked({ lines, flow, act, engine, booted }: StepProps) {
       {!passed && flow.tries === 0 ? (
         <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>Continue without sound</Secondary>
       ) : null}
-    </>
+    </Busy.Provider>
   )
 }
 
@@ -709,7 +713,7 @@ function Voice({ lines, flow, act, level, room, measured }: StepProps & { measur
   }
 
   return (
-    <>
+    <Busy.Provider value={!instructions.done || line.speaking}>
       {instructions.view}
       {measured || played ? line.view : null}
       {passed ? (
@@ -742,7 +746,7 @@ function Voice({ lines, flow, act, level, room, measured }: StepProps & { measur
           )}
         </>
       )}
-    </>
+    </Busy.Provider>
   )
 }
 
@@ -784,7 +788,7 @@ function Motion({ lines, flow, group, act }: StepProps) {
   }
 
   return (
-    <>
+    <Busy.Provider value={!narration.done}>
       {flash ? (
         <div className="pointer-events-none fixed inset-0 z-50" style={{ backgroundColor: group.colour }} data-testid="flash" />
       ) : null}
@@ -807,7 +811,7 @@ function Motion({ lines, flow, group, act }: StepProps) {
       {!passed && flow.tries === 0 ? (
         <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>Skip movement</Secondary>
       ) : null}
-    </>
+    </Busy.Provider>
   )
 }
 
