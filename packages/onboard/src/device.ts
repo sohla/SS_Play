@@ -146,12 +146,16 @@ export function keepAwake(onChange?: (held: boolean) => void): () => void {
  * the page opens the microphone, and WebKit's bug tracker has reports of it
  * staying there after the microphone is closed. No web API chooses the speaker
  * on iOS (`setSinkId` is not there). The one lever is the Audio Session API,
- * Safari-only: "playback" for a page that only plays, "play-and-record" set
- * *before* opening the microphone and "playback" again once it is closed. It
- * is reported to help, not to always work — hence the fix line that tells a
- * person how to get the speaker back by hand.
+ * Safari-only: "play-and-record" set *before* opening the microphone, and back
+ * to "auto", the default, once it is closed. It is reported to help, not to
+ * always work — hence the fix line that tells a person how to get the speaker
+ * back by hand.
+ *
+ * Never "playback": set from the Start tap, it left the iPhone playing the
+ * narrator and no Web Audio at all — the chime went silent from the commit
+ * that added it, and nothing on desktop has the API to show it.
  */
-export function audioSession(type: 'playback' | 'play-and-record') {
+export function audioSession(type: 'auto' | 'play-and-record') {
   const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
   if (!session) return
   try {

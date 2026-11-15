@@ -2230,3 +2230,20 @@ Asked for: a score — script, sounds, rhythm, order, voice, instruments — to 
 ### Open
 
 - An instrument's SynthDef must free itself after a note; nothing frees it otherwise.
+
+## 2026-11-15 — onboarding: the chime was silent on iPhone
+
+Report: on the phone, only the narrator; no chime at all, and the first line faded out.
+
+- Desktop Chrome, live page, real voice: every chime was sent and reached the output (peak
+  0.29–0.36, context running). So the page played them; the phone did not.
+- The `/speak/` page plays the voice and tones together on the same phone. It starts with
+  `unlock()` then `boot()`, and never touches Safari's audio session. Onboarding had done the
+  same until dcfe184 added `navigator.audioSession.type = 'playback'` on the Start tap — the one
+  iPhone-only difference, and absent on desktop, so no test could see it. The chime has not
+  been heard since that commit.
+- Removed: the Start tap leaves the session at its default; after Version A's microphone it goes
+  back to `'auto'` rather than `'playback'`. `'play-and-record'` before the microphone stays.
+
+Verified: `vitest` 1464, e2e `onboard` 7 — which cannot exercise the cause. Open: confirm on the
+iPhone; if the earpiece routing returns in B, it needs another way than `'playback'`.

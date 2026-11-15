@@ -162,7 +162,7 @@ export function Onboarding({ version }: { version: Version }) {
     stream.current.getTracks().forEach((track) => track.stop())
     stream.current = null
     setMicOpen(false)
-    audioSession('playback')
+    audioSession('auto')
   }, [])
   useEffect(() => {
     if (flow.step === 'motion' || flow.step === 'ready') closeMic()
@@ -235,9 +235,8 @@ export function Onboarding({ version }: { version: Version }) {
           <Start
             {...shared}
             onStart={() => {
-              // Playback from the first tap; Version A switches only while its
-              // microphone is open.
-              audioSession('playback')
+              // Safari's audio session is left at its default here: see
+              // `audioSession`. Version A changes it only while its microphone is open.
               unlockVoice()
               setUnlocked(true)
               boot()
@@ -494,7 +493,7 @@ function Mic({ lines, flow, act, onGranted }: StepProps & { onGranted(stream: Me
         act({ type: 'next' }, 'Microphone allowed')
       },
       () => {
-        audioSession('playback')
+        audioSession('auto')
         setRefused(true)
         act({ type: 'fail' }, 'Microphone not allowed')
       },
