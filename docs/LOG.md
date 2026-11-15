@@ -2202,3 +2202,31 @@ back when the voice began, and the chime never played.
 
 - Real phones: iOS pacing, and whether its `start` arrives before the sound as Chrome's can.
 - The spec doc still describes the long wording and lacks the volume step.
+
+## 2026-11-15 — onboarding: the score
+
+Asked for: a score — script, sounds, rhythm, order, voice, instruments — to tweak by editing code.
+
+### Done
+
+- `packages/onboard/src/score.ts` is the score: `tempo`, `voice` (preferred names, rate, pitch,
+  volume), `instruments` (name → SynthDef and args), `pulseEvery`, the step `order` for A and B,
+  and every screen's script, fixes included. Scripts are cues: `title/say/item/quote` speak and
+  show a line, `play('chime', {…})` sounds an instrument, `rest(beats)` waits. Words can vary by
+  platform; `{group}` is the group name; `say('…', { rate })` overrides the voice for a line.
+- `cues.ts` is the vocabulary and `resolve()`; the narration hook now plays a resolved script
+  rather than inserting a chime after each line itself. Same rhythm as before, now written out.
+- The flow's step order comes from the score; a refused microphone carries on from B's first
+  step A has not done (still `toneAsk` with today's order), so the order can change.
+- Both apps' SynthDef lists are derived from the score's instruments, Vite config and runtime.
+- Unchanged in code: buttons, the checks and their thresholds, `MEASURE_MS`.
+
+### Verified
+
+- `vitest` 1464 passed: 5 new check the score plays only defined instruments, its SynthDefs
+  exist, the voice line has no instruments, and both orders can be walked. e2e `onboard`,
+  `site`, `mobile` 47 passed. Built pages ship `sonic-pi-pretty_bell` from the score.
+
+### Open
+
+- An instrument's SynthDef must free itself after a note; nothing frees it otherwise.

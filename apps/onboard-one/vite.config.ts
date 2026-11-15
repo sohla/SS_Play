@@ -1,9 +1,11 @@
 import { defineSSApp } from '@ss/vite-preset'
+import { synthdefsOf } from '../../packages/onboard/src/cues.ts'
+import { instruments } from '../../packages/onboard/src/score.ts'
 
 export default defineSSApp({
   name: 'onboard-one',
   basePath: '/onboard-one/',
   port: 3058,
-  // The check chime: Sonic Pi's bell, vendored with the engine.
-  synthdefs: ['sonic-pi-pretty_bell'],
+  // Whatever the score's instruments use; the sidecar's `ssp_*` defs ship anyway.
+  synthdefs: synthdefsOf(instruments).filter((def) => !def.startsWith('ssp_')),
 })

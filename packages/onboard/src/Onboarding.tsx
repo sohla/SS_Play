@@ -3,7 +3,7 @@ import { HeldVoice, ctl, i, type Session } from '@ss/engine'
 import { requestMotion, watchMotion } from '@ss/motion'
 import { useOscTap, useSuperSonic } from '@ss/react'
 import { EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
-import { audioSession, hush, keepAwake, platformOf, unlockVoice, type Platform } from './device.ts'
+import { audioSession, hush, keepAwake, platformOf, unlockVoice } from './device.ts'
 import {
   needsFacilitator,
   noiseDb,
@@ -25,17 +25,17 @@ import {
   useNarration,
   type Narration,
 } from './narration.tsx'
-import type { Part } from './words.ts'
+import { resolve, type Resolved, type Script } from './cues.ts'
+import { instruments, pulseEvery, scripts, tempo } from './score.ts'
 
 /**
  * The phone onboarding test, both versions. See
- * `docs/Phone onboarding test spec.md` for what each screen must do and why;
- * `flow.ts` holds the order and the rules, this file the screens and sounds.
+ * `docs/Phone onboarding test spec.md` for what each screen must do and why.
+ * `score.ts` holds what is said and played, when, and in what order; `flow.ts`
+ * the rules; this file the screens, the checks and the buttons.
  *
- * Sound uses only what the repo already has: Sonic Pi's `pretty_bell` is the chime, and
  * `ssp_mic_follow` — the `/mic/` page's level follower — reports the
- * microphone's level for Version A. The narrator is the browser's own voice,
- * and it reads every screen aloud with the words lighting as they are said —
+ * microphone's level for Version A. The narrator is the browser's own voice —
  * see `narration.tsx`.
  */
 
@@ -48,12 +48,11 @@ const MARGIN_DB = (() => {
 const VOICE_MARGIN_DB = 10
 
 /**
- * The check sound: Sonic Pi's `pretty_bell`, a soft chime that decays, vendored
- * with the engine. A held sine was the first version — a plain beep, which read
- * as an alarm. `measureMs` is how long after each chime its loudest moment is
- * looked for, which the bell's fast attack puts at the very start.
+ * How long after each pulse of the score's `tone` its loudest moment is looked
+ * for, which the bell's fast attack puts at the very start.
  */
-const TONE = { note: 76, amp: 0.6, release: 1.2, everyMs: 1000, measureMs: 450 }
+const MEASURE_MS = 450
+const PULSE_MS = (pulseEvery * 60_000) / tempo
 /** Pulses without a pass before the step counts a failed try and shows the fixes. */
 const PULSES_PER_TRY = 8
 /** A control bus nothing else on these pages reads; the follower must write somewhere. */
@@ -77,15 +76,20 @@ function sessionStore(): Storage | null {
   }
 }
 
-/** One chime. The bell frees itself when it has decayed. */
-function pulse(engine: Session) {
+/** One note of a score instrument. Its SynthDef must free itself, as the bells do. */
+function sound(engine: Session, name: string, args?: Record<string, number>) {
+  const instrument = instruments[name]
+  if (!instrument) {
+    console.warn(`score: no instrument "${name}"`)
+    return
+  }
   engine.sonic.send(
     '/s_new',
-    'sonic-pi-pretty_bell',
+    instrument.def,
     i(engine.sonic.nextNodeId()),
     i(0),
     i(0),
-    ...ctl({ note: TONE.note, amp: TONE.amp, release: TONE.release }),
+    ...ctl({ ...instrument.args, ...args }),
   )
 }
 
@@ -181,18 +185,20 @@ export function Onboarding({ version }: { version: Version }) {
     () => ({
       on: narratorOn,
       unlocked,
-      chime: () => {
+      play: (name: string, args?: Record<string, number>) => {
         const live = engine()
-        if (live) pulse(live)
+        if (live) sound(live, name, args)
       },
     }),
     [narratorOn, unlocked, engine],
   )
 
+  const lines = useCallback((script: Script) => resolve(script, platform, group.name), [platform, group])
+
   const shared: StepProps = {
+    lines,
     flow,
     group,
-    platform,
     act,
     engine,
     booted,
@@ -291,20 +297,16 @@ export function Onboarding({ version }: { version: Version }) {
 // ------------------------------------------------------------ the pieces
 
 interface StepProps {
+  /** A script from the score, for this phone and this person. */
+  lines(script: Script): Resolved[]
   flow: Flow
   group: Group
-  platform: Platform
   act(event: FlowEvent, said?: string): void
   engine(): Session | null
   booted: boolean
   level: { current: number }
   room: { current: number }
 }
-
-const heading = (text: string): Part => ({ kind: 'heading', text })
-const say = (text: string): Part => ({ kind: 'say', text })
-const item = (text: string): Part => ({ kind: 'item', text })
-const quote = (text: string): Part => ({ kind: 'quote', text })
 
 function GroupBand({ group, big }: { group: Group; big: boolean }) {
   return (
@@ -377,8 +379,8 @@ function Tick({ children }: { children: ReactNode }) {
 }
 
 /** Fixes for a failure, read aloud too, then — after two — the facilitator and a way on. */
-function Fixes({ flow, lines, act, skipLabel }: { flow: Flow; lines: string[]; act: StepProps['act']; skipLabel: string }) {
-  const narration = useNarration(lines.map(item))
+function Fixes({ flow, script, act, skipLabel }: { flow: Flow; script: Resolved[]; act: StepProps['act']; skipLabel: string }) {
+  const narration = useNarration(script)
   return (
     <div className="flex flex-col gap-3 rounded border border-amber-900 bg-amber-950/40 p-4" data-testid="fixes">
       {narration.view}
@@ -397,29 +399,6 @@ function Fixes({ flow, lines, act, skipLabel }: { flow: Flow; lines: string[]; a
   )
 }
 
-function soundFixes(platform: Platform, measured: boolean): string[] {
-  return [
-    platform === 'android' ? 'Media volume up.' : 'Silent switch off: no orange.',
-    'Bluetooth off. Headphones out.',
-    measured ? 'Volume up until the bar passes the line.' : 'Volume up, loud.',
-    ...earpiece(platform, measured),
-  ]
-}
-
-/**
- * The one fix for sound stuck in the earpiece. There is no switch for it: a
- * page cannot choose the speaker on iOS, and the person cannot either. A fresh
- * tab resets it; in Version A it only stays fixed without the microphone.
- */
-function earpiece(platform: Platform, measured: boolean): string[] {
-  if (platform === 'android') return []
-  return [
-    measured
-      ? 'Sound from the top, like a call? Reopen the link, and skip the microphone.'
-      : 'Sound from the top, like a call? Close this tab and reopen the link.',
-  ]
-}
-
 /** A tick, held long enough to be seen, then on. */
 function usePass(act: StepProps['act'], label: string) {
   const [passed, setPassed] = useState(false)
@@ -430,7 +409,7 @@ function usePass(act: StepProps['act'], label: string) {
   return [passed, pass] as const
 }
 
-/** The chime once a second while `on`, calling `onPulse` with each start time. */
+/** The score's `tone`, every `pulseEvery` beats while `on`, calling `onPulse` with each start time. */
 function usePulses(on: boolean, engine: StepProps['engine'], onPulse?: (at: number) => void) {
   const latest = useRef(onPulse)
   latest.current = onPulse
@@ -439,23 +418,20 @@ function usePulses(on: boolean, engine: StepProps['engine'], onPulse?: (at: numb
     const fire = () => {
       const live = engine()
       if (!live) return
-      pulse(live)
+      sound(live, 'tone')
       latest.current?.(performance.now())
     }
     fire()
-    const timer = setInterval(fire, TONE.everyMs)
+    const timer = setInterval(fire, PULSE_MS)
     return () => clearInterval(timer)
   }, [on, engine])
 }
 
 // ---------------------------------------------------------------- steps
 
-function Start({ group, act, onStart }: StepProps & { onStart(): void }) {
+function Start({ lines, act, onStart }: StepProps & { onStart(): void }) {
   // Before the tap nothing can speak on iPhone, so this one is only read.
-  const narration = useNarration([
-    heading(`Hello, ${group.name}.`),
-    say('Let’s get your phone ready.'),
-  ])
+  const narration = useNarration(lines(scripts.start))
   return (
     <>
       {narration.view}
@@ -471,13 +447,8 @@ function Start({ group, act, onStart }: StepProps & { onStart(): void }) {
   )
 }
 
-function Speaker({ platform, act }: StepProps) {
-  const narration = useNarration([
-    heading('Sound on the speaker'),
-    item('Headphones off.'),
-    item('Bluetooth off.'),
-    platform === 'android' ? item('Media volume on.') : item('Silent mode off.'),
-  ])
+function Speaker({ lines, act }: StepProps) {
+  const narration = useNarration(lines(scripts.speaker))
   return (
     <>
       <Script narration={narration} />
@@ -493,12 +464,8 @@ function Speaker({ platform, act }: StepProps) {
  * while the page is making sound. It starts once the narrator has finished, so
  * the two are not heard on top of each other.
  */
-function Volume({ platform, act, engine, booted }: StepProps) {
-  const narration = useNarration([
-    heading('Volume up full'),
-    say('Press volume up until it stops.'),
-    say(platform === 'android' ? 'The chime comes from the speaker.' : 'The chime comes from the bottom, not the top.'),
-  ])
+function Volume({ lines, act, engine, booted }: StepProps) {
+  const narration = useNarration(lines(scripts.volume))
   usePulses(booted && narration.done && !narration.speaking, engine)
   return (
     <>
@@ -508,20 +475,10 @@ function Volume({ platform, act, engine, booted }: StepProps) {
   )
 }
 
-function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStream): void }) {
+function Mic({ lines, flow, act, onGranted }: StepProps & { onGranted(stream: MediaStream): void }) {
   const [refused, setRefused] = useState(false)
-  const narration = useNarration([
-    heading('Allow the microphone'),
-    say('It listens for the chime.'),
-    say('Nothing is recorded.'),
-  ])
-  const refusal = useNarration(
-    [
-      say('No problem.'),
-      say('Continue without it, or allow it in site settings.'),
-    ],
-    { auto: refused },
-  )
+  const narration = useNarration(lines(scripts.mic))
+  const refusal = useNarration(lines(scripts.micRefused), { auto: refused })
 
   const ask = () => {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -570,8 +527,8 @@ function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStre
  * during "stay quiet", the narrator would be the room, and the tone could
  * never clear it.
  */
-function Quiet({ act, level, room }: StepProps) {
-  const narration = useNarration([heading('Quiet, please.')])
+function Quiet({ lines, act, level, room }: StepProps) {
+  const narration = useNarration(lines(scripts.quiet))
   const ready = narration.done && !narration.speaking
 
   useEffect(() => {
@@ -599,14 +556,11 @@ function Quiet({ act, level, room }: StepProps) {
   )
 }
 
-function ToneMeasured({ flow, platform, act, engine, booted, level, room }: StepProps) {
+function ToneMeasured({ lines, flow, act, engine, booted, level, room }: StepProps) {
   const [passed, pass] = usePass(act, 'Sound')
   const peaks = useRef<number[]>([])
   const sinceTry = useRef(0)
-  const narration = useNarration([
-    heading('Tone check'),
-    say('Volume up until the bar passes the line.'),
-  ])
+  const narration = useNarration(lines(scripts.tone))
 
   // After each chime, its loudest reading — only once the narrator is quiet,
   // or the voice would pass the check for it.
@@ -625,7 +579,7 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
         sinceTry.current = 0
         act({ type: 'fail' }, 'Not loud enough yet')
       }
-    }, TONE.measureMs)
+    }, MEASURE_MS)
   })
 
   // The bar, per frame: the level over the room, with the line at the margin.
@@ -651,7 +605,7 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
       </div>
       {passed ? <Tick>Loud enough</Tick> : null}
       {!passed && flow.tries > 0 ? (
-        <Fixes flow={flow} lines={soundFixes(platform, true)} act={act} skipLabel="Continue without sound" />
+        <Fixes flow={flow} script={lines(scripts.fixes.soundMeasured)} act={act} skipLabel="Continue without sound" />
       ) : null}
       {!passed && flow.tries === 0 ? (
         <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>Continue without sound</Secondary>
@@ -660,14 +614,10 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
   )
 }
 
-function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
+function ToneAsked({ lines, flow, act, engine, booted }: StepProps) {
   const [playing, setPlaying] = useState(false)
   const [passed, pass] = usePass(act, 'Sound')
-  const narration = useNarration([
-    heading('Tone check'),
-    say('Press Play.'),
-    say('Can you hear the chime?'),
-  ])
+  const narration = useNarration(lines(scripts.toneAsk))
   usePulses(booted && playing && !passed, engine)
 
   return (
@@ -705,7 +655,7 @@ function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
         </div>
       )}
       {!passed && flow.tries > 0 ? (
-        <Fixes flow={flow} lines={soundFixes(platform, false)} act={act} skipLabel="Continue without sound" />
+        <Fixes flow={flow} script={lines(scripts.fixes.sound)} act={act} skipLabel="Continue without sound" />
       ) : null}
       {!passed && flow.tries === 0 ? (
         <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>Continue without sound</Secondary>
@@ -725,7 +675,7 @@ function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
  * Asked (B): the screen reads its instructions; Play says the line, lit word
  * by word; then Yes or No.
  */
-function Voice({ flow, platform, act, level, room, measured }: StepProps & { measured: boolean }) {
+function Voice({ lines, flow, act, level, room, measured }: StepProps & { measured: boolean }) {
   const [passed, pass] = usePass(act, 'Voice')
   const [asking, setAsking] = useState(!measured)
   const loudest = useRef(-100)
@@ -745,16 +695,12 @@ function Voice({ flow, platform, act, level, room, measured }: StepProps & { mea
   }
   useEffect(() => () => void (watching.current && clearInterval(watching.current)), [])
 
-  // Measured, the line follows the instructions by itself, with no chime that
-  // the microphone could take for the voice.
-  const instructions = useNarration(
-    measured ? [heading('Voice check'), say('Listen.')] : [heading('Voice check'), say('Press Play.'), say('Can you hear a voice?')],
-    measured ? { always: true } : {},
-  )
-  const line = useNarration([quote('Hello. This is the narrator.')], {
+  // Measured, the line follows the instructions by itself, and the microphone
+  // listens to it alone.
+  const instructions = useNarration(lines(measured ? scripts.voice : scripts.voiceAsk), measured ? { always: true } : {})
+  const line = useNarration(lines(scripts.voiceLine), {
     auto: measured && instructions.done,
     always: true,
-    chimes: false,
     ...(measured ? listen : {}),
   })
   const [played, setPlayed] = useState(false)
@@ -787,7 +733,7 @@ function Voice({ flow, platform, act, level, room, measured }: StepProps & { mea
               <Secondary onClick={play}>Play again</Secondary>
               <Fixes
                 flow={flow}
-                lines={['Volume up, then Play again.', ...earpiece(platform, measured)]}
+                script={lines(measured ? scripts.fixes.voiceMeasured : scripts.fixes.voice)}
                 act={act}
                 skipLabel="Continue without the voice"
               />
@@ -801,15 +747,12 @@ function Voice({ flow, platform, act, level, room, measured }: StepProps & { mea
   )
 }
 
-function Motion({ flow, group, act }: StepProps) {
+function Motion({ lines, flow, group, act }: StepProps) {
   const [watching, setWatching] = useState(false)
   const [passed, pass] = usePass(act, 'Motion')
   const [flash, setFlash] = useState(false)
   // The words change once motion is allowed, and the new ones are read out.
-  const narration = useNarration([
-    heading('Shake test'),
-    say(watching ? 'Shake your phone gently.' : 'Tap Allow motion.'),
-  ])
+  const narration = useNarration(lines(watching ? scripts.motionWatching : scripts.motion))
 
   useEffect(() => {
     if (!watching || passed) return
@@ -857,7 +800,7 @@ function Motion({ flow, group, act }: StepProps) {
       {!passed && flow.tries > 0 ? (
         <Fixes
           flow={flow}
-          lines={['Tap Allow motion again.', 'Or check site settings.']}
+          script={lines(scripts.fixes.motion)}
           act={act}
           skipLabel="Skip movement"
         />
@@ -869,10 +812,10 @@ function Motion({ flow, group, act }: StepProps) {
   )
 }
 
-function Ready({ flow }: StepProps) {
+function Ready({ lines, flow }: StepProps) {
   const [awake, setAwake] = useState<boolean | null>(null)
   useEffect(() => keepAwake(setAwake), [])
-  const narration = useNarration([heading('You’re ready.'), say('Keep this screen open.')])
+  const narration = useNarration(lines(scripts.ready))
 
   const row = (name: string, outcome: string | null) => (
     <li className="flex justify-between border-b border-[var(--ak-line)] py-2 text-lg" key={name}>

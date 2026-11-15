@@ -3,7 +3,10 @@
  * keeping the screen awake.
  */
 
-export type Platform = 'ios' | 'android' | 'other'
+import type { Platform } from './cues.ts'
+import { voice as score } from './score.ts'
+
+export type { Platform }
 
 /** iPadOS reports itself as a Mac, so a Mac with a touch screen is an iPad. */
 export function platformOf(nav: Pick<Navigator, 'userAgent' | 'platform' | 'maxTouchPoints'>): Platform {
@@ -34,18 +37,15 @@ export function unlockVoice() {
   speechSynthesis.speak(silent)
 }
 
-/** Daniel where the phone has him, as on `/speak/`; otherwise an English on-device voice. */
+/** The score's preferred voices in order; otherwise an English on-device voice. */
 function voice(): SpeechSynthesisVoice | null {
   const voices = speechSynthesis.getVoices()
-  return (
-    voices.find((one) => /^Daniel\b/.test(one.name)) ??
-    voices.find((one) => one.localService && one.lang.toLowerCase().startsWith('en')) ??
-    null
-  )
+  for (const name of score.prefer) {
+    const found = voices.find((one) => one.name === name || one.name.startsWith(`${name} `))
+    if (found) return found
+  }
+  return voices.find((one) => one.localService && one.lang.toLowerCase().startsWith('en')) ?? null
 }
-
-/** Slower than the voice's default, which reads instructions far too briskly. */
-export const SPEECH_RATE = 0.85
 
 export interface NarrationHooks {
   onStart?(): void
@@ -55,7 +55,16 @@ export interface NarrationHooks {
   onEnd?(cut: boolean): void
 }
 
-export function narrate(text: string, hooks: NarrationHooks) {
+/** How a line is said: the score's voice, with any of it overridden. */
+export interface Delivery {
+  rate?: number
+  pitch?: number
+}
+
+/** The rate a line is actually spoken at. */
+export const rateOf = (delivery: Delivery = {}) => delivery.rate ?? score.rate
+
+export function narrate(text: string, hooks: NarrationHooks, delivery: Delivery = {}) {
   if (!canSpeak()) return
   const utterance = new SpeechSynthesisUtterance(text)
   const chosen = voice()
@@ -63,7 +72,9 @@ export function narrate(text: string, hooks: NarrationHooks) {
     utterance.voice = chosen
     utterance.lang = chosen.lang
   }
-  utterance.rate = SPEECH_RATE
+  utterance.rate = rateOf(delivery)
+  utterance.pitch = delivery.pitch ?? score.pitch
+  utterance.volume = score.volume
   utterance.onstart = () => hooks.onStart?.()
   utterance.onboundary = (event) => {
     if (event.name && event.name !== 'word') return

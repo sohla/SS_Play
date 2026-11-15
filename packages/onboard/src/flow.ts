@@ -8,9 +8,11 @@
  *
  * A refused microphone in A drops into B's checks from the tone step on, so the
  * sequence a person walks is decided by what happens, not only by the version.
- * Kept free of React and audio so every path — refusals, retries, skips — can
+ * The order itself is in `score.ts`. Kept free of React and audio so every path — refusals, retries, skips — can
  * be tested.
  */
+
+import { order } from './score.ts'
 
 export type Version = 'A' | 'B'
 
@@ -28,9 +30,14 @@ export type StepId =
   | 'ready'
 
 /** Measured with the microphone: Version A, until it is refused. */
-const MEASURED: readonly StepId[] = ['start', 'speaker', 'volume', 'mic', 'quiet', 'tone', 'voice', 'motion', 'ready']
+const MEASURED = order.A
 /** Asked of the person: Version B, and A after a refusal. */
-const ASKED: readonly StepId[] = ['start', 'speaker', 'volume', 'toneAsk', 'voiceAsk', 'motion', 'ready']
+const ASKED = order.B
+
+/** What A has done by the time its microphone is refused. */
+const BEFORE_REFUSAL = MEASURED.slice(0, MEASURED.indexOf('mic') + 1)
+/** Where a refusal carries on: B's first step not already done. */
+const AFTER_REFUSAL = ASKED.find((step) => !BEFORE_REFUSAL.includes(step)) ?? 'ready'
 
 export type Outcome = 'passed' | 'skipped'
 
@@ -81,9 +88,9 @@ export function progress(flow: Flow): { at: number; of: number } {
   const steps: readonly StepId[] = sequence(flow).filter((step) => step !== 'ready')
   const at = steps.indexOf(flow.step)
   if (flow.version === 'A' && flow.asking) {
-    // Start, speaker, volume and the refused mic step were four; then B's tail.
-    const before = MEASURED.indexOf('mic') + 1
-    const tail: readonly StepId[] = ASKED.slice(ASKED.indexOf('toneAsk')).filter((step) => step !== 'ready')
+    // What A did up to the refused microphone, then B's tail.
+    const before = BEFORE_REFUSAL.length
+    const tail: readonly StepId[] = ASKED.slice(ASKED.indexOf(AFTER_REFUSAL)).filter((step) => step !== 'ready')
     return { at: before + tail.indexOf(flow.step) + 1, of: before + tail.length }
   }
   return { at: at + 1, of: steps.length }
@@ -111,9 +118,9 @@ export function reduce(flow: Flow, event: FlowEvent): Flow {
       return advance(flow)
 
     case 'micRefused':
-      // Only meaningful on A's microphone step: carry on as B, from its tone check.
+      // Only meaningful on A's microphone step: carry on as B, from where A got to.
       if (flow.step !== 'mic') return flow
-      return { ...flow, asking: true, step: 'toneAsk', tries: 0 }
+      return { ...flow, asking: true, step: AFTER_REFUSAL, tries: 0 }
 
     case 'pass':
     case 'skip': {
