@@ -17,6 +17,7 @@ export type Version = 'A' | 'B'
 export type StepId =
   | 'start'
   | 'speaker'
+  | 'volume'
   | 'mic'
   | 'quiet'
   | 'tone'
@@ -27,9 +28,9 @@ export type StepId =
   | 'ready'
 
 /** Measured with the microphone: Version A, until it is refused. */
-const MEASURED: readonly StepId[] = ['start', 'speaker', 'mic', 'quiet', 'tone', 'voice', 'motion', 'ready']
+const MEASURED: readonly StepId[] = ['start', 'speaker', 'volume', 'mic', 'quiet', 'tone', 'voice', 'motion', 'ready']
 /** Asked of the person: Version B, and A after a refusal. */
-const ASKED: readonly StepId[] = ['start', 'speaker', 'toneAsk', 'voiceAsk', 'motion', 'ready']
+const ASKED: readonly StepId[] = ['start', 'speaker', 'volume', 'toneAsk', 'voiceAsk', 'motion', 'ready']
 
 export type Outcome = 'passed' | 'skipped'
 
@@ -80,9 +81,10 @@ export function progress(flow: Flow): { at: number; of: number } {
   const steps: readonly StepId[] = sequence(flow).filter((step) => step !== 'ready')
   const at = steps.indexOf(flow.step)
   if (flow.version === 'A' && flow.asking) {
-    // Start, speaker and the refused mic step were three; then B's tail.
+    // Start, speaker, volume and the refused mic step were four; then B's tail.
+    const before = MEASURED.indexOf('mic') + 1
     const tail: readonly StepId[] = ASKED.slice(ASKED.indexOf('toneAsk')).filter((step) => step !== 'ready')
-    return { at: 3 + tail.indexOf(flow.step) + 1, of: 3 + tail.length }
+    return { at: before + tail.indexOf(flow.step) + 1, of: before + tail.length }
   }
   return { at: at + 1, of: steps.length }
 }

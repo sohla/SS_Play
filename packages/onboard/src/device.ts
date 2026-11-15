@@ -103,3 +103,27 @@ export function keepAwake(onChange?: (held: boolean) => void): () => void {
     void lock?.release()
   }
 }
+
+// ---------------------------------------------------------------- route
+
+/**
+ * Tell Safari what kind of audio this page makes, where it can be told.
+ *
+ * iOS sends a page's sound to the earpiece — the call speaker at the top — once
+ * the page opens the microphone, and WebKit's bug tracker has reports of it
+ * staying there after the microphone is closed. No web API chooses the speaker
+ * on iOS (`setSinkId` is not there). The one lever is the Audio Session API,
+ * Safari-only: "playback" for a page that only plays, "play-and-record" set
+ * *before* opening the microphone and "playback" again once it is closed. It
+ * is reported to help, not to always work — hence the fix line that tells a
+ * person how to get the speaker back by hand.
+ */
+export function audioSession(type: 'playback' | 'play-and-record') {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
+  if (!session) return
+  try {
+    session.type = type
+  } catch {
+    // An unknown type on an older Safari: nothing to do.
+  }
+}

@@ -2098,3 +2098,37 @@ nothing about whether it works.
 - Everything in the spec's "Open questions" list — it needs real phones, Monday and Tuesday.
 - A's e2e proves the measuring path, not the acoustics: the fake microphone plays the room and the
   tone itself.
+
+---
+
+## 2026-11-15 — onboarding: the earpiece, the volume, and a nicer chime
+
+### Found on a phone
+
+- The narrator and the check tone came out of the iPhone's earpiece, quietly. A known WebKit
+  behaviour: once a page opens the microphone, iOS routes its sound to the call speaker, and there
+  are reports of it staying there after the microphone closes. No web API chooses the speaker on
+  iOS, and none reads or sets the phone's volume — a page always reads it as full.
+
+### Done
+
+- A new step in both versions, after the speaker step: **Turn the volume up full**. The chime plays
+  so the volume buttons control media volume, and the person confirms. A is now 8 steps, B 6.
+- The Safari Audio Session API, where present: "playback" from the Start tap; Version A switches
+  to "play-and-record" just before opening the microphone and back once it closes or is refused —
+  the workaround in WebKit's tracker, reported to help rather than always work.
+- Every sound fix list on iPhone gains the only manual fix there is: if it sounds like a phone
+  call from the top, close the tab and open the link again (in A, then continue without the
+  microphone). The speaker step says where the sound should come from.
+- The check sound is Sonic Pi's `pretty_bell`, a soft decaying chime, in place of a held sine.
+
+### Verified
+
+- `vitest` 1456 passed. e2e `onboard` (6) and `site`: both versions start to ready with the new
+  step; A's refusal now continues at step 5 of 7; the chime peaks between 0.2 and 0.99 and falls
+  below half its peak between chimes.
+
+### Open
+
+- Whether "playback" keeps B on the loudspeaker on a real iPhone, and whether A ever gets the
+  speaker back after its microphone closes. The spec still says "about three-quarters" in step 2.

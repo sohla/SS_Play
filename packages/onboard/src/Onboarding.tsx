@@ -3,7 +3,7 @@ import { HeldVoice, ctl, i, type Session } from '@ss/engine'
 import { requestMotion, watchMotion } from '@ss/motion'
 import { useOscTap, useSuperSonic } from '@ss/react'
 import { EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
-import { canSpeak, keepAwake, narrate, platformOf, unlockVoice, type Platform } from './device.ts'
+import { audioSession, canSpeak, keepAwake, narrate, platformOf, unlockVoice, type Platform } from './device.ts'
 import {
   needsFacilitator,
   noiseDb,
@@ -23,7 +23,7 @@ import { groupFor, type Group } from './groups.ts'
  * `docs/Phone onboarding test spec.md` for what each screen must do and why;
  * `flow.ts` holds the order and the rules, this file the screens and sounds.
  *
- * Sound uses only what the repo already has: `ssp_sine` is the soft tone, and
+ * Sound uses only what the repo already has: Sonic Pi's `pretty_bell` is the chime, and
  * `ssp_mic_follow` — the `/mic/` page's level follower — reports the
  * microphone's level for Version A. The narrator is the browser's own voice.
  */
@@ -36,7 +36,13 @@ const MARGIN_DB = (() => {
 /** How far over the room the narrator must lift the microphone to count as heard. */
 const VOICE_MARGIN_DB = 10
 
-const TONE = { freq: 660, amp: 0.35, holdMs: 350, everyMs: 1000 }
+/**
+ * The check sound: Sonic Pi's `pretty_bell`, a soft chime that decays, vendored
+ * with the engine. A held sine was the first version — a plain beep, which read
+ * as an alarm. `measureMs` is how long after each chime its loudest moment is
+ * looked for, which the bell's fast attack puts at the very start.
+ */
+const TONE = { note: 76, amp: 0.6, release: 1.2, everyMs: 1000, measureMs: 450 }
 /** Pulses without a pass before the step counts a failed try and shows the fixes. */
 const PULSES_PER_TRY = 8
 /** A control bus nothing else on these pages reads; the follower must write somewhere. */
@@ -59,18 +65,16 @@ function sessionStore(): Storage | null {
   }
 }
 
-/** One soft pulse of the tone: a gated `ssp_sine`, released after `holdMs`. */
+/** One chime. The bell frees itself when it has decayed. */
 function pulse(engine: Session) {
-  const node = engine.sonic.nextNodeId()
   engine.sonic.send(
     '/s_new',
-    'ssp_sine',
-    i(node),
+    'sonic-pi-pretty_bell',
+    i(engine.sonic.nextNodeId()),
     i(0),
     i(0),
-    ...ctl({ freq: TONE.freq, amp: TONE.amp, attack: 0.02, release: 0.15 }),
+    ...ctl({ note: TONE.note, amp: TONE.amp, release: TONE.release }),
   )
-  setTimeout(() => engine.sonic.send('/n_set', i(node), 'gate', i(0)), TONE.holdMs)
 }
 
 export function Onboarding({ version }: { version: Version }) {
@@ -118,9 +122,11 @@ export function Onboarding({ version }: { version: Version }) {
   // Let the microphone go as soon as the sound checks are over: nothing after
   // them needs it, and an open mic is what moves iPhone audio to the earpiece.
   const closeMic = useCallback(() => {
-    stream.current?.getTracks().forEach((track) => track.stop())
+    if (!stream.current) return
+    stream.current.getTracks().forEach((track) => track.stop())
     stream.current = null
     setMicOpen(false)
+    audioSession('playback')
   }, [])
   useEffect(() => {
     if (flow.step === 'motion' || flow.step === 'ready') closeMic()
@@ -163,9 +169,20 @@ export function Onboarding({ version }: { version: Version }) {
         ) : null}
 
         {flow.step === 'start' ? (
-          <Start {...shared} onStart={() => (unlockVoice(), boot())} />
+          <Start
+            {...shared}
+            onStart={() => {
+              // Playback from the first tap; Version A switches only while its
+              // microphone is open.
+              audioSession('playback')
+              unlockVoice()
+              boot()
+            }}
+          />
         ) : flow.step === 'speaker' ? (
           <Speaker {...shared} />
+        ) : flow.step === 'volume' ? (
+          <Volume {...shared} />
         ) : flow.step === 'mic' ? (
           <Mic
             {...shared}
@@ -324,6 +341,21 @@ function soundFixes(platform: Platform, measured: boolean): string[] {
     muted,
     'Turn off Bluetooth, or take your headphones off and disconnect them.',
     measured ? 'Turn the volume up until the bar passes the line.' : 'Turn the volume up until it is clearly loud.',
+    ...earpiece(platform, measured),
+  ]
+}
+
+/**
+ * The one fix for sound stuck in the earpiece. There is no switch for it: a
+ * page cannot choose the speaker on iOS, and the person cannot either. A fresh
+ * tab resets it; in Version A it only stays fixed without the microphone.
+ */
+function earpiece(platform: Platform, measured: boolean): string[] {
+  if (platform === 'android') return []
+  return [
+    measured
+      ? 'If the sound comes from the earpiece at the top, like a phone call: close this tab, open the link again, and choose “Continue without the microphone”.'
+      : 'If the sound comes from the earpiece at the top, like a phone call: close this tab and open the link again.',
   ]
 }
 
@@ -384,10 +416,35 @@ function Speaker({ platform, act }: StepProps) {
         {platform === 'android' ? (
           <li>Press a volume button and check the media volume.</li>
         ) : (
-          <li>Turn the volume up to about three-quarters.</li>
+          <li>Hold the phone with the screen facing you: the sound should come from the bottom edge, not the earpiece at the top.</li>
         )}
       </ul>
       <Primary onClick={() => act({ type: 'next' })}>Next</Primary>
+    </>
+  )
+}
+
+/**
+ * Volume up, all the way. No web API can read or set the phone's volume — on
+ * iOS a page always reads it as full — so the page plays the chime and asks.
+ * The chime matters: on iPhone the volume buttons only change media volume
+ * while the page is making sound.
+ */
+function Volume({ platform, act, engine, booted }: StepProps) {
+  usePulses(booted, engine)
+  return (
+    <>
+      <Heading>Turn the volume up full</Heading>
+      <Say>You&rsquo;ll hear a soft chime.</Say>
+      <ul className="flex list-disc flex-col gap-3 pl-5 text-lg text-neutral-200">
+        <li>
+          {platform === 'android'
+            ? 'Press the volume-up button until the media volume is at the top.'
+            : 'Press the volume-up button on the side until it will not go any higher.'}
+        </li>
+        <li>The chime should come from the bottom edge of the phone, not the earpiece at the top.</li>
+      </ul>
+      <Primary onClick={() => act({ type: 'next' }, 'Volume set')}>Volume is full</Primary>
     </>
   )
 }
@@ -400,12 +457,15 @@ function Mic({ flow, act, onGranted }: StepProps & { onGranted(stream: MediaStre
       setRefused(true)
       return
     }
+    // Before the microphone opens, as the WebKit workaround has it.
+    audioSession('play-and-record')
     navigator.mediaDevices.getUserMedia(CONSTRAINTS).then(
       (granted) => {
         onGranted(granted)
         act({ type: 'next' }, 'Microphone allowed')
       },
       () => {
+        audioSession('playback')
         setRefused(true)
         act({ type: 'fail' }, 'Microphone not allowed')
       },
@@ -485,7 +545,7 @@ function ToneMeasured({ flow, platform, act, engine, booted, level, room }: Step
         sinceTry.current = 0
         act({ type: 'fail' }, 'Not loud enough yet')
       }
-    }, TONE.holdMs + 100)
+    }, TONE.measureMs)
   })
 
   // The bar, per frame: the level over the room, with the line at the margin.
@@ -572,7 +632,7 @@ function ToneAsked({ flow, platform, act, engine, booted }: StepProps) {
  * microphone rose over the room while it spoke — otherwise, or if the phone
  * has no voice at all, it falls back to asking. Asked (B): Play, then Yes or No.
  */
-function Voice({ flow, act, level, room, measured }: StepProps & { measured: boolean }) {
+function Voice({ flow, platform, act, level, room, measured }: StepProps & { measured: boolean }) {
   const [passed, pass] = usePass(act, 'Voice')
   const [asking, setAsking] = useState(!measured)
   const [played, setPlayed] = useState(false)
@@ -634,7 +694,12 @@ function Voice({ flow, act, level, room, measured }: StepProps & { measured: boo
           {flow.tries > 0 ? (
             <>
               <Secondary onClick={play}>Play again</Secondary>
-              <Fixes flow={flow} lines={['Turn the volume up and press Play again.']} act={act} skipLabel="Continue without the voice" />
+              <Fixes
+                flow={flow}
+                lines={['Turn the volume up and press Play again.', ...earpiece(platform, measured)]}
+                act={act}
+                skipLabel="Continue without the voice"
+              />
             </>
           ) : (
             <Secondary onClick={() => act({ type: 'skip' }, 'Skipped')}>Continue without the voice</Secondary>

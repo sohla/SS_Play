@@ -16,32 +16,33 @@ const next: FlowEvent = { type: 'next' }
 const pass: FlowEvent = { type: 'pass' }
 
 describe('Version A', () => {
-  it('walks seven steps to the ready screen when everything passes', () => {
+  it('walks eight steps to the ready screen when everything passes', () => {
     const steps: string[] = []
     let flow = startFlow('A')
-    const script: FlowEvent[] = [next, next, next, next, pass, pass, pass]
+    const script: FlowEvent[] = [next, next, next, next, next, pass, pass, pass]
     for (const event of script) {
       steps.push(`${flow.step} ${progress(flow).at}/${progress(flow).of}`)
       flow = reduce(flow, event)
     }
     expect(steps).toEqual([
-      'start 1/7',
-      'speaker 2/7',
-      'mic 3/7',
-      'quiet 4/7',
-      'tone 5/7',
-      'voice 6/7',
-      'motion 7/7',
+      'start 1/8',
+      'speaker 2/8',
+      'volume 3/8',
+      'mic 4/8',
+      'quiet 5/8',
+      'tone 6/8',
+      'voice 7/8',
+      'motion 8/8',
     ])
     expect(flow.step).toBe('ready')
     expect(flow.results).toEqual({ sound: 'passed', voice: 'passed', motion: 'passed' })
   })
 
   it('carries on as Version B from its tone check when the microphone is refused', () => {
-    const flow = run(startFlow('A'), next, next, { type: 'micRefused' })
+    const flow = run(startFlow('A'), next, next, next, { type: 'micRefused' })
     expect(flow.step).toBe('toneAsk')
     expect(flow.asking).toBe(true)
-    expect(progress(flow)).toEqual({ at: 4, of: 6 })
+    expect(progress(flow)).toEqual({ at: 5, of: 7 })
     const done = run(flow, pass, pass, pass)
     expect(done.step).toBe('ready')
   })
@@ -56,11 +57,11 @@ describe('Version B', () => {
   it('walks its steps without ever reaching the microphone', () => {
     let flow = startFlow('B')
     const seen: string[] = []
-    for (const event of [next, next, pass, pass, pass]) {
+    for (const event of [next, next, next, pass, pass, pass]) {
       seen.push(flow.step)
       flow = reduce(flow, event)
     }
-    expect(seen).toEqual(['start', 'speaker', 'toneAsk', 'voiceAsk', 'motion'])
+    expect(seen).toEqual(['start', 'speaker', 'volume', 'toneAsk', 'voiceAsk', 'motion'])
     expect(seen).not.toContain('mic')
     expect(flow.step).toBe('ready')
   })
@@ -68,7 +69,7 @@ describe('Version B', () => {
 
 describe('failures and skips', () => {
   it('offers a facilitator after two failed tries, and resets on the next step', () => {
-    let flow = run(startFlow('B'), next, next)
+    let flow = run(startFlow('B'), next, next, next)
     flow = reduce(flow, { type: 'fail' })
     expect(needsFacilitator(flow)).toBe(false)
     flow = reduce(flow, { type: 'fail' })
@@ -79,7 +80,7 @@ describe('failures and skips', () => {
   })
 
   it('reports a skipped step as skipped on the ready screen', () => {
-    const flow = run(startFlow('B'), next, next, { type: 'skip' }, pass, { type: 'skip' })
+    const flow = run(startFlow('B'), next, next, next, { type: 'skip' }, pass, { type: 'skip' })
     expect(flow.results).toEqual({ sound: 'skipped', voice: 'passed', motion: 'skipped' })
   })
 
@@ -87,7 +88,7 @@ describe('failures and skips', () => {
     for (const version of ['A', 'B'] as const) {
       let flow = startFlow(version)
       for (let n = 0; n < 12 && flow.step !== 'ready'; n++) {
-        flow = reduce(flow, flow.step === 'start' || flow.step === 'speaker' || flow.step === 'mic' || flow.step === 'quiet' ? next : { type: 'skip' })
+        flow = reduce(flow, flow.step === 'start' || flow.step === 'speaker' || flow.step === 'volume' || flow.step === 'mic' || flow.step === 'quiet' ? next : { type: 'skip' })
       }
       expect(flow.step).toBe('ready')
     }

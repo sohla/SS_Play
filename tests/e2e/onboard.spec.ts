@@ -9,7 +9,7 @@ const TWO = sites.pages.find((page) => page.app === 'onboard-two')!.path
 
 /**
  * What the microphone hears in Version A: three seconds of quiet room noise at
- * about -50dB, then the page's 660Hz tone at about -14dB, looped. The quiet
+ * about -50dB, then a 660Hz tone at about -14dB, near the chime's own pitch, looped. The quiet
  * step measures the noise; the tone step must then see the tone clear the
  * 15dB margin. A headless phone cannot hear its own speaker, so the file plays
  * the part of the room and the speaker both.
@@ -108,9 +108,10 @@ const result = (page: Page, name: string) => page.locator(`[data-testid=result-$
 
 test('version B: start to ready with everything passed', async ({ page }) => {
   await open(page, TWO)
-  await expect(page.locator('[data-testid=progress]')).toHaveText('Step 1 of 5')
+  await expect(page.locator('[data-testid=progress]')).toHaveText('Step 1 of 6')
   await button(page, 'Start').click()
   await button(page, 'Next').click()
+  await button(page, 'Volume is full').click()
 
   await button(page, 'Play').click()
   await button(page, 'Yes, I hear it').click()
@@ -130,6 +131,7 @@ test('version B: two Nos bring a facilitator, and skipping shows as skipped', as
   await open(page, TWO)
   await button(page, 'Start').click()
   await button(page, 'Next').click()
+  await button(page, 'Volume is full').click()
 
   await button(page, 'Play').click()
   await button(page, 'No').click()
@@ -161,9 +163,10 @@ test('the group survives a reload', async ({ page }) => {
 
 test('version A: the microphone measures the tone, then the voice', async ({ page }) => {
   await open(page, ONE)
-  await expect(page.locator('[data-testid=progress]')).toHaveText('Step 1 of 7')
+  await expect(page.locator('[data-testid=progress]')).toHaveText('Step 1 of 8')
   await button(page, 'Start').click()
   await button(page, 'Next').click()
+  await button(page, 'Volume is full').click()
   await button(page, 'Allow microphone').click()
 
   // Quiet, then the tone: the fake microphone's tone clears the margin on its
@@ -190,10 +193,49 @@ test('version A: a refused microphone carries on as version B', async ({ page })
   await open(page, ONE)
   await button(page, 'Start').click()
   await button(page, 'Next').click()
+  await button(page, 'Volume is full').click()
   await button(page, 'Allow microphone').click()
   await button(page, 'Continue without the microphone').click()
 
-  await expect(page.locator('[data-testid=progress]')).toHaveText('Step 4 of 6')
+  await expect(page.locator('[data-testid=progress]')).toHaveText('Step 5 of 7')
   await expect(button(page, 'Play')).toBeVisible()
   await expect(page.getByText('not from headphones')).toBeVisible()
+})
+
+test('the chime rings and decays, loud without clipping', async ({ page }) => {
+  await open(page, `${TWO}?debug=1`)
+  await button(page, 'Start').click()
+  await button(page, 'Next').click()
+  await expect(page.getByRole('heading', { name: 'Turn the volume up full' })).toBeVisible()
+  // The screen comes before the engine has finished booting.
+  await page.waitForFunction(() => '__ss' in window, null, { timeout: 30_000 })
+
+  // The volume step chimes once a second. Read the output envelope across a
+  // few chimes: a sharp start, then most of it gone well before the next one.
+  const envelope = await page.evaluate(async () => {
+    const session = (window as unknown as { __ss?: { sonic: { audioContext: AudioContext; node: AudioNode } } }).__ss
+    if (!session) return null
+    const analyser = session.sonic.audioContext.createAnalyser()
+    analyser.fftSize = 1024
+    session.sonic.node.connect(analyser)
+    const samples = new Float32Array(analyser.fftSize)
+    const levels: number[] = []
+    const end = performance.now() + 3000
+    while (performance.now() < end) {
+      analyser.getFloatTimeDomainData(samples)
+      let peak = 0
+      for (const sample of samples) peak = Math.max(peak, Math.abs(sample))
+      levels.push(peak)
+      await new Promise((done) => setTimeout(done, 10))
+    }
+    return levels
+  })
+  expect(envelope).not.toBeNull()
+  const loudest = Math.max(...envelope!)
+  const quietest = Math.min(...envelope!.slice(20))
+  expect(loudest).toBeGreaterThan(0.2)
+  expect(loudest).toBeLessThan(0.99)
+  // Decays: between chimes it falls well below its peak, rather than holding
+  // like the old beep.
+  expect(quietest).toBeLessThan(loudest * 0.5)
 })
