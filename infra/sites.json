@@ -28,6 +28,13 @@
       "engine": true
     },
     {
+      "app": "memory",
+      "path": "/memory/",
+      "title": "memory",
+      "blurb": "The microphone, remembered for ten seconds. Every sound that starts becomes a note in a loop, played by a synth you pick, and each time round the notes fade unevenly until only fragments are left.",
+      "engine": true
+    },
+    {
       "app": "speak",
       "path": "/speak/",
       "title": "speak",

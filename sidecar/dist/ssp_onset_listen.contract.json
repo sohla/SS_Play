@@ -1,0 +1,47 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    },
+    {
+      "name": "window",
+      "value": 0.05
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.0099999997764826,
+      "max": 0.2,
+      "min": 0.001,
+      "name": "floor",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.10000000149012,
+      "max": 1,
+      "min": 0.03,
+      "name": "holdoff",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 3,
+      "max": 20,
+      "min": 1.2,
+      "name": "threshold",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": [
+    {
+      "default": 1,
+      "name": "gate"
+    }
+  ]
+}

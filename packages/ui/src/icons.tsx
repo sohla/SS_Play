@@ -67,6 +67,22 @@ const SHAPES: Record<string, ReactNode> = {
   ),
 
   /**
+   * `memory` — the ten-second loop, and its notes fading as they go round.
+   *
+   * The circle is the loop; the dots are onsets, solid where they were just
+   * heard and thinning to nothing behind.
+   */
+  memory: (
+    <>
+      <circle cx="12" cy="12" r="8.5" strokeDasharray="0.01 3" />
+      <circle cx="12" cy="3.5" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="19.4" cy="7.8" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="18.6" cy="17.4" r="1" fill="currentColor" stroke="none" opacity="0.6" />
+      <circle cx="8.5" cy="19.8" r="0.8" fill="currentColor" stroke="none" opacity="0.35" />
+    </>
+  ),
+
+  /**
    * `speak` — a line of speech, and the bells on its hooks.
    *
    * The bar is an utterance; the long ticks are its start and end, the short

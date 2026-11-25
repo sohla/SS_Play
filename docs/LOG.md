@@ -2277,3 +2277,41 @@ next. Buttons wait for the narrator. Paced and gentle; the tones are to become m
 
 - `tests/e2e/onboard.spec.ts` was written for the old timing and clicks before the narrator
   finishes; it will need rewriting to wait for the buttons.
+
+## 2026-11-25 — memory: the mic's onsets on a dissolving ten-second loop
+
+Asked for: a new page that takes the microphone into a ten-second buffer, finds its peaks and
+onsets, and plays them back as a synthetic sound; each time the pattern loops, notes slowly die,
+leaving fragments and room for more. A picker for the synth and a slider for how fast the memory
+dissolves.
+
+### Done
+
+- `ssp_onset_listen`, silent. There is no `Onsets` UGen in the browser's scsynth (no
+  MachineListening plugin), so it is the amplitude version: a fast envelope against a background
+  that rises slowly and falls fast, as `ssp_call_listen`'s does. Each onset is reported 50ms after
+  it starts, with the sample it started on (wrapped at 2^22, as `/chorus/`'s listener does), the
+  peak in those 50ms, and `Pitch`'s reading.
+- `/memory/`: a `Loop` model (`apps/memory/src/memory.ts`). An onset becomes a note at its place
+  in the ten seconds, played on every later pass. Each pass, a note that has played loses
+  `rate × (0.5..1.5)` of its life: uneven on purpose, so the pattern breaks into fragments rather
+  than dimming as one. The amp is the peak in dB from -50dB, times the life; the note is the
+  pitch, rounded, or middle C when there is none. At most 48 notes; the faintest makes room.
+- Notes are sent ahead as timetagged bundles, as on `/chorus/`, so the loop keeps the time it
+  was heard in. The six synths are Sonic Pi's (kalimba, pluck, pretty bell, rhodey, piano, fm),
+  in `apps/memory/src/synths.ts`, each with a `level`. The slider is 0–0.5 life a pass.
+- The "buffer" is the ten-second loop of onsets; the audio itself is not stored, since only the
+  onsets, peaks and pitches are used.
+
+### Verified
+
+- `sc:build`, `sc:test` (396 passed), `sc:promote` added only `ssp_onset_listen`. `typecheck`,
+  `vitest` (1483), and the page builds.
+- e2e with a fake mic of A4 struck once a second: each strike heard once, exactly a second apart,
+  as A4 with a peak over 0.1, and notes land in the loop. `site.spec.ts` passes with the new page.
+- Not heard: the synths' levels and the detector's threshold are untuned by ear.
+
+### Open
+
+- The loop plays out of the speaker; echo cancellation is what stops it being heard as new
+  onsets. Untested on a phone.

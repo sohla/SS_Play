@@ -2749,6 +2749,112 @@
       }
     },
     {
+      "name": "ssp_onset_listen",
+      "file": "ssp_onset_listen.scsyndef",
+      "bytes": 1304,
+      "sha256": "10f8d675db299ca44769defdb29b1b8c9390f8ca347fea454963cd16bae6ffc0",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "gate",
+          "index": 1,
+          "default": 1
+        },
+        {
+          "name": "threshold",
+          "index": 2,
+          "default": 3
+        },
+        {
+          "name": "floor",
+          "index": 3,
+          "default": 0.009999999776482582
+        },
+        {
+          "name": "holdoff",
+          "index": 4,
+          "default": 0.10000000149011612
+        },
+        {
+          "name": "window",
+          "index": 5,
+          "default": 0.05000000074505806
+        }
+      ],
+      "ugens": [
+        "Amplitude",
+        "BinaryOpUGen",
+        "Control",
+        "DC",
+        "EnvGen",
+        "In",
+        "K2A",
+        "LagUD",
+        "Latch",
+        "MulAdd",
+        "NumOutputBuses",
+        "Out",
+        "Phasor",
+        "Pitch",
+        "RunningMax",
+        "SendReply",
+        "TDelay",
+        "Trig1"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          },
+          {
+            "name": "window",
+            "value": 0.05
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.0099999997764826,
+            "max": 0.2,
+            "min": 0.001,
+            "name": "floor",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.10000000149012,
+            "max": 1,
+            "min": 0.03,
+            "name": "holdoff",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 3,
+            "max": 20,
+            "min": 1.2,
+            "name": "threshold",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": [
+          {
+            "default": 1,
+            "name": "gate"
+          }
+        ]
+      }
+    },
+    {
       "name": "ssp_piano",
       "file": "ssp_piano.scsyndef",
       "bytes": 746,
