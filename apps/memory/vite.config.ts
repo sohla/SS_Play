@@ -5,5 +5,6 @@ export default defineSSApp({
   name: 'memory',
   basePath: '/memory/',
   port: 3060,
-  synthdefs: SYNTHS.map((synth) => synth.def),
+  // Sonic Pi's only: the sidecar's `ssp_*` defs always ship.
+  synthdefs: SYNTHS.map((synth) => synth.def).filter((def) => !def.startsWith('ssp_')),
 })

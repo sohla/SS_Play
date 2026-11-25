@@ -2355,3 +2355,28 @@ Asked for: a more aggressive dissolve, the slider setting how many notes die in 
 ### Verified
 
 - `typecheck`, `vitest` (1485), the memory e2e and `site.spec.ts`. Not yet heard on a phone.
+
+## 2026-11-25 — memory: three seconds, an insect, a noise gate with a meter
+
+Asked for: a three-second loop; a loud insect sound, used; a noise gate so low signal does not get
+through, set low but not grabbing everything, with the input shown and when it goes over.
+
+### Done
+
+- `LOOP_S` is 3.
+- `ssp_insect`, new: a cricket's chirp. Four impulses at 30 a second into `Ringz` (and an octave
+  partial), a little band-passed noise on each strike, `tanh` after a drive of 4. `note` sounds
+  three octaves up, clipped to 1.5–9kHz. A fixed-length one-shot; the gate check is waived with
+  its reason. First in the picker, so the page starts on it, at level 1.
+- `ssp_onset_listen`: `floor` was added to the background test; it is now a hard gate — no onset
+  below it. It also reports the input level 30 times a second (`/ssp_onset_level`, the loudest
+  moment since the last report). Nothing else in it changed.
+- The page has an input meter with the gate as a line across it, lit while the input is over the
+  gate, falling 20dB/s as /mic/'s does, and a gate slider from -60 to -10dB, starting at -40dB.
+
+### Verified
+
+- `ssp_insect` rendered offline: -3dB peak and -15dB RMS at amp 1 on every note, 116ms, no NaN.
+- `sc:test` 408 passed; `typecheck`; `vitest` 1494; the memory e2e (level reports arrive and the
+  meter moves; strikes still heard once a second) and `site.spec.ts`.
+- Not heard on a phone. -40dB as the gate's start is a guess at a quiet room.

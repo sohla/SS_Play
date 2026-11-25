@@ -11,6 +11,9 @@
 // before it. A held note lifts the background and stops firing; a note struck
 // again out of its own tail still clears it.
 //
+// `floor` is a noise gate: below it nothing is an onset, however sharply it
+// jumps from the room's quiet. The page sets it from its slider.
+//
 // `Trig1` wants a rising edge, so a sustained sound fires once, not every
 // `holdoff`; `holdoff` is how soon a second onset can follow the first.
 //
@@ -19,9 +22,13 @@
 // `ssp_call_listen` wraps it, so the timing is exact however late the message
 // arrives. `peak` is the largest level in the window; `freq` and `hasFreq` are
 // `Pitch`'s reading at its end.
+//
+// The level goes to the page too, for its meter: ['/ssp_onset_level', nodeId,
+// replyId, level], `rate` times a second, the loudest moment since the last one
+// so a click between two reports is not missed.
 SynthDef(\ssp_onset_listen, { |out = 0, gate = 1, threshold = 3, floor = 0.01, holdoff = 0.1,
-                         window = 0.05|
-    var env, sig, fast, background, trig, frame, later, peak, freq, hasFreq;
+                         window = 0.05, rate = 30|
+    var env, sig, fast, background, trig, frame, later, peak, freq, hasFreq, tick;
 
     env = EnvGen.kr(Env.asr(0.01, 1, 0.05), gate, doneAction: 2);
 
@@ -29,7 +36,7 @@ SynthDef(\ssp_onset_listen, { |out = 0, gate = 1, threshold = 3, floor = 0.01, h
     fast = Amplitude.ar(sig, 0.001, 0.03);
     background = LagUD.ar(fast, 1, 0.2);
 
-    trig = Trig1.ar((fast > ((background * threshold) + floor)), holdoff);
+    trig = Trig1.ar((fast > (background * threshold)) * (fast > floor), holdoff);
 
     frame = Latch.ar(Phasor.ar(0, 1, 0, 2 ** 22), trig);
     peak = RunningMax.ar(fast, trig);
@@ -38,13 +45,16 @@ SynthDef(\ssp_onset_listen, { |out = 0, gate = 1, threshold = 3, floor = 0.01, h
     later = TDelay.ar(trig, window);
     SendReply.ar(later, '/ssp_onset', [frame, peak, K2A.ar(freq), K2A.ar(hasFreq)]);
 
+    tick = Impulse.ar(rate);
+    SendReply.ar(tick, '/ssp_onset_level', [Peak.ar(fast, Delay1.ar(tick))]);
+
     Out.ar(out, Silent.ar(2) * env);
 },
 metadata: (
     specs: (
         // How far above the background a sound must jump to count.
         threshold: ControlSpec(1.2, 20, \exp, 0, 3),
-        // The quietest level that can count as anything: below it, the room.
+        // The noise gate: the quietest level that can be an onset.
         floor: ControlSpec(0.001, 0.2, \exp, 0, 0.01),
         holdoff: ControlSpec(0.03, 1, \exp, 0, 0.1)
     ),
@@ -53,7 +63,9 @@ metadata: (
         out: 0,
         // Must stay shorter than `holdoff`, or a second onset moves the frame
         // before the first is reported.
-        window: 0.05
+        window: 0.05,
+        // Level reports a second. 30 is the rate the page draws at.
+        rate: 30
     ),
 
     supplied: (

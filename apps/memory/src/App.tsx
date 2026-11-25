@@ -6,7 +6,7 @@ import { LOOP_S, LOWEST, Loop, SPAN, ampOf, frameToMs, midiOf } from './memory.t
 import { SYNTHS } from './synths.ts'
 
 /**
- * The microphone's onsets, remembered for five seconds and played back on a loop
+ * The microphone's onsets, remembered for three seconds and played back on a loop
  * by a synth, dissolving a little each time round.
  *
  * `ssp_onset_listen` listens in scsynth and reports each onset with the sample it
@@ -49,6 +49,18 @@ type Mic = 'off' | 'asking' | 'live' | 'denied' | 'unavailable' | 'failed'
 
 const LOOKAHEAD_MS = 120
 
+/** The meter's floor, and the bottom of the gate's range. Below this it reads as empty. */
+const METER_DB = -60
+
+/**
+ * Where the noise gate starts. Low, so a soft tap gets through, but above the
+ * hum of a quiet room, which a phone's mic puts somewhere around -50dB.
+ */
+const GATE_DB = -40
+
+/** How fast the meter falls, in dB a second, as on /mic/: a click is otherwise lit for one frame. */
+const FALL_DB_PER_S = 20
+
 /** The dissolve slider's top: this many notes die each time round. */
 const MOST_DYING = 8
 
@@ -73,6 +85,13 @@ export function App() {
   dying.current = dissolve
 
   const loop = useRef<Loop | null>(null)
+
+  const [gateDb, setGateDb] = useState(GATE_DB)
+  const gate = useRef(gateDb)
+  gate.current = gateDb
+  const listener = useRef<HeldVoice | null>(null)
+  /** The input's level, written by the listener's reports and read by the frame loop. */
+  const level = useRef(0)
 
   /** One tap for both: the AudioContext and Safari's mic prompt each need a gesture. */
   const start = useCallback(() => {
@@ -107,7 +126,12 @@ export function App() {
     const source = context.createMediaStreamSource(granted)
     source.connect(node.input)
 
-    const listener = new HeldVoice({ session: engine, def: 'ssp_onset_listen', initial: {} })
+    const listening = new HeldVoice({
+      session: engine,
+      def: 'ssp_onset_listen',
+      initial: { floor: 10 ** (gate.current / 20) },
+    })
+    listener.current = listening
     const origin = wallClockMs()
     const memory = new Loop(origin)
     loop.current = memory
@@ -119,6 +143,11 @@ export function App() {
       if (typeof frame !== 'number' || typeof peak !== 'number') return
       const ms = frameToMs(frame, wallClockMs(), origin, context.sampleRate)
       memory.hear(ms, peak, midiOf(peak))
+    })
+
+    const metering = engine.dispatcher.on('/ssp_onset_level', (message) => {
+      const value = message[3]
+      if (typeof value === 'number') level.current = value
     })
 
     const scheduling = setInterval(() => {
@@ -141,11 +170,15 @@ export function App() {
     return () => {
       clearInterval(scheduling)
       heard()
-      listener.dispose()
+      metering()
+      listening.dispose()
+      listener.current = null
       source.disconnect()
       loop.current = null
     }
   }, [booted, session, mic])
+
+  useEffect(() => listener.current?.set({ floor: 10 ** (gateDb / 20) }), [gateDb])
 
   // Let the mic go when the page does, so the browser's recording light goes out.
   useEffect(() => () => stream.current?.getTracks().forEach((track) => track.stop()), [])
@@ -154,10 +187,21 @@ export function App() {
   // and each note where it falls, as high as its note and as big as its peak.
   const canvas = useRef<HTMLCanvasElement>(null)
   const count = useRef<HTMLSpanElement>(null)
+  const bar = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!booted) return
     let frame = 0
-    const draw = () => {
+    let shown = -Infinity
+    let then = performance.now()
+    const draw = (now: number) => {
+      const heard = level.current > 0 ? 20 * Math.log10(level.current) : -Infinity
+      shown = Math.max(heard, shown - (FALL_DB_PER_S * (now - then)) / 1000)
+      then = now
+      if (bar.current) {
+        bar.current.style.width = `${(100 * fillOf(shown)).toFixed(1)}%`
+        // Lit while the input is over the gate, where an onset can happen.
+        bar.current.style.opacity = heard > gate.current ? '1' : '0.3'
+      }
       const surface = canvas.current
       const pen = surface?.getContext('2d')
       const memory = loop.current
@@ -199,11 +243,12 @@ export function App() {
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
         <p className="ak-label text-sm">
-          The microphone, remembered for five seconds. Every sound that starts &mdash; a clap, a
+          The microphone, remembered for three seconds. Every sound that starts &mdash; a clap, a
           knock, a word &mdash; becomes a note in the loop, played back by the synth you pick: the
           louder the sound, the higher the note. Each time round, some of the notes die, picked at
           random, until only fragments are left and there is room for more. The slider sets how
-          many. Starting asks the browser for the microphone.
+          many. Sounds below the gate, the line on the input meter, are ignored. Starting asks the
+          browser for the microphone.
         </p>
 
         <BootGate
@@ -245,7 +290,33 @@ export function App() {
           <div className="flex flex-col gap-4" data-testid="memory">
             <div className="flex flex-col gap-1">
               <div className="ak-label flex justify-between font-mono text-[11px]">
-                <span>five seconds</span>
+                <span>input</span>
+                <span>gate {gateDb} dB</span>
+              </div>
+              <div className="ak-panel relative h-6 overflow-hidden rounded border">
+                <div ref={bar} data-testid="input-meter" className="h-full bg-[var(--ak-accent)]" style={{ width: '0%' }} />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-y-0 w-0.5 bg-current"
+                  style={{ left: `${100 * fillOf(gateDb)}%` }}
+                />
+              </div>
+              <input
+                type="range"
+                min={METER_DB}
+                max={-10}
+                step={1}
+                value={gateDb}
+                onChange={(event) => setGateDb(Number(event.target.value))}
+                className="ss-range w-full"
+                aria-label="noise gate"
+                data-testid="gate"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <div className="ak-label flex justify-between font-mono text-[11px]">
+                <span>three seconds</span>
                 <span>
                   <span className="ak-accent" ref={count} data-testid="notes">
                     0
@@ -298,4 +369,9 @@ export function App() {
       <SourceFooter />
     </main>
   )
+}
+
+/** Where a level in dB sits on the meter, 0..1. */
+function fillOf(db: number): number {
+  return Math.max(0, Math.min(1, (db - METER_DB) / -METER_DB))
 }

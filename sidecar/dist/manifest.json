@@ -1318,6 +1318,144 @@
       }
     },
     {
+      "name": "ssp_insect",
+      "file": "ssp_insect.scsyndef",
+      "bytes": 1443,
+      "sha256": "f75d3594020107735d30734544d7ed4f9c3b75c06e3dc9dcf7b753acbed699a1",
+      "formatVersion": 2,
+      "params": [
+        {
+          "name": "out",
+          "index": 0,
+          "default": 0
+        },
+        {
+          "name": "note",
+          "index": 1,
+          "default": 60
+        },
+        {
+          "name": "amp",
+          "index": 2,
+          "default": 0.5
+        },
+        {
+          "name": "pan",
+          "index": 3,
+          "default": 0
+        },
+        {
+          "name": "pulses",
+          "index": 4,
+          "default": 4
+        },
+        {
+          "name": "rate",
+          "index": 5,
+          "default": 30
+        },
+        {
+          "name": "ring",
+          "index": 6,
+          "default": 0.014999999664723873
+        },
+        {
+          "name": "drive",
+          "index": 7,
+          "default": 4
+        }
+      ],
+      "ugens": [
+        "BPF",
+        "BinaryOpUGen",
+        "Clip",
+        "Control",
+        "Decay2",
+        "EnvGen",
+        "Impulse",
+        "MulAdd",
+        "Out",
+        "Pan2",
+        "Ringz",
+        "UnaryOpUGen",
+        "WhiteNoise"
+      ],
+      "contract": {
+        "frozen": [
+          {
+            "name": "out",
+            "value": 0
+          }
+        ],
+        "specs": [
+          {
+            "default": 0.5,
+            "max": 1,
+            "min": 0,
+            "name": "amp",
+            "step": 0,
+            "units": "",
+            "warp": "amp"
+          },
+          {
+            "default": 4,
+            "max": 10,
+            "min": 1,
+            "name": "drive",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 60,
+            "max": 96,
+            "min": 24,
+            "name": "note",
+            "step": 1,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 0,
+            "max": 1,
+            "min": -1,
+            "name": "pan",
+            "step": 0,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 4,
+            "max": 12,
+            "min": 1,
+            "name": "pulses",
+            "step": 1,
+            "units": "",
+            "warp": "linear"
+          },
+          {
+            "default": 30,
+            "max": 80,
+            "min": 10,
+            "name": "rate",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          },
+          {
+            "default": 0.014999999664724,
+            "max": 0.05,
+            "min": 0.002,
+            "name": "ring",
+            "step": 0,
+            "units": "",
+            "warp": "exp"
+          }
+        ],
+        "supplied": []
+      }
+    },
+    {
       "name": "ssp_kit",
       "file": "ssp_kit.scsyndef",
       "bytes": 1371,
@@ -2751,8 +2889,8 @@
     {
       "name": "ssp_onset_listen",
       "file": "ssp_onset_listen.scsyndef",
-      "bytes": 1304,
-      "sha256": "10f8d675db299ca44769defdb29b1b8c9390f8ca347fea454963cd16bae6ffc0",
+      "bytes": 1691,
+      "sha256": "4c9e45519343f9e31faa5e32d71edbcee540c71c0f4e2d29c8048e3dce4c1c08",
       "formatVersion": 2,
       "params": [
         {
@@ -2784,6 +2922,11 @@
           "name": "window",
           "index": 5,
           "default": 0.05000000074505806
+        },
+        {
+          "name": "rate",
+          "index": 6,
+          "default": 30
         }
       ],
       "ugens": [
@@ -2791,14 +2934,16 @@
         "BinaryOpUGen",
         "Control",
         "DC",
+        "Delay1",
         "EnvGen",
+        "Impulse",
         "In",
         "K2A",
         "LagUD",
         "Latch",
-        "MulAdd",
         "NumOutputBuses",
         "Out",
+        "Peak",
         "Phasor",
         "Pitch",
         "RunningMax",
@@ -2811,6 +2956,10 @@
           {
             "name": "out",
             "value": 0
+          },
+          {
+            "name": "rate",
+            "value": 30
           },
           {
             "name": "window",

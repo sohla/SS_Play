@@ -5,6 +5,10 @@
       "value": 0
     },
     {
+      "name": "rate",
+      "value": 30
+    },
+    {
       "name": "window",
       "value": 0.05
     }

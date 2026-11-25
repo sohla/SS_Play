@@ -1,0 +1,74 @@
+{
+  "frozen": [
+    {
+      "name": "out",
+      "value": 0
+    }
+  ],
+  "specs": [
+    {
+      "default": 0.5,
+      "max": 1,
+      "min": 0,
+      "name": "amp",
+      "step": 0,
+      "units": "",
+      "warp": "amp"
+    },
+    {
+      "default": 4,
+      "max": 10,
+      "min": 1,
+      "name": "drive",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 60,
+      "max": 96,
+      "min": 24,
+      "name": "note",
+      "step": 1,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 0,
+      "max": 1,
+      "min": -1,
+      "name": "pan",
+      "step": 0,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 4,
+      "max": 12,
+      "min": 1,
+      "name": "pulses",
+      "step": 1,
+      "units": "",
+      "warp": "linear"
+    },
+    {
+      "default": 30,
+      "max": 80,
+      "min": 10,
+      "name": "rate",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    },
+    {
+      "default": 0.014999999664724,
+      "max": 0.05,
+      "min": 0.002,
+      "name": "ring",
+      "step": 0,
+      "units": "",
+      "warp": "exp"
+    }
+  ],
+  "supplied": []
+}

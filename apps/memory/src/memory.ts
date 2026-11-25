@@ -1,5 +1,5 @@
 /**
- * A five-second memory of the microphone's onsets, played back on a loop and
+ * A three-second memory of the microphone's onsets, played back on a loop and
  * dissolving as it goes.
  *
  * Every onset the detector reports becomes a note at its place in the loop. Each
@@ -10,7 +10,7 @@
  * Plain data and arithmetic: no audio and no React, so it can be tested.
  */
 
-export const LOOP_S = 5
+export const LOOP_S = 3
 const LOOP_MS = LOOP_S * 1000
 
 /** Past this, the faintest notes make room. A phone plays this many at once without trouble. */

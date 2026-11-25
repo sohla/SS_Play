@@ -67,11 +67,18 @@ test('hears each strike once, a second apart, as A4, and remembers it', async ({
       }
     ).__ss
     const heard: number[][] = []
+    const levels: number[] = []
     const off = session.dispatcher.on('/ssp_onset', (message) => heard.push(message.slice(3) as number[]))
+    const offLevel = session.dispatcher.on('/ssp_onset_level', (message) => levels.push(message[3] as number))
     await new Promise((done) => setTimeout(done, 5_500))
     off()
-    return { heard, rate: session.sonic.audioContext.sampleRate }
+    offLevel()
+    return { heard, levels, rate: session.sonic.audioContext.sampleRate }
   })
+
+  // The meter's reports: about 30 a second, and loud on the strikes.
+  expect(onsets.levels.length).toBeGreaterThan(100)
+  expect(Math.max(...onsets.levels)).toBeGreaterThan(0.2)
 
   // Five seconds of strikes is five onsets, give or take one at either edge.
   expect(onsets.heard.length).toBeGreaterThanOrEqual(4)
@@ -90,4 +97,5 @@ test('hears each strike once, a second apart, as A4, and remembers it', async ({
   }
 
   await expect.poll(() => page.locator('[data-testid=notes]').innerText()).not.toBe('0')
+  await expect.poll(() => page.locator('[data-testid=input-meter]').evaluate((bar) => parseFloat(bar.style.width))).toBeGreaterThan(0)
 })

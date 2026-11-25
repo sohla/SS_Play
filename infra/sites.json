@@ -31,7 +31,7 @@
       "app": "memory",
       "path": "/memory/",
       "title": "memory",
-      "blurb": "The microphone, remembered for five seconds. Every sound that starts becomes a note in a loop, played by a synth you pick, and each time round some of them die, at random, until only fragments are left.",
+      "blurb": "The microphone, remembered for three seconds. Every sound that starts becomes a note in a loop, played by a synth you pick, and each time round some of them die, at random, until only fragments are left.",
       "engine": true
     },
     {
