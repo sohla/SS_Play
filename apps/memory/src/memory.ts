@@ -63,9 +63,19 @@ export function midiOf(peak: number): number {
   return LOWEST + Math.round(loudness(peak) * SPAN)
 }
 
+/**
+ * How far a dying note has fallen by the time its life runs out, in dB.
+ *
+ * The fade is in dB, an equal step each loop, because that is how it is heard:
+ * scaling the amplitude by the life instead left a note at -3.5dB and -9.5dB on
+ * its last two plays over three loops — nearly as loud as ever, then gone.
+ */
+export const FADE_DB = 40
+
 /** How loud a note plays, 0..1, before the synth's own level. */
 export function ampOf(note: Note): number {
-  return loudness(note.peak) * (note.life ?? 1)
+  const fade = note.life === undefined ? 1 : 10 ** ((-FADE_DB * (1 - note.life)) / 20)
+  return loudness(note.peak) * fade
 }
 
 /**

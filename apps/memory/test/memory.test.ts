@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEAF_MS, LOOP_S, LOWEST, Loop, MAX_NOTES, SPAN, WRAP, ampOf, dissolve, frameToMs, midiOf, type Note } from '../src/memory.ts'
+import { DEAF_MS, FADE_DB, LOOP_S, LOWEST, Loop, MAX_NOTES, SPAN, WRAP, ampOf, dissolve, frameToMs, midiOf, type Note } from '../src/memory.ts'
 
 const half = () => 0.5
 
@@ -49,7 +49,8 @@ describe('dissolve', () => {
   it('fades a dying note over its loops, and only then lets it go', () => {
     let notes = dissolve([note()], { dying: 1, loops: 4 }, half)
     expect(notes[0]!.life).toBeCloseTo(0.75)
-    expect(ampOf(notes[0]!)).toBeCloseTo(0.75 * ampOf(note()))
+    // An equal step in dB each loop: a quarter of the way down after one of four.
+    expect(20 * Math.log10(ampOf(notes[0]!) / ampOf(note()))).toBeCloseTo(-FADE_DB / 4)
     // Already dying, so not picked again: it keeps fading at its own pace.
     notes = dissolve(notes, { dying: 1, loops: 4 }, half)
     notes = dissolve(notes, { dying: 1, loops: 4 }, half)

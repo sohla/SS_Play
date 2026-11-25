@@ -2416,3 +2416,17 @@ cancel feature, so only the mic is seen.
 
 - `typecheck`, the memory unit tests and e2e. The fake mic in the e2e is not a real echo, so
   whether the meter is now clean is for the phone.
+
+## 2026-11-25 — memory: dying notes fade in dB
+
+Asked for: the volume to fall as notes fade, maybe on a log scale.
+
+### Done
+
+- It did fall, but linearly in amplitude: over three loops a note played its last two times at
+  -3.5dB and -9.5dB, nearly as loud as ever, then stopped. Now each loop is an equal step in dB,
+  from 0 to `FADE_DB` (-40dB) as its life runs out: -13dB and -27dB over three loops.
+
+### Verified
+
+- `typecheck`, the memory unit tests, the page builds. Not heard on a phone.
