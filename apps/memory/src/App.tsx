@@ -2,34 +2,55 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HeldVoice, NTP_EPOCH_OFFSET, ctl, i, wallClockMs } from '@ss/engine'
 import { useSuperSonic } from '@ss/react'
 import { BootGate, EngineFooter, PageHeader, SourceFooter } from '@ss/ui'
-import { LOOP_S, Loop, ampOf, frameToMs, midiOf } from './memory.ts'
+import { LOOP_S, LOWEST, Loop, SPAN, ampOf, frameToMs, midiOf } from './memory.ts'
 import { SYNTHS } from './synths.ts'
 
 /**
- * The microphone's onsets, remembered for ten seconds and played back on a loop
+ * The microphone's onsets, remembered for five seconds and played back on a loop
  * by a synth, dissolving a little each time round.
  *
  * `ssp_onset_listen` listens in scsynth and reports each onset with the sample it
- * started on, its peak and its pitch. The page places it in the loop, and a
- * scheduler sends every note ahead of time as a timetagged bundle, as /chorus/
- * does, so the pattern keeps the time it was heard in.
+ * started on and its peak, which sets both its note and how loud it plays. The
+ * page places it in the loop, and a scheduler sends every note ahead of time as
+ * a timetagged bundle, as /chorus/ does, so the pattern keeps the time it was
+ * heard in.
  */
 
 /**
- * What the browser was asked for, as on /mic/. Echo cancellation stays on: the
- * loop comes out of the speaker, and without it every note played back would be
- * heard again as a new onset and the memory would fill itself.
+ * What the browser was asked for: the mic as it is, as on /chorus/.
+ *
+ * Echo cancellation is **off**. It did not stop the loop being heard again —
+ * the browser does not cancel the engine's output, which is what `DEAF_MS` is
+ * for — and on an iPhone it is the voice processing that turns the page into a
+ * phone call, with the sound moved to the earpiece at the top.
  */
 const CONSTRAINTS: MediaStreamConstraints = {
-  audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+  audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+}
+
+/**
+ * Safari's Audio Session API, where there is one: "play-and-record", set before
+ * the mic is opened, is the one lever a page has to keep iOS on the loudspeaker
+ * once it records. As in the onboarding, it is reported to help, not to always
+ * work; no web API picks the speaker on iOS. Never "playback", which silenced
+ * Web Audio on the iPhone there.
+ */
+function playAndRecord() {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
+  if (!session) return
+  try {
+    session.type = 'play-and-record'
+  } catch {
+    // An older Safari that has the object but not this type.
+  }
 }
 
 type Mic = 'off' | 'asking' | 'live' | 'denied' | 'unavailable' | 'failed'
 
 const LOOKAHEAD_MS = 120
 
-/** The dissolve slider, 0..1, is this much life lost a pass at the top. */
-const MOST_PER_PASS = 0.5
+/** The dissolve slider's top: this many notes die each time round. */
+const MOST_DYING = 8
 
 interface OscCodec {
   encodeSingleBundle(timeTag: number, address: string, args: unknown[]): Uint8Array
@@ -44,12 +65,12 @@ export function App() {
   const stream = useRef<MediaStream | null>(null)
 
   const [synthName, setSynthName] = useState<string>(SYNTHS[0].name)
-  const [dissolve, setDissolve] = useState(0.2)
+  const [dissolve, setDissolve] = useState(2)
   // Read by the scheduler, which is not a React render.
   const synth = useRef(SYNTHS[0] as (typeof SYNTHS)[number])
   synth.current = SYNTHS.find((one) => one.name === synthName) ?? SYNTHS[0]
-  const rate = useRef(dissolve)
-  rate.current = dissolve * MOST_PER_PASS
+  const dying = useRef(dissolve)
+  dying.current = dissolve
 
   const loop = useRef<Loop | null>(null)
 
@@ -59,6 +80,7 @@ export function App() {
       setMic('unavailable')
     } else {
       setMic('asking')
+      playAndRecord()
       navigator.mediaDevices.getUserMedia(CONSTRAINTS).then(
         (granted) => {
           stream.current = granted
@@ -92,16 +114,17 @@ export function App() {
 
     const heard = engine.dispatcher.on('/ssp_onset', (message) => {
       // SendReply sends [address, nodeId, replyId, frame, peak, freq, hasFreq].
-      const [frame, peak, freq, hasFreq] = message.slice(3) as number[]
+      // The pitch is not used: the note comes from how loud the onset was.
+      const [frame, peak] = message.slice(3) as number[]
       if (typeof frame !== 'number' || typeof peak !== 'number') return
       const ms = frameToMs(frame, wallClockMs(), origin, context.sampleRate)
-      memory.hear(ms, peak, midiOf(freq ?? 0, hasFreq ?? 0))
+      memory.hear(ms, peak, midiOf(peak))
     })
 
     const scheduling = setInterval(() => {
       const now = wallClockMs()
       memory.catchUp(now)
-      for (const { ms, note } of memory.due(now + LOOKAHEAD_MS, rate.current)) {
+      for (const { ms, note } of memory.due(now + LOOKAHEAD_MS, dying.current)) {
         const { def, level } = synth.current
         engine.sonic.sendOSC(
           codec.encodeSingleBundle(ms / 1000 + NTP_EPOCH_OFFSET, '/s_new', [
@@ -128,8 +151,7 @@ export function App() {
   useEffect(() => () => stream.current?.getTracks().forEach((track) => track.stop()), [])
 
   // The loop, drawn each frame from the model, never through React: a playhead,
-  // and each note where it falls, as high as its pitch, as big as its peak, as
-  // bright as the life it has left.
+  // and each note where it falls, as high as its note and as big as its peak.
   const canvas = useRef<HTMLCanvasElement>(null)
   const count = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -153,10 +175,10 @@ export function App() {
           pen.fillStyle = accent
           for (const note of memory.notes) {
             const x = (note.at / LOOP_S) * width
-            const y = height * (1 - Math.max(0, Math.min(1, (note.midi - 36) / 60)))
-            pen.globalAlpha = Math.max(0.08, note.life)
+            const y = height * (1 - Math.max(0, Math.min(1, (note.midi - LOWEST) / SPAN)))
+            pen.globalAlpha = 0.85
             pen.beginPath()
-            pen.arc(x, y, (3 + 9 * ampOf({ ...note, life: 1 })) * scale, 0, Math.PI * 2)
+            pen.arc(x, y, (3 + 9 * ampOf(note)) * scale, 0, Math.PI * 2)
             pen.fill()
           }
           pen.globalAlpha = 0.6
@@ -177,10 +199,11 @@ export function App() {
 
       <div className="pad-safe-x mx-auto flex w-full max-w-md flex-1 flex-col gap-5 pt-6">
         <p className="ak-label text-sm">
-          The microphone, remembered for ten seconds. Every sound that starts &mdash; a clap, a
-          knock, a sung note &mdash; becomes a note in the loop, played back by the synth you pick.
-          Each time round the notes fade, unevenly, until only fragments are left and there is room
-          for more. Starting asks the browser for the microphone.
+          The microphone, remembered for five seconds. Every sound that starts &mdash; a clap, a
+          knock, a word &mdash; becomes a note in the loop, played back by the synth you pick: the
+          louder the sound, the higher the note. Each time round, some of the notes die, picked at
+          random, until only fragments are left and there is room for more. The slider sets how
+          many. Starting asks the browser for the microphone.
         </p>
 
         <BootGate
@@ -222,7 +245,7 @@ export function App() {
           <div className="flex flex-col gap-4" data-testid="memory">
             <div className="flex flex-col gap-1">
               <div className="ak-label flex justify-between font-mono text-[11px]">
-                <span>ten seconds</span>
+                <span>five seconds</span>
                 <span>
                   <span className="ak-accent" ref={count} data-testid="notes">
                     0
@@ -254,15 +277,15 @@ export function App() {
               <input
                 type="range"
                 min={0}
-                max={1}
-                step={0.01}
+                max={MOST_DYING}
+                step={1}
                 value={dissolve}
                 onChange={(event) => setDissolve(Number(event.target.value))}
                 className="ss-range min-w-0 flex-1"
                 data-testid="dissolve"
               />
               <span className="ak-accent w-20 shrink-0 text-right font-mono text-[11px]">
-                {dissolve === 0 ? 'never' : `~${Math.round(1 / (dissolve * MOST_PER_PASS))} loops`}
+                {dissolve === 0 ? 'none die' : `${dissolve} die a loop`}
               </span>
             </label>
           </div>

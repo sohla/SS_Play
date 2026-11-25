@@ -67,7 +67,7 @@ const SHAPES: Record<string, ReactNode> = {
   ),
 
   /**
-   * `memory` — the ten-second loop, and its notes fading as they go round.
+   * `memory` — the five-second loop, and its notes thinning out as they go round.
    *
    * The circle is the loop; the dots are onsets, solid where they were just
    * heard and thinning to nothing behind.

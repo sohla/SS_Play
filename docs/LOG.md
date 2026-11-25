@@ -2315,3 +2315,43 @@ dissolves.
 
 - The loop plays out of the speaker; echo cancellation is what stops it being heard as new
   onsets. Untested on a phone.
+
+## 2026-11-25 — memory: deaf to itself, loudness is pitch, five seconds, the speaker
+
+Found on a phone: the page heard its own notes and filled itself; the sound came from the
+earpiece once the mic was open. Asked for: not listening to its own sounds, volume controlling
+pitch, a five-second loop, and the speaker.
+
+### Done
+
+- Why it heard itself: echo cancellation was on, copied from /mic/, and was expected to remove the
+  loop, but the browser does not cancel the engine's output. Now the model keeps when each sent
+  note sounds and refuses an onset within `DEAF_MS` (250ms) after one; a real sound in that window
+  is lost too.
+- Why the earpiece: on an iPhone, echo cancellation is the voice processing that makes a page a
+  phone call. It is now off, as on /chorus/ and the onboarding, and Safari's audio session is set
+  to "play-and-record" before the mic is asked for, as in the onboarding. The best lever known,
+  not a guarantee; no web API picks the speaker on iOS.
+- The note is now the peak: -50dB plays MIDI 48, 0dB plays 84, to the semitone. The amp still
+  follows the peak too. `ssp_onset_listen` is unchanged and still reports `Pitch`, unused.
+- `LOOP_S` is 5.
+
+### Verified
+
+- `typecheck`, `vitest` (1485), the memory e2e and `site.spec.ts`.
+- Not on a phone: whether the earpiece is gone, and whether 250ms covers the phone's round trip.
+
+## 2026-11-25 — memory: the slider is how many notes die a loop
+
+Asked for: a more aggressive dissolve, the slider setting how many notes die in the next round.
+
+### Done
+
+- At the end of each pass, `dissolve` kills that many of the notes that have played, picked at
+  random; notes not yet heard back are spared. The slider is 0–8, default 2.
+- Gradual fading is gone with it: a note plays at its own level until it dies. `life` is removed;
+  when the memory is full, the quietest peak makes room.
+
+### Verified
+
+- `typecheck`, `vitest` (1485), the memory e2e and `site.spec.ts`. Not yet heard on a phone.
