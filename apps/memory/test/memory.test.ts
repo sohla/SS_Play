@@ -5,7 +5,7 @@ const half = () => 0.5
 
 /** As the page hears: the scheduler is always a lookahead past the moment an onset arrives. */
 function hear(loop: Loop, ms: number, peak = 1, midi = 60) {
-  loop.due(ms + 120, 0, half)
+  loop.due(ms + 120, { dying: 0, loops: 1 }, half)
   loop.hear(ms, peak, midi)
 }
 
@@ -42,13 +42,31 @@ describe('dissolve', () => {
   it('kills that many of the played notes, picked at random, and spares the unplayed', () => {
     const notes = [note({ at: 1 }), note({ at: 2 }), note({ at: 3 }), note({ at: 4, played: false })]
     const random = [0, 0.99]
-    const out = dissolve(notes, 2, () => random.shift()!)
+    const out = dissolve(notes, { dying: 2, loops: 1 }, () => random.shift()!)
     expect(out.map((one) => one.at)).toEqual([2, 4])
   })
 
+  it('fades a dying note over its loops, and only then lets it go', () => {
+    let notes = dissolve([note()], { dying: 1, loops: 4 }, half)
+    expect(notes[0]!.life).toBeCloseTo(0.75)
+    expect(ampOf(notes[0]!)).toBeCloseTo(0.75 * ampOf(note()))
+    // Already dying, so not picked again: it keeps fading at its own pace.
+    notes = dissolve(notes, { dying: 1, loops: 4 }, half)
+    notes = dissolve(notes, { dying: 1, loops: 4 }, half)
+    expect(notes[0]!.life).toBeCloseTo(0.25)
+    expect(dissolve(notes, { dying: 0, loops: 4 }, half)).toEqual([])
+  })
+
+  it('picks new notes to die from the healthy ones only', () => {
+    const notes = [note({ at: 1, life: 0.5 }), note({ at: 2 })]
+    const out = dissolve(notes, { dying: 1, loops: 2 }, () => 0)
+    expect(out.map((one) => one.at)).toEqual([2])
+    expect(out[0]!.life).toBeCloseTo(0.5)
+  })
+
   it('kills none at 0, and no more than have played', () => {
-    expect(dissolve([note()], 0, half)).toHaveLength(1)
-    expect(dissolve([note(), note({ played: false })], 5, half)).toHaveLength(1)
+    expect(dissolve([note()], { dying: 0, loops: 1 }, half)).toHaveLength(1)
+    expect(dissolve([note(), note({ played: false })], { dying: 5, loops: 1 }, half)).toHaveLength(1)
   })
 })
 
@@ -59,7 +77,7 @@ describe('Loop', () => {
     expect(loop.notes[0]!.at).toBe(2.5)
 
     // Already past in pass 0, so first heard back in pass 1.
-    const due = loop.due(3 * LOOP_S * 1000, 0, half)
+    const due = loop.due(3 * LOOP_S * 1000, { dying: 0, loops: 1 }, half)
     expect(due.map((one) => one.ms)).toEqual([LOOP_S * 1000 + 2500, 2 * LOOP_S * 1000 + 2500])
   })
 
@@ -74,16 +92,16 @@ describe('Loop', () => {
     hear(loop, 100)
     hear(loop, 200)
     // Pass 0 ends with neither yet played back; pass 1 plays both, and its end kills one.
-    expect(loop.due(LOOP_S * 1000, 1, half)).toHaveLength(0)
+    expect(loop.due(LOOP_S * 1000, { dying: 1, loops: 1 }, half)).toHaveLength(0)
     expect(loop.notes).toHaveLength(2)
-    expect(loop.due(2 * LOOP_S * 1000, 1, half)).toHaveLength(2)
+    expect(loop.due(2 * LOOP_S * 1000, { dying: 1, loops: 1 }, half)).toHaveLength(2)
     expect(loop.notes).toHaveLength(1)
   })
 
   it('keeps every note when none die', () => {
     const loop = new Loop(0)
     hear(loop, 100)
-    expect(loop.due(5 * LOOP_S * 1000, 0, half)).toHaveLength(4)
+    expect(loop.due(5 * LOOP_S * 1000, { dying: 0, loops: 1 }, half)).toHaveLength(4)
   })
 
   it('makes room by dropping the faintest', () => {
@@ -100,7 +118,7 @@ describe('Loop', () => {
     const loop = new Loop(0)
     hear(loop, 1000)
     const back = LOOP_S * 1000 + 1000
-    const [played] = loop.due(back + 100, 0, half)
+    const [played] = loop.due(back + 100, { dying: 0, loops: 1 }, half)
     expect(played!.ms).toBe(back)
     expect(loop.hear(back + 80, 1, 60)).toBe(false)
     expect(loop.hear(back + DEAF_MS + 1, 1, 60)).toBe(true)
@@ -110,7 +128,7 @@ describe('Loop', () => {
   it('does not count a note that has been sent but not yet sounded', () => {
     const loop = new Loop(0)
     hear(loop, 1000)
-    loop.due(LOOP_S * 1000 + 1100, 0, half)
+    loop.due(LOOP_S * 1000 + 1100, { dying: 0, loops: 1 }, half)
     expect(loop.hear(LOOP_S * 1000 + 950, 1, 60)).toBe(true)
   })
 
@@ -118,7 +136,7 @@ describe('Loop', () => {
     const loop = new Loop(0)
     hear(loop, 100)
     loop.catchUp(LOOP_S * 1000 * 5 + 50)
-    const due = loop.due(LOOP_S * 1000 * 5 + 200, 0, half)
+    const due = loop.due(LOOP_S * 1000 * 5 + 200, { dying: 0, loops: 1 }, half)
     expect(due.map((one) => one.ms)).toEqual([LOOP_S * 1000 * 5 + 100])
   })
 })

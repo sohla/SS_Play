@@ -2380,3 +2380,39 @@ through, set low but not grabbing everything, with the input shown and when it g
 - `sc:test` 408 passed; `typecheck`; `vitest` 1494; the memory e2e (level reports arrive and the
   meter moves; strikes still heard once a second) and `site.spec.ts`.
 - Not heard on a phone. -40dB as the gate's start is a guess at a quiet room.
+
+## 2026-11-25 — memory: dying notes fade over a number of loops
+
+Asked for: each death to take a number of loops, set by a slider, with the note's volume falling
+as it dies.
+
+### Done
+
+- The dissolve slider still picks how many healthy notes start to die each pass. A dying note
+  gets a `life`, 1 falling by `1 / loops` each pass; its amp is multiplied by it, and it goes at 0.
+  So it plays its last `loops - 1` times fading, and at 1 loop it goes at once, as before.
+- A new **fade** slider, 1–12 loops, starting at 3. Read each pass, so moving it changes the pace
+  of notes already dying. Dying notes are drawn fainter with their life; when the memory is full,
+  the quietest as it now plays makes room.
+
+### Verified
+
+- `typecheck`, `vitest` (1496), the memory e2e. Not heard on a phone.
+
+## 2026-11-25 — memory: echo cancellation back on
+
+Found on a phone: the input meter showed the loop coming out of the speaker. Asked for: the
+cancel feature, so only the mic is seen.
+
+### Done
+
+- `echoCancellation: true` again. It was turned off to keep the iPhone on its loudspeaker, but the
+  sound went to the earpiece with it off too, so it bought nothing. Noise suppression and auto gain
+  stay off.
+- `DEAF_MS` stays: the first version had cancellation on and still heard its own notes, so it
+  takes most of the loop out of the mic, not all.
+
+### Verified
+
+- `typecheck`, the memory unit tests and e2e. The fake mic in the e2e is not a real echo, so
+  whether the meter is now clean is for the phone.

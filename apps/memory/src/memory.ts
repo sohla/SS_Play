@@ -3,8 +3,9 @@
  * dissolving as it goes.
  *
  * Every onset the detector reports becomes a note at its place in the loop. Each
- * time the loop comes round, a set number of the notes that have played die,
- * picked at random — so the pattern breaks into fragments, and there is room for
+ * time the loop comes round, a set number of the notes that have played start to
+ * die, picked at random, and every dying note fades over a set number of loops
+ * until it is gone — so the pattern breaks into fragments, and there is room for
  * new notes.
  *
  * Plain data and arithmetic: no audio and no React, so it can be tested.
@@ -27,9 +28,8 @@ export const SPAN = 36
  * How long after each note the page plays it will not believe an onset.
  *
  * The loop comes out of the speaker and back into the mic, and the browser's
- * echo cancellation does not take the engine's output away, so without this
- * every note played back is heard again as a new one and the memory fills
- * itself. The window covers the trip out and back, which on a phone is tens to a
+ * echo cancellation takes most of it away but not all, so without this notes
+ * played back are heard again as new ones and the memory fills itself. The window covers the trip out and back, which on a phone is tens to a
  * couple of hundred milliseconds. A real sound inside it is lost too.
  */
 export const DEAF_MS = 250
@@ -42,6 +42,14 @@ export interface Note {
   midi: number
   /** False until it has been played once: a note does not die before it has been heard back. */
   played: boolean
+  /** Set once the note starts to die: 1 falling to 0 over its last loops. Its volume follows. */
+  life?: number
+}
+
+/** How a pass ends: how many notes start to die, and over how many loops a dying note fades. */
+export interface Dissolve {
+  dying: number
+  loops: number
 }
 
 /** The peak, 0..1, from -50dB up. */
@@ -57,7 +65,7 @@ export function midiOf(peak: number): number {
 
 /** How loud a note plays, 0..1, before the synth's own level. */
 export function ampOf(note: Note): number {
-  return loudness(note.peak)
+  return loudness(note.peak) * (note.life ?? 1)
 }
 
 /**
@@ -76,15 +84,24 @@ export function frameToMs(frame: number, receivedMs: number, originMs: number, s
   return originMs + ((laps * WRAP + frame) / sampleRate) * 1000
 }
 
-/** One pass of dissolving: `count` of the notes that have played die, picked at random. */
-export function dissolve(notes: readonly Note[], count: number, random: () => number = Math.random): Note[] {
-  const dying = new Set<Note>()
-  const played = notes.filter((note) => note.played)
-  while (dying.size < Math.min(count, played.length)) {
-    const left = played.filter((note) => !dying.has(note))
-    dying.add(left[Math.floor(random() * left.length)]!)
+/**
+ * One pass of dissolving. `dying` of the played notes not already dying start
+ * to, picked at random; then every dying note loses `1 / loops` of its life, and
+ * those with none left are gone. So a note plays its last `loops - 1` times
+ * fading, and with `loops` at 1 it goes at once.
+ */
+export function dissolve(notes: readonly Note[], { dying, loops }: Dissolve, random: () => number = Math.random): Note[] {
+  const starting = new Set<Note>()
+  const healthy = notes.filter((note) => note.played && note.life === undefined)
+  while (starting.size < Math.min(dying, healthy.length)) {
+    const left = healthy.filter((note) => !starting.has(note))
+    starting.add(left[Math.floor(random() * left.length)]!)
   }
-  return notes.filter((note) => !dying.has(note))
+  return notes
+    .map((note) =>
+      note.life !== undefined || starting.has(note) ? { ...note, life: (note.life ?? 1) - 1 / Math.max(1, loops) } : note,
+    )
+    .filter((note) => note.life === undefined || note.life > 1e-9)
 }
 
 export interface Due {
@@ -125,13 +142,13 @@ export class Loop {
     if (this.#sent.some((sent) => sent <= ms)) return false
     this.notes.push({ at: this.positionOf(ms), peak, midi, played: false })
     if (this.notes.length > MAX_NOTES) {
-      const faintest = this.notes.reduce((low, note, index) => (note.peak < this.notes[low]!.peak ? index : low), 0)
+      const faintest = this.notes.reduce((low, note, index) => (ampOf(note) < ampOf(this.notes[low]!) ? index : low), 0)
       this.notes.splice(faintest, 1)
     }
     return true
   }
 
-  due(horizonMs: number, dying: number, random: () => number = Math.random): Due[] {
+  due(horizonMs: number, dissolving: Dissolve, random: () => number = Math.random): Due[] {
     const out: Due[] = []
     while (this.#cursor < horizonMs) {
       const start = this.#anchor + this.#pass * LOOP_MS
@@ -146,7 +163,7 @@ export class Loop {
       this.#cursor = end
       if (end === start + LOOP_MS) {
         this.#pass += 1
-        this.notes = dissolve(this.notes, dying, random)
+        this.notes = dissolve(this.notes, dissolving, random)
       }
     }
     out.sort((a, b) => a.ms - b.ms)

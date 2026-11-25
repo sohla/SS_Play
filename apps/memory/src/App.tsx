@@ -17,15 +17,17 @@ import { SYNTHS } from './synths.ts'
  */
 
 /**
- * What the browser was asked for: the mic as it is, as on /chorus/.
+ * What the browser was asked for.
  *
- * Echo cancellation is **off**. It did not stop the loop being heard again —
- * the browser does not cancel the engine's output, which is what `DEAF_MS` is
- * for — and on an iPhone it is the voice processing that turns the page into a
- * phone call, with the sound moved to the earpiece at the top.
+ * Echo cancellation is **on**, so the input meter and the onsets are the
+ * person rather than the loop coming back out of the speaker. It takes most of
+ * the loop out, not all of it — which is what `DEAF_MS` is for. Turning it off
+ * was tried, to keep an iPhone on its loudspeaker; the sound went to the
+ * earpiece all the same, so nothing was bought by it. The other two stay off:
+ * they would flatten the very levels the page reads.
  */
 const CONSTRAINTS: MediaStreamConstraints = {
-  audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
 }
 
 /**
@@ -61,8 +63,11 @@ const GATE_DB = -40
 /** How fast the meter falls, in dB a second, as on /mic/: a click is otherwise lit for one frame. */
 const FALL_DB_PER_S = 20
 
-/** The dissolve slider's top: this many notes die each time round. */
+/** The dissolve slider's top: this many notes start to die each time round. */
 const MOST_DYING = 8
+
+/** The fade slider's top: a dying note takes at most this many loops to go. */
+const MOST_LOOPS = 12
 
 interface OscCodec {
   encodeSingleBundle(timeTag: number, address: string, args: unknown[]): Uint8Array
@@ -81,8 +86,9 @@ export function App() {
   // Read by the scheduler, which is not a React render.
   const synth = useRef(SYNTHS[0] as (typeof SYNTHS)[number])
   synth.current = SYNTHS.find((one) => one.name === synthName) ?? SYNTHS[0]
-  const dying = useRef(dissolve)
-  dying.current = dissolve
+  const [fade, setFade] = useState(3)
+  const dissolving = useRef({ dying: dissolve, loops: fade })
+  dissolving.current = { dying: dissolve, loops: fade }
 
   const loop = useRef<Loop | null>(null)
 
@@ -153,7 +159,7 @@ export function App() {
     const scheduling = setInterval(() => {
       const now = wallClockMs()
       memory.catchUp(now)
-      for (const { ms, note } of memory.due(now + LOOKAHEAD_MS, dying.current)) {
+      for (const { ms, note } of memory.due(now + LOOKAHEAD_MS, dissolving.current)) {
         const { def, level } = synth.current
         engine.sonic.sendOSC(
           codec.encodeSingleBundle(ms / 1000 + NTP_EPOCH_OFFSET, '/s_new', [
@@ -220,9 +226,9 @@ export function App() {
           for (const note of memory.notes) {
             const x = (note.at / LOOP_S) * width
             const y = height * (1 - Math.max(0, Math.min(1, (note.midi - LOWEST) / SPAN)))
-            pen.globalAlpha = 0.85
+            pen.globalAlpha = 0.85 * Math.max(0.15, note.life ?? 1)
             pen.beginPath()
-            pen.arc(x, y, (3 + 9 * ampOf(note)) * scale, 0, Math.PI * 2)
+            pen.arc(x, y, (3 + 9 * ampOf({ ...note, life: 1 })) * scale, 0, Math.PI * 2)
             pen.fill()
           }
           pen.globalAlpha = 0.6
@@ -245,10 +251,11 @@ export function App() {
         <p className="ak-label text-sm">
           The microphone, remembered for three seconds. Every sound that starts &mdash; a clap, a
           knock, a word &mdash; becomes a note in the loop, played back by the synth you pick: the
-          louder the sound, the higher the note. Each time round, some of the notes die, picked at
-          random, until only fragments are left and there is room for more. The slider sets how
-          many. Sounds below the gate, the line on the input meter, are ignored. Starting asks the
-          browser for the microphone.
+          louder the sound, the higher the note. Each time round, some of the notes start to die,
+          picked at random, and fade out over a few loops, until only fragments are left and there
+          is room for more. The sliders set how many, and over how many loops. Sounds below the
+          gate, the line on the input meter, are ignored. Starting asks the browser for the
+          microphone.
         </p>
 
         <BootGate
@@ -357,6 +364,23 @@ export function App() {
               />
               <span className="ak-accent w-20 shrink-0 text-right font-mono text-[11px]">
                 {dissolve === 0 ? 'none die' : `${dissolve} die a loop`}
+              </span>
+            </label>
+
+            <label className="ak-label flex items-center gap-3 text-sm">
+              <span className="w-20 shrink-0">fade</span>
+              <input
+                type="range"
+                min={1}
+                max={MOST_LOOPS}
+                step={1}
+                value={fade}
+                onChange={(event) => setFade(Number(event.target.value))}
+                className="ss-range min-w-0 flex-1"
+                data-testid="fade"
+              />
+              <span className="ak-accent w-20 shrink-0 text-right font-mono text-[11px]">
+                {fade === 1 ? 'at once' : `over ${fade} loops`}
               </span>
             </label>
           </div>
